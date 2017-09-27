@@ -14,7 +14,7 @@ _DOWNLOAD_DIR := data/inrix-downloads
 # GNU Make unnecessarily re-running pattern rules:  https://stackoverflow.com/a/19018178/3970755
 .PRECIOUS: ${_DOWNLOAD_DIR}/%/data.zip ${_DOWNLOAD_DIR}/%/link ${_DOWNLOAD_DIR}/%/ 
 
-.PHONY: data/download-inrix-data data/remove-state-year-month-directory data/remove-state-year-month-zip-archive data/extract-inrix-data
+.PHONY: data/download-inrix-data data/remove-state-year-month-directory data/remove-state-year-month-zip-archive data/extract-inrix-data etl-sort-inrix-schema-datafile
 
 
 # Define a macro that expands (splits on =) and
@@ -99,6 +99,11 @@ data/download-inrix-data: ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip
 data/remove-state-year-month-directory: 
 	rm -rf ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/
 
+data/clean-state-year-month-directory:
+	@find data/inrix-downloads/${STATE}/${YEAR}/${MONTH}\
+		! \( -name 'data.zip' -o -name 'link' \) \
+		-type f -delete
+
 data/remove-state-year-month-zip-archive:
 	rm -f ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip
 
@@ -106,13 +111,15 @@ data/remove-state-year-month-zip-archive:
 
 # data/downloads/%/data.zip: data/downloads/%/link
 ${_DOWNLOAD_DIR}/%/link: ${_DOWNLOAD_DIR}/%/
-	@if [ -z "${INRIX_DATA_URL}" ]; then\
-		echo 'USAGE: make /${_DOWNLOAD_DIR}/%/link INRIX_DATA_URL=<url>';\
-		exit 1;\
-	fi
-
 	$(call parse_STATE_YR_MO, $*)
-	@echo "${INRIX_DATA_URL}" > "${SYM_INRIX_DOWNLOAD_DIR}/link"
+
+	@if [ ! -f $@ ]; then\
+		if [ -z "${INRIX_DATA_URL}" ]; then\
+			echo 'USAGE: make /${_DOWNLOAD_DIR}/%/link INRIX_DATA_URL=<url>';\
+			exit 1;\
+		fi;\
+		echo "${INRIX_DATA_URL}" > "${SYM_INRIX_DOWNLOAD_DIR}/link";\
+	fi
 
 ${_DOWNLOAD_DIR}/%/data.zip: ${_DOWNLOAD_DIR}/%/link
 	$(call parse_STATE_YR_MO, $*)
@@ -142,14 +149,11 @@ data/:
 	mkdir -p data/
 
 
-#####################################################
-
-
 data/extract-inrix-data: data/download-inrix-data
 	@# If there are any unzipped CSVs in the dir, do not extract the archive.
 	@ls ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/*.csv 1> /dev/null 2>&1 ||\
-		@unzip ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip \
-			-d ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/ ;\
+		unzip ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip \
+			-d ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/ 1> /dev/null 2>&1;\
 
 ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv: data/extract-inrix-data
 
@@ -162,5 +166,40 @@ ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-sche
 		mv "${SYM_NPMRDS_CSV}" $@ ;\
 	fi
 
+#####################################################
+
+etl-sort-inrix-schema-datafile: etl/sorted/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv
+
+etl/sorted/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv: ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv etl/sorted/
+	@# Because the number of columns and their order is not guaranteed, we need to keep the header.
+	@if [ ! -f $@ ]; then\
+		inf="${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv";\
+		outf="$@";\
+		head -1 $$inf > $$outf;\
+		tail -n +2 $$inf | sort -k3,3 -k2,2 -k1,1 -t',' - >> $$outf ;\
+	fi
+
+etl/sorted/:
+	mkdir -p etl/sorted/
+
+etl-transform-inrix-schema: etl/transformed/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv
+
+etl/transformed/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv: \
+	etl/sorted/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv \
+	etl/transformed/${STATE}/${YEAR}
+
+	@if [ ! -f $@ ]; then\
+		inf="$<";\
+		outf="$@";\
+		node ./bin/schemaTransformer.js < $$inf > $$outf;\
+	fi
+
+	
+	
+etl/transformed/${STATE}/${YEAR}:
+	mkdir -p etl/transformed/${STATE}/${YEAR}
+
+etl/transformed/:
+	mkdir -p etl/transformed/
 
 
