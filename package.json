@@ -1,5 +1,5 @@
 {
-  "name": "avail-npmrds-etl",
+  "name": "avail-npmrds-database",
   "version": "0.1.0",
   "description": "Transform new data format into old schema",
   "main": "index.js",
@@ -11,7 +11,7 @@
     "NPMRDS"
   ],
   "author": "Paul Tomchik",
-  "license": "MIT",
+  "license": "",
   "dependencies": {
     "event-stream": "^3.3.4",
     "fast-csv": "^2.4.0",
