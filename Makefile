@@ -12,9 +12,17 @@ PATH := $(PATH):node_modules/.bin
 _DOWNLOAD_DIR := data/inrix-downloads
 
 # GNU Make unnecessarily re-running pattern rules:  https://stackoverflow.com/a/19018178/3970755
-.PRECIOUS: ${_DOWNLOAD_DIR}/%/data.zip ${_DOWNLOAD_DIR}/%/link ${_DOWNLOAD_DIR}/%/ 
+.PRECIOUS: \
+	${_DOWNLOAD_DIR}/%/data.zip \
+	${_DOWNLOAD_DIR}/%/link \
+	${_DOWNLOAD_DIR}/%/ 
 
-.PHONY: data/download-inrix-data data/remove-state-year-month-directory data/remove-state-year-month-zip-archive data/extract-inrix-data etl-sort-inrix-schema-datafile
+.PHONY: \
+	data/download-inrix-data \
+	data/remove-state-year-month-directory \
+	data/remove-state-year-month-zip-archive \
+	data/extract-inrix-data \
+	etl-sort-inrix-schema-datafile
 
 
 # Define a macro that expands (splits on =) and
@@ -109,7 +117,6 @@ data/remove-state-year-month-zip-archive:
 
 #### Internal Use
 
-# data/downloads/%/data.zip: data/downloads/%/link
 ${_DOWNLOAD_DIR}/%/link: ${_DOWNLOAD_DIR}/%/
 	$(call parse_STATE_YR_MO, $*)
 
@@ -155,7 +162,8 @@ data/extract-inrix-data: data/download-inrix-data
 		unzip ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip \
 			-d ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/ 1> /dev/null 2>&1;\
 
-${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv: data/extract-inrix-data
+${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv: \
+	data/extract-inrix-data
 
 	@# Get the name of the file containing the NPMRDS data.
 	@#   NOTE: Assumes the NPMRDS data file is the only one in the directory containing
@@ -170,7 +178,10 @@ ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-sche
 
 etl-sort-inrix-schema-datafile: etl/sorted/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv
 
-etl/sorted/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv: ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv etl/sorted/
+etl/sorted/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv: \
+	${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv \
+	etl/sorted/
+
 	@# Because the number of columns and their order is not guaranteed, we need to keep the header.
 	@if [ ! -f $@ ]; then\
 		inf="${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv";\
@@ -193,8 +204,6 @@ etl/transformed/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv: \
 		outf="$@";\
 		node ./bin/schemaTransformer.js < $$inf > $$outf;\
 	fi
-
-	
 	
 etl/transformed/${STATE}/${YEAR}:
 	mkdir -p etl/transformed/${STATE}/${YEAR}
