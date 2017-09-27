@@ -134,7 +134,7 @@ ${_DOWNLOAD_DIR}/: data/
 		if [ -z ${INRIX_DOWNLOADS_DIR} ]; then\
 			mkdir -p '${_DOWNLOAD_DIR}/';\
 		else\
-			ln -d ${INRIX_DOWNLOADS_DIR} '${_DOWNLOAD_DIR}/';\
+			ln -s ${INRIX_DOWNLOADS_DIR} '${_DOWNLOAD_DIR}/';\
 		fi;\
 	fi
 
