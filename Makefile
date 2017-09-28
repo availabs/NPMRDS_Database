@@ -9,20 +9,46 @@ SHELL := /bin/bash
 # Add npm-installed binaries to the PATH.
 PATH := $(PATH):node_modules/.bin
 
-_DOWNLOAD_DIR := data/inrix-downloads
+.DEFAULT_GOAL := echo_conf
 
-# GNU Make unnecessarily re-running pattern rules:  https://stackoverflow.com/a/19018178/3970755
-.PRECIOUS: \
-	${_DOWNLOAD_DIR}/%/data.zip \
-	${_DOWNLOAD_DIR}/%/link \
-	${_DOWNLOAD_DIR}/%/ 
+_DATA_DIR := data
+_DOWNLOAD_DIR := ${_DATA_DIR}/inrix-downloads
+
+_ETL_DIR := etl
+_ETL_SORTED_DIR := ${_ETL_DIR}/sorted
+_ETL_TRANSFORMED_DIR := ${_ETL_DIR}/transformed
+
+# https://www.gnu.org/software/make/manual/make.html#Special-Targets
+# The targets which .SECONDARY depends on are treated as intermediate files,
+# 	except that they are never automatically deleted. See Chains of Implicit Rules.
+# 
+# .SECONDARY with no prerequisites causes all targets to be treated as secondary
+# 	(i.e., no target is removed because it is considered intermediate).
+.SECONDARY:
 
 .PHONY: \
+	echo_conf \
+	db/list-tables \
+	db/%-list-tables \
+	db/clean-db \
+	db/drop-database \
+	db/create-database \
+	db/clean-schema-% \
+	db/drop-schema-% \
+	db/create-schema-% \
+	db/drop-root-npmrds-table \
+	db/create-root-npmrds-table \
+	db/drop-npmrds-state-table \
+	db/create-npmrds-state-table \
+	db/drop-npmrds-state-yrmo-table \
+	db/create-npmrds-state-yrmo-table \
+	db/upload-npmrds-state-yrmo-csv \
 	data/download-inrix-data \
-	data/remove-state-year-month-directory \
-	data/remove-state-year-month-zip-archive \
+	data/remove-state-yrmo-directory \
+	data/remove-state-yrmo-zip-archive \
 	data/extract-inrix-data \
-	etl-sort-inrix-schema-datafile
+	etl/sort-inrix-schema-datafile \
+	etl/transform-inrix-schema
 
 
 # Define a macro that expands (splits on =) and
@@ -42,29 +68,11 @@ $(foreach a,$(shell cat ./config/postgres.env 2> /dev/null),$(eval $(call EXPAND
 # load data_paths.env
 $(foreach a,$(shell cat ./config/data_paths.env 2> /dev/null),$(eval $(call EXPAND_EXPORTS,$(a))))
 
-# Define make variable at rule execution time:
-#		https://stackoverflow.com/q/1909188/3970755
-# How to assign the output of a command to a Makefile variable:
-# 	https://stackoverflow.com/a/2020006/3970755
-define parse_STATE_YR_MO
- 	@# Replace '/' with ' '
-	$(eval STATE_YR_MO := $(subst /, ,$1))
-	
-	@# extract the state and convert to lower case: https://stackoverflow.com/a/10962047/3970755
-	$(eval STATE := $(shell echo "$(word 1, ${STATE_YR_MO})" | tr '[:upper:]' '[:lower:]'))
-
-	$(eval YEAR := $(word 2, ${STATE_YR_MO}))
-
-	@# zero-pad months: see https://stackoverflow.com/a/9671373/3970755
-	$(eval MONTH := $(shell printf '%02d' $(word 3, ${STATE_YR_MO})))
-
-	$(eval SYM_INRIX_DOWNLOAD_DIR := "${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/")
-endef
+# 	$(eval SYM_INRIX_DOWNLOAD_DIR := "${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/")
 
 # https://stackoverflow.com/a/10858332/3970755
 # Check that given variables are set and all have non-empty values,
-# die with an error otherwise.
-#
+#   die with an error otherwise.
 # Params:
 #   1. Variable name(s) to test.
 #   2. (optional) Error message to print.
@@ -73,14 +81,17 @@ check_defined = \
         $(call __check_defined,$1,$(strip $(value 2)))))
 __check_defined = \
     $(if $(value $1),, \
-      $(error Undefined $1$(if $2, ($2))))
+			$(error ERROR: Undefined $1$(if $2, ($2))))
 
+# Transform STATE to lowercase
+STATE := $(shell echo ${STATE} | tr '[:upper:]' '[:lower:]')
+
+# zero-pad months: see https://stackoverflow.com/a/9671373/3970755
+MONTH:=$(shell if [ ${MONTH} ]; then printf '%02d' ${MONTH}; fi)
 
 echo_conf:
 	# This is the default target because these variables should be verified first and foremost.
-	@a=$$(cat ./config/postgres.env); \
-	echo "$${a}"
-
+	@cat ./config/postgres.env
 
 #####################################################
 
@@ -121,26 +132,46 @@ db/create-schema-%: db/create-database
 	fi
 
 db/drop-root-npmrds-table:
-	psql -f './sql/NPMRDS_Tables/root/dropRootNPMRDSDataTable.sql'
+	@if ! psql -c '\d public.npmrds' > /dev/null 2>&1; then\
+		psql -f './sql/NPMRDS_Tables/root/dropRootNPMRDSDataTable.sql';\
+	fi
 
 db/create-root-npmrds-table: db/create-database
 	@if ! psql -c '\d public.npmrds' > /dev/null 2>&1; then\
 		@psql -f './sql/NPMRDS_Tables/root/createRootNPMRDSDataTable.sql';\
 	fi
 
-
-db/drop-state-npmrds-table:
+db/drop-npmrds-state-table:
 	@:$(call check_defined, STATE)
 	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/NPMRDS_Tables/state/dropStateNPMRDSDataTable.sql)"
 
-
-db/create-state-npmrds-table: db/create-root-npmrds-table db/create-schema-${STATE}
-	@:$(call check_defined, STATE) #redundant
+db/create-npmrds-state-table: db/create-root-npmrds-table db/create-schema-${STATE}
+	@:$(call check_defined, STATE) #redundant, since source target calls the same.
 	@psql -c '\d "${STATE}".npmrds' > /dev/null 2>&1 || \
 		@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/NPMRDS_Tables/state/createStateNPMRDSDataTable.sql)"
 
-db/create-state-npmrds-yrmo-table: db/create-state-npmrds-table
-	@:$(call check_defined, STATE)
+db/clean-npmrds-state-yrmo-table: db/drop-npmrds-state-yrmo-table db/create-npmrds-state-yrmo-table
+
+db/drop-npmrds-state-yrmo-table:
+	@:$(call check_defined, STATE) #redundant, since source target calls the same.
+	@:$(call check_defined, YEAR)
+	@:$(call check_defined, MONTH)
+	@if ! psql -c '\d "${STATE}".npmrds_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
+		END_DATE="$$(date -d "${START_DATE} + 1 month" '+%F')";\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+				s/__START_DATE__/$${START_DATE}/g;\
+				s/__END_DATE__/$${END_DATE}/g;\
+			" ./sql/NPMRDS_Tables/state/dropStateNPMRDSYrMoTable.sql\
+		)";\
+	fi
+
+db/create-npmrds-state-yrmo-table: db/create-npmrds-state-table
+	@:$(call check_defined, STATE) #redundant, since source target calls the same.
 	@:$(call check_defined, YEAR)
 	@:$(call check_defined, MONTH)
 	@if ! psql -c '\d "${STATE}".npmrds_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
@@ -157,11 +188,22 @@ db/create-state-npmrds-yrmo-table: db/create-state-npmrds-table
 		)";\
 	fi
 
-db/upload-state-npmrds-yrmo-csv: \
-	etl/transformed/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv \
-	db/create-state-npmrds-yrmo-table
-	./bin/projectNPMRDSTableColumns.sh < $<	| psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc, date, epoch, travel_time_all_vehicles, travel_time_passenger_vehicles, travel_time_freight_trucks) FROM 'STDIN' CSV HEADER;'
+db/${STATE}.npmrds_y${YEAR}m${MONTH}:\
+	${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv 
 
+	echo 'UPLOAD'
+
+db/upload-npmrds-state-yrmo: \
+	${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv \
+	db/drop-npmrds-state-yrmo-table \
+	db/create-npmrds-state-yrmo-table
+
+	./bin/projectNPMRDSTableColumns.sh < $<	| \
+		psql -c \
+			'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} ('\
+					'tmc, date, epoch, travel_time_all_vehicles,'\
+					'travel_time_passenger_vehicles, travel_time_freight_trucks'\
+			') FROM 'STDIN' CSV HEADER;'
 
 #####################################################
 
@@ -169,83 +211,76 @@ db/upload-state-npmrds-yrmo-csv: \
 
 data/download-inrix-data: ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip
 
-data/remove-state-year-month-directory: 
+data/remove-state-yrmo-downloads-directory: 
 	rm -rf ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/
 
-data/clean-state-year-month-directory:
+
+# Removes any regular files not named data.zip or link
+data/clean-downloads-directory:
+	@find data/inrix-downloads/\
+		! \( -name 'data.zip' -o -name 'link' \) \
+		-type f -delete
+
+
+data/clean-state-yrmo-downloads-directory:
 	@find data/inrix-downloads/${STATE}/${YEAR}/${MONTH}\
 		! \( -name 'data.zip' -o -name 'link' \) \
 		-type f -delete
 
-data/remove-state-year-month-zip-archive:
+data/remove-state-yrmo-zip-archive:
 	rm -f ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip
+
+data/extract-inrix-data: \
+	${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv
 
 #### Internal Use
 
-${_DOWNLOAD_DIR}/%/link: ${_DOWNLOAD_DIR}/%/
-	$(call parse_STATE_YR_MO, $*)
-
+${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/link: ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}
 	@if [ ! -f $@ ]; then\
-		if [ -z "${INRIX_DATA_URL}" ]; then\
-			echo 'USAGE: make /${_DOWNLOAD_DIR}/%/link INRIX_DATA_URL=<url>';\
+		if [ -z "${DATA_URL}" ]; then\
+			echo 'ERROR: DATA_URL environment variable is required';\
 			exit 1;\
 		fi;\
-		echo "${INRIX_DATA_URL}" > "${SYM_INRIX_DOWNLOAD_DIR}/link";\
+		echo "${DATA_URL}" > "${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/link";\
 	fi
 
-${_DOWNLOAD_DIR}/%/data.zip: ${_DOWNLOAD_DIR}/%/link
-	$(call parse_STATE_YR_MO, $*)
-
-	@if [ ! -f ${SYM_INRIX_DOWNLOAD_DIR}/data.zip ]; then\
-		curl "$(shell cat "${SYM_INRIX_DOWNLOAD_DIR}/link")" > \
-			"${SYM_INRIX_DOWNLOAD_DIR}/data.zip";\
+${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip: ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/link
+	@if [ ! -f ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip ]; then\
+		curl "$(shell cat "${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/link")" > \
+			"${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip";\
 	fi
 
-${_DOWNLOAD_DIR}/%/: ${_DOWNLOAD_DIR}/
-	$(call parse_STATE_YR_MO, $*)
-	
-	mkdir -p "${SYM_INRIX_DOWNLOAD_DIR}"
+${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/: ${_DOWNLOAD_DIR}/
+	mkdir -p "${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}"
 
-${_DOWNLOAD_DIR}/: data/
-	@echo '${_DOWNLOAD_DIR}: data/'
-	@# Works with a symlink dir: https://stackoverflow.com/a/59839/3970755
-	@if [ ! -d '${_DOWNLOAD_DIR}' ]; then\
-		if [ -z ${INRIX_DOWNLOADS_DIR} ]; then\
-			mkdir -p '${_DOWNLOAD_DIR}/';\
-		else\
-			ln -s ${INRIX_DOWNLOADS_DIR} '${_DOWNLOAD_DIR}/';\
-		fi;\
-	fi
+${_DOWNLOAD_DIR}/:
+	mkdir -p $@
 
-data/:
-	mkdir -p data/
-
-
-data/extract-inrix-data: data/download-inrix-data
-	@# If there are any unzipped CSVs in the dir, do not extract the archive.
-	@ls ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/*.csv 1> /dev/null 2>&1 ||\
-		unzip ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip \
-			-d ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/ 1> /dev/null 2>&1;\
+${_DATA_DIR}:
+	mkdir -p $@
 
 ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv: \
-	data/extract-inrix-data
+	${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip
+
+	head $@
+	rm -f $@
+	unzip -o ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip \
+		-d ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/ 1> /dev/null 2>&1;
 
 	@# Get the name of the file containing the NPMRDS data.
 	@#   NOTE: Assumes the NPMRDS data file is the only one in the directory containing
 	@#         the string 'measurement_tstamp'
-	$(eval SYM_NPMRDS_CSV := $(shell grep -m 1 -rl 'measurement_tstamp' "${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/"))
-
-	@if [ ! -f "$@" ]; then\
-		mv "${SYM_NPMRDS_CSV}" $@ ;\
-	fi
+	SYM_NPMRDS_CSV=$$(grep -m 1 -rl 'measurement_tstamp' "${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/");\
+	mv $${SYM_NPMRDS_CSV} $@;
+	touch $@
 
 #####################################################
 
-etl-sort-inrix-schema-datafile: etl/sorted/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv
+etl/sort-inrix-schema-datafile: ${_ETL_SORTED_DIR}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv
 
-etl/sorted/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv: \
+${_ETL_SORTED_DIR}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv: \
 	${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv \
-	etl/sorted/
+	${_ETL_SORTED_DIR}/
 
 	@# Because the number of columns and their order is not guaranteed,
 	@#   we need to verify the order the columns used to sort the rows,
@@ -266,14 +301,15 @@ etl/sorted/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv: \
 		tail -n +2 $$inf | LC_ALL=C sort -k3,3 -k2,2 -k1,1 -t',' - >> $$outf ;\
 	fi
 
-etl/sorted/:
-	@mkdir -p etl/sorted/
+${_ETL_SORTED_DIR}/:
+	@mkdir -p ${_ETL_SORTED_DIR}/
 
-etl-transform-inrix-schema: etl/transformed/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv
+etl/transform-inrix-schema: \
+	${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv
 
-etl/transformed/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv: \
-	etl/sorted/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv \
-	etl/transformed/${STATE}/${YEAR}
+${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv: \
+	${_ETL_SORTED_DIR}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv \
+	${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}
 
 	@if [ ! -f $@ ]; then\
 		inf="$<";\
@@ -281,9 +317,9 @@ etl/transformed/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv: \
 		node ./bin/schemaTransformer.js < $$inf > $$outf;\
 	fi
 	
-etl/transformed/${STATE}/${YEAR}:
-	@mkdir -p etl/transformed/${STATE}/${YEAR}
+${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}:
+	@mkdir -p ${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}
 
-etl/transformed/:
-	@mkdir -p etl/transformed/
+${_ETL_TRANSFORMED_DIR}:
+	@mkdir -p ${_ETL_TRANSFORMED_DIR}
 
