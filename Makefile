@@ -61,6 +61,21 @@ define parse_STATE_YR_MO
 	$(eval SYM_INRIX_DOWNLOAD_DIR := "${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/")
 endef
 
+# https://stackoverflow.com/a/10858332/3970755
+# Check that given variables are set and all have non-empty values,
+# die with an error otherwise.
+#
+# Params:
+#   1. Variable name(s) to test.
+#   2. (optional) Error message to print.
+check_defined = \
+    $(strip $(foreach 1,$1, \
+        $(call __check_defined,$1,$(strip $(value 2)))))
+__check_defined = \
+    $(if $(value $1),, \
+      $(error Undefined $1$(if $2, ($2))))
+
+
 echo_conf:
 	# This is the default target because these variables should be verified first and foremost.
 	@a=$$(cat ./config/postgres.env); \
@@ -69,33 +84,83 @@ echo_conf:
 
 #####################################################
 
-
-db/list_tables:
+db/list-tables:
 	psql -c '\d'
 
-db/%/list_tables:
+db/%-list-tables:
 	@schema=$*; psql -c "\connect \"$${schema,,}\"" -c "\d";
 
-db/clean_db: drop_database create_database
+db/clean-db: drop-database create-database
 
-db/drop_database:
+db/drop-database:
 	@# Drop the database if it exists.
 	@# https://stackoverflow.com/a/16783253/3970755
 	@psql -lqt | cut -d \| -f 1 | grep -qw "${PGDATABASE}" && dropdb "${PGDATABASE}"
 
-db/create_database:
+db/create-database:
 	@# Create the database if it does not exist.
 	@# https://stackoverflow.com/a/16783253/3970755
 	@psql -lqt | cut -d \| -f 1 | grep -qw "${PGDATABASE}" || createdb "${PGDATABASE}"
 
-db/%/clean_schema: db/%/drop_schema db/%/create_schema
+db/clean-schema-%: db/drop-schema-% db/create-schema-%
 	@true
 
-db/%/drop_schema:
-	@schema=$*; psql -c "DROP SCHEMA IF EXISTS \"$${schema,,}\";"
+db/drop-schema-%:
+	@schema=$*; psql -c "DROP SCHEMA IF EXISTS \"$${schema,,}\" CASCADE;"
 
-db/%/create_schema: db/create_database
-	@schema=$*; psql -c "CREATE SCHEMA IF NOT EXISTS \"$${schema,,}\";"
+db/create-schema-%: db/create-database
+	@if [ -z $* ]; then\
+		echo "Schema not defined.";\
+		exit 1;\
+	else\
+		schema=$*;\
+		schema=$${schema,,};\
+		if [[ ! $$(psql -t -c "\dn $${schema}") ]]; then\
+			psql -c "CREATE SCHEMA IF NOT EXISTS \"$${schema}\";";\
+		fi;\
+	fi
+
+db/drop-root-npmrds-table:
+	psql -f './sql/NPMRDS_Tables/root/dropRootNPMRDSDataTable.sql'
+
+db/create-root-npmrds-table: db/create-database
+	@if ! psql -c '\d public.npmrds' > /dev/null 2>&1; then\
+		@psql -f './sql/NPMRDS_Tables/root/createRootNPMRDSDataTable.sql';\
+	fi
+
+
+db/drop-state-npmrds-table:
+	@:$(call check_defined, STATE)
+	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/NPMRDS_Tables/state/dropStateNPMRDSDataTable.sql)"
+
+
+db/create-state-npmrds-table: db/create-root-npmrds-table db/create-schema-${STATE}
+	@:$(call check_defined, STATE) #redundant
+	@psql -c '\d "${STATE}".npmrds' > /dev/null 2>&1 || \
+		@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/NPMRDS_Tables/state/createStateNPMRDSDataTable.sql)"
+
+db/create-state-npmrds-yrmo-table: db/create-state-npmrds-table
+	@:$(call check_defined, STATE)
+	@:$(call check_defined, YEAR)
+	@:$(call check_defined, MONTH)
+	@if ! psql -c '\d "${STATE}".npmrds_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
+		END_DATE="$$(date -d "${START_DATE} + 1 month" '+%F')";\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+				s/__START_DATE__/$${START_DATE}/g;\
+				s/__END_DATE__/$${END_DATE}/g;\
+			" ./sql/NPMRDS_Tables/state/createStateNPMRDSYrMoTable.sql\
+		)";\
+	fi
+
+db/upload-state-npmrds-yrmo-csv: \
+	etl/transformed/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv \
+	db/create-state-npmrds-yrmo-table
+	./bin/projectNPMRDSTableColumns.sh < $<	| psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc, date, epoch, travel_time_all_vehicles, travel_time_passenger_vehicles, travel_time_freight_trucks) FROM 'STDIN' CSV HEADER;'
 
 
 #####################################################
@@ -182,16 +247,27 @@ etl/sorted/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv: \
 	${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv \
 	etl/sorted/
 
-	@# Because the number of columns and their order is not guaranteed, we need to keep the header.
+	@# Because the number of columns and their order is not guaranteed,
+	@#   we need to verify the order the columns used to sort the rows,
+	@#   and then keep the header for later use.
+	@# NOTE: For sorting special charactersi (-/+), see https://superuser.com/a/226489 
 	@if [ ! -f $@ ]; then\
 		inf="${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv";\
 		outf="$@";\
+		ReqColOrder='datasource,tmc_code,measurement_tstamp';\
+		First3Cols="$$(awk -F, -v OFS=',' '{print $$1,$$2,$$3; exit}' $$inf)";\
+		if [[ $$First3Cols !=  $$ReqColOrder ]]; then\
+			echo "The column order of $$inf does not match the required order:";\
+			echo "     Given: $$First3Cols";\
+			echo "     Required: $$ReqColOrder";\
+			exit 1;\
+		fi;\
 		head -1 $$inf > $$outf;\
-		tail -n +2 $$inf | sort -k3,3 -k2,2 -k1,1 -t',' - >> $$outf ;\
+		tail -n +2 $$inf | LC_ALL=C sort -k3,3 -k2,2 -k1,1 -t',' - >> $$outf ;\
 	fi
 
 etl/sorted/:
-	mkdir -p etl/sorted/
+	@mkdir -p etl/sorted/
 
 etl-transform-inrix-schema: etl/transformed/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv
 
@@ -206,9 +282,8 @@ etl/transformed/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv: \
 	fi
 	
 etl/transformed/${STATE}/${YEAR}:
-	mkdir -p etl/transformed/${STATE}/${YEAR}
+	@mkdir -p etl/transformed/${STATE}/${YEAR}
 
 etl/transformed/:
-	mkdir -p etl/transformed/
-
+	@mkdir -p etl/transformed/
 
