@@ -42,7 +42,7 @@ _ETL_TRANSFORMED_DIR := ${_ETL_DIR}/transformed
 	db/create-npmrds-state-table \
 	db/drop-npmrds-state-yrmo-table \
 	db/create-npmrds-state-yrmo-table \
-	db/upload-npmrds-state-yrmo-csv \
+	db/upload-npmrds-state-yrmo \
 	data/download-inrix-data \
 	data/remove-state-yrmo-directory \
 	data/remove-state-yrmo-zip-archive \
@@ -148,7 +148,7 @@ db/drop-npmrds-state-table:
 db/create-npmrds-state-table: db/create-root-npmrds-table db/create-schema-${STATE}
 	@:$(call check_defined, STATE) #redundant, since source target calls the same.
 	@psql -c '\d "${STATE}".npmrds' > /dev/null 2>&1 || \
-		@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/NPMRDS_Tables/state/createStateNPMRDSDataTable.sql)"
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/NPMRDS_Tables/state/createStateNPMRDSDataTable.sql)"
 
 db/clean-npmrds-state-yrmo-table: db/drop-npmrds-state-yrmo-table db/create-npmrds-state-yrmo-table
 
@@ -187,11 +187,6 @@ db/create-npmrds-state-yrmo-table: db/create-npmrds-state-table
 			" ./sql/NPMRDS_Tables/state/createStateNPMRDSYrMoTable.sql\
 		)";\
 	fi
-
-db/${STATE}.npmrds_y${YEAR}m${MONTH}:\
-	${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv 
-
-	echo 'UPLOAD'
 
 db/upload-npmrds-state-yrmo: \
 	${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv \
@@ -250,10 +245,10 @@ ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip: ${_DOWNLOAD_DIR}/${STATE}/$
 			"${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip";\
 	fi
 
-${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/: ${_DOWNLOAD_DIR}/
+${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}: ${_DOWNLOAD_DIR}
 	mkdir -p "${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}"
 
-${_DOWNLOAD_DIR}/:
+${_DOWNLOAD_DIR}:
 	mkdir -p $@
 
 ${_DATA_DIR}:
@@ -262,8 +257,6 @@ ${_DATA_DIR}:
 ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv: \
 	${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip
 
-	head $@
-	rm -f $@
 	unzip -o ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip \
 		-d ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/ 1> /dev/null 2>&1;
 
@@ -280,7 +273,7 @@ etl/sort-inrix-schema-datafile: ${_ETL_SORTED_DIR}/${STATE}_y${YEAR}m${MONTH}.in
 
 ${_ETL_SORTED_DIR}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv: \
 	${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.csv \
-	${_ETL_SORTED_DIR}/
+	${_ETL_SORTED_DIR}
 
 	@# Because the number of columns and their order is not guaranteed,
 	@#   we need to verify the order the columns used to sort the rows,
@@ -301,7 +294,7 @@ ${_ETL_SORTED_DIR}/${STATE}_y${YEAR}m${MONTH}.inrix-schema.sorted.csv: \
 		tail -n +2 $$inf | LC_ALL=C sort -k3,3 -k2,2 -k1,1 -t',' - >> $$outf ;\
 	fi
 
-${_ETL_SORTED_DIR}/:
+${_ETL_SORTED_DIR}:
 	@mkdir -p ${_ETL_SORTED_DIR}/
 
 etl/transform-inrix-schema: \
