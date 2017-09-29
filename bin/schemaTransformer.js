@@ -2,7 +2,6 @@
 
 const csv = require('fast-csv')
 const { through } = require('event-stream')
-const moment = require('moment')
 const assert = require('assert')
 
 const travelTimeRE = /travel_time/
@@ -82,9 +81,10 @@ const transformStream = through(
       nullOutCurRow()
     }
 
-    const timestamp = moment(data.measurement_tstamp, 'YYYY-MM-DD HH:mm:ss')
+    // const timestamp = moment(data.measurement_tstamp, 'YYYY-MM-DD HH:mm:ss')
 
-    const date = +timestamp.format('YYYYMMDD')
+    const date = +data.measurement_tstamp.slice(0,10).replace(/-/g, '')
+    
     assert(curDate <= date, `curDate: ${curDate}, date: ${date}`)
 
     if (date !== curDate) {
@@ -92,14 +92,17 @@ const transformStream = through(
       curEpoch = 0
     }
 
-    const mmtMidnight = moment(timestamp).startOf('day');
-    const minutesIntoDay = timestamp.diff(mmtMidnight, 'minutes');
+    const hour = +data.measurement_tstamp.slice(11, 13)
+    const minute = +data.measurement_tstamp.slice(14, 16)
 
-    assert(!(minutesIntoDay % 5))
+    const epoch = (hour * 12) + Math.floor(minute / 5)
 
-    const epoch = Math.round(minutesIntoDay / 5)
     assert(curEpoch <= epoch)
-    assert((epoch >= 0) && (epoch < 288))
+    assert((epoch >= 0) && (epoch < 288), `
+      ERROR with timestamp: ${data.measurement_tstamp}
+        tmc: ${tmc}
+        epoch: ${epoch}
+    `)
 
     curEpoch = epoch
 
