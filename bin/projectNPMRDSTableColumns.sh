@@ -9,20 +9,19 @@
 
 
 awk -F, \
-	-v cols=tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks \
-	-v OFS=',' \
-'BEGIN {
-    split(cols,out,",")
-}
+  -v OFS=',' \
+'
 NR==1 {
-    for (i=1; i<=NF; i++)
-        ix[$i] = i
-		print cols
+  for (i=1; i<=NF; i++)
+    ix[$i] = i
+  print "tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks"
 }
 NR>1 {
-    for(i=1;i in out;i++)
-        printf "%s%s",$ix[out[i]],OFS
-    printf "%s",$ix[out[i]]
-    print ""
+  printf "%s,",$ix["tmc"]
+  printf "%s,",$ix["date"]
+  printf "%s,",$ix["epoch"]
+  printf "%s,",$ix["travel_time_all_vehicles"]
+  printf "%s,",$ix["travel_time_passenger_vehicles"]
+  printf "%s\n",$ix["travel_time_freight_trucks"]
 }' -
 
