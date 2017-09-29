@@ -18,6 +18,12 @@ _ETL_DIR := etl
 _ETL_SORTED_DIR := ${_ETL_DIR}/sorted
 _ETL_TRANSFORMED_DIR := ${_ETL_DIR}/transformed
 
+# Transform STATE to lowercase
+STATE := $(shell echo ${STATE} | tr '[:upper:]' '[:lower:]')
+
+# zero-pad months: see https://stackoverflow.com/a/9671373/3970755
+MONTH:=$(shell if [ ${MONTH} ]; then printf '%02d' ${MONTH}; fi)
+
 # https://www.gnu.org/software/make/manual/make.html#Special-Targets
 # The targets which .SECONDARY depends on are treated as intermediate files,
 # 	except that they are never automatically deleted. See Chains of Implicit Rules.
@@ -25,6 +31,42 @@ _ETL_TRANSFORMED_DIR := ${_ETL_DIR}/transformed
 # .SECONDARY with no prerequisites causes all targets to be treated as secondary
 # 	(i.e., no target is removed because it is considered intermediate).
 .SECONDARY:
+
+# https://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
+# Intermediate files are remade using their rules just like all other files. But
+# intermediate files are treated differently in two ways.
+# 
+# The first difference is what happens if the intermediate file does not exist.
+# If an ordinary file b does not exist, and make considers a target that depends
+# on b, it invariably creates b and then updates the target from b. But if b is
+# an intermediate file, then make can leave well enough alone. It won’t bother
+# updating b, or the ultimate target, unless some prerequisite of b is newer than
+# that target or there is some other reason to update that target.
+# 
+# The second difference is that if make does create b in order to update
+# something else, it deletes b later on after it is no longer needed. Therefore,
+# an intermediate file which did not exist before make also does not exist after
+# make. make reports the deletion to you by printing a ‘rm -f’ command showing
+# which file it is deleting.
+# 
+# Ordinarily, a file cannot be intermediate if it is mentioned in the makefile as
+# a target or prerequisite. However, you can explicitly mark a file as
+# intermediate by listing it as a prerequisite of the special target
+# .INTERMEDIATE. This takes effect even if the file is mentioned explicitly in
+# some other way.
+# 
+# You can prevent automatic deletion of an intermediate file by marking it as a
+# secondary file. To do this, list it as a prerequisite of the special target
+# .SECONDARY. When a file is secondary, make will not create the file merely
+# because it does not already exist, but make does not automatically delete the
+# file. Marking a file as secondary also marks it as intermediate.
+.INTERMEDIATE: \
+	data/inrix-downloads/ny/2016/02/link \
+	etl/sorted/ny_y2016m02.inrix-schema.sorted.csv \
+	${_DOWNLOAD_DIR}/**/* \
+	${_ETL_SORTED_DIR}/**/*
+
+#${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv
 
 .PHONY: \
 	echo_conf \
@@ -82,12 +124,6 @@ check_defined = \
 __check_defined = \
     $(if $(value $1),, \
 			$(error ERROR: Undefined $1$(if $2, ($2))))
-
-# Transform STATE to lowercase
-STATE := $(shell echo ${STATE} | tr '[:upper:]' '[:lower:]')
-
-# zero-pad months: see https://stackoverflow.com/a/9671373/3970755
-MONTH:=$(shell if [ ${MONTH} ]; then printf '%02d' ${MONTH}; fi)
 
 echo_conf:
 	# This is the default target because these variables should be verified first and foremost.
@@ -193,12 +229,7 @@ db/upload-npmrds-state-yrmo: \
 	db/drop-npmrds-state-yrmo-table \
 	db/create-npmrds-state-yrmo-table
 
-	./bin/projectNPMRDSTableColumns.sh < $<	| \
-		psql -c \
-			'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} ('\
-					'tmc, date, epoch, travel_time_all_vehicles,'\
-					'travel_time_passenger_vehicles, travel_time_freight_trucks'\
-			') FROM 'STDIN' CSV HEADER;'
+	./bin/projectNPMRDSTableColumns.sh < $<	| psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;'
 
 #####################################################
 

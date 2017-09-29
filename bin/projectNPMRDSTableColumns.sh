@@ -20,7 +20,7 @@ NR==1 {
 		print cols
 }
 NR>1 {
-    for(i=1; i <= (length(out) - 1); i++)
+    for(i=1;i in out;i++)
         printf "%s%s",$ix[out[i]],OFS
     printf "%s",$ix[out[i]]
     print ""
