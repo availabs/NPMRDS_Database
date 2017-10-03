@@ -249,17 +249,19 @@ db/upload-npmrds-state-yrmo: \
 
 
 db/upload-mpo-boundaries: db/create-database db/create-schema-us
-	LATEST_VERSION=$$(ls ${_MPO_BOUNDARIES_DIR} | sort | tail -1);\
+	@# TODO: compare version in DB to version in data dir.
+	@#       If a newer version available, upload. Otherwise, skip.
+	@LATEST_VERSION=$$(ls ${_MPO_BOUNDARIES_DIR} | sort | tail -1);\
 	SHP_DIR=${_MPO_BOUNDARIES_DIR}/$${LATEST_VERSION};\
 	psql -c "DROP VIEW IF EXISTS public.mpo_boundaries;";\
 	pushd $${SHP_DIR} && unzip -o "*.zip" && popd;\
 	OGR_OUTPUT=$$(\
-		ogr2ogr -f \
+		ogr2ogr -t_srs EPSG:4326 -f \
 			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-			"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nln "mpo_boundaries_v$${LATEST_VERSION}" 2>&1;\
+			"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=us -lco OVERWRITE=YES -nln "mpo_boundaries_v$${LATEST_VERSION}" 2>&1;\
 	);\
 	if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
-		ogr2ogr -f \
+		ogr2ogr -t_srs EPSG:4326 -f \
 			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
 			"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "mpo_boundaries_v$${LATEST_VERSION}";\
 	fi;\
@@ -272,6 +274,7 @@ db/upload-mpo-boundaries: db/create-database db/create-schema-us
 	find $${SHP_DIR} \
 		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
 		-type f -delete;
+
 
 
 #####################################################
