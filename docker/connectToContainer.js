@@ -1,1 +1,1 @@
-docker exec -it npmrds_api_postgres bash
+docker exec -it npmrds_api_docker bash

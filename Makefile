@@ -1,7 +1,7 @@
 # Based on the following Makefile 
 #   https://github.com/stamen/toner-carto/blob/master/Makefile
 # And its explanatory blog post found here:
-#   http://mojodna.net/2015/01/07/make-for-data-using-make.html
+# http://mojodna.net/2015/01/07/make-for-data-using-make.html
 
 # Use bash for sub-shells, allowing use of bash-specific functionality.
 SHELL := /bin/bash
@@ -11,12 +11,17 @@ PATH := $(PATH):node_modules/.bin
 
 .DEFAULT_GOAL := echo_conf
 
-_DATA_DIR := data
+MKFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+_DATA_DIR := ${MKFILE_DIR}data
 _DOWNLOAD_DIR := ${_DATA_DIR}/inrix-downloads
 
 _ETL_DIR := etl
 _ETL_SORTED_DIR := ${_ETL_DIR}/sorted
 _ETL_TRANSFORMED_DIR := ${_ETL_DIR}/transformed
+
+_MPO_BOUNDARIES_DIR := ${_DATA_DIR}/shapefiles/mpo_boundaries/us
+_MPO_ACRONYMS_CSV_PATH := ${_DATA_DIR}/csvs/mpo_abbreviations/mpo_abbreviations.csv
 
 # Transform STATE to lowercase
 STATE := $(shell echo ${STATE} | tr '[:upper:]' '[:lower:]')
@@ -65,9 +70,9 @@ MONTH:=$(shell if [ ${MONTH} ]; then printf '%02d' ${MONTH}; fi)
 	etl/sorted/ny_y2016m02.inrix-schema.sorted.csv \
 	${_DOWNLOAD_DIR}/**/* \
 	${_ETL_SORTED_DIR}/**/*
-
-#${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv
-
+#  
+#  #${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv
+#  
 .PHONY: \
 	echo_conf \
 	db/list-tables \
@@ -85,6 +90,7 @@ MONTH:=$(shell if [ ${MONTH} ]; then printf '%02d' ${MONTH}; fi)
 	db/drop-npmrds-state-yrmo-table \
 	db/create-npmrds-state-yrmo-table \
 	db/upload-npmrds-state-yrmo \
+	data/clean-shapefiles-dir \
 	data/download-inrix-data \
 	data/remove-state-yrmo-directory \
 	data/remove-state-yrmo-zip-archive \
@@ -105,12 +111,11 @@ endef
 # Read .env (squelching error messages if one doesn't exist) and pass each
 # environment pair to EXPAND\_EXPORTS to make it available to commands in
 # targets.
+# !!! NOTE: A comment in postgres.env will cause this Makefile to break !!!
 $(foreach a,$(shell cat ./config/postgres.env 2> /dev/null),$(eval $(call EXPAND_EXPORTS,$(a))))
 
 # load data_paths.env
 $(foreach a,$(shell cat ./config/data_paths.env 2> /dev/null),$(eval $(call EXPAND_EXPORTS,$(a))))
-
-# 	$(eval SYM_INRIX_DOWNLOAD_DIR := "${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/")
 
 # https://stackoverflow.com/a/10858332/3970755
 # Check that given variables are set and all have non-empty values,
@@ -123,7 +128,8 @@ check_defined = \
         $(call __check_defined,$1,$(strip $(value 2)))))
 __check_defined = \
     $(if $(value $1),, \
-			$(error ERROR: Undefined $1$(if $2, ($2))))
+        $(error Undefined $1$(if $2, ($2))$(if $(value @), \
+                required by target `$@')))
 
 echo_conf:
 	# This is the default target because these variables should be verified first and foremost.
@@ -178,20 +184,23 @@ db/create-root-npmrds-table: db/create-database
 	fi
 
 db/drop-npmrds-state-table:
-	@:$(call check_defined, STATE)
+	$(info 'db/drop-npmrds-state-table')
+	@:$(call check_defined,STATE)
 	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/NPMRDS_Tables/state/dropStateNPMRDSDataTable.sql)"
 
 db/create-npmrds-state-table: db/create-root-npmrds-table db/create-schema-${STATE}
-	@:$(call check_defined, STATE) #redundant, since source target calls the same.
+	$(info 'db/create-npmrds-state-table')
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@psql -c '\d "${STATE}".npmrds' > /dev/null 2>&1 || \
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/NPMRDS_Tables/state/createStateNPMRDSDataTable.sql)"
 
 db/clean-npmrds-state-yrmo-table: db/drop-npmrds-state-yrmo-table db/create-npmrds-state-yrmo-table
 
 db/drop-npmrds-state-yrmo-table:
-	@:$(call check_defined, STATE) #redundant, since source target calls the same.
-	@:$(call check_defined, YEAR)
-	@:$(call check_defined, MONTH)
+	$(info 'db/drop-npmrds-state-yrmo-table')
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
 	@if ! psql -c '\d "${STATE}".npmrds_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
 		START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
 		END_DATE="$$(date -d "${START_DATE} + 1 month" '+%F')";\
@@ -207,9 +216,10 @@ db/drop-npmrds-state-yrmo-table:
 	fi
 
 db/create-npmrds-state-yrmo-table: db/create-npmrds-state-table
-	@:$(call check_defined, STATE) #redundant, since source target calls the same.
-	@:$(call check_defined, YEAR)
-	@:$(call check_defined, MONTH)
+	$(info 'db/create-npmrds-state-yrmo-table:')
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
 	@if ! psql -c '\d "${STATE}".npmrds_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
 		START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
 		END_DATE="$$(date -d "${START_DATE} + 1 month" '+%F')";\
@@ -234,7 +244,36 @@ db/upload-npmrds-state-yrmo: \
 	#./bin/projectNPMRDSTableColumns.sh < $<	| psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;'
 
 	./bin/projectNPMRDSTableColumns.sh < ${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv | psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;'
-	
+
+		# echo 'DO IT DO IT DO IT';\
+
+
+db/upload-mpo-boundaries: db/create-database db/create-schema-us
+	LATEST_VERSION=$$(ls ${_MPO_BOUNDARIES_DIR} | sort | tail -1);\
+	SHP_DIR=${_MPO_BOUNDARIES_DIR}/$${LATEST_VERSION};\
+	psql -c "DROP VIEW IF EXISTS public.mpo_boundaries;";\
+	pushd $${SHP_DIR} && unzip -o "*.zip" && popd;\
+	OGR_OUTPUT=$$(\
+		ogr2ogr -f \
+			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+			"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nln "mpo_boundaries_v$${LATEST_VERSION}" 2>&1;\
+	);\
+	if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
+		ogr2ogr -f \
+			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+			"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "mpo_boundaries_v$${LATEST_VERSION}";\
+	fi;\
+	if [ -f '${_MPO_ACRONYMS_CSV_PATH}' ]; then\
+		psql -c 'DROP TABLE IF EXISTS us.mpo_acronymns;';\
+		psql -c 'CREATE TABLE us.mpo_acronymns (mpo_id VARCHAR PRIMARY KEY, mpo_acrony VARCHAR);';\
+		cat '${_MPO_ACRONYMS_CSV_PATH}' | psql -c "COPY us.mpo_acronymns (mpo_id, mpo_acrony) FROM STDIN CSV HEADER;";\
+	fi;\
+	psql -c "CREATE VIEW public.mpo_boundaries AS SELECT * FROM us.mpo_boundaries_v$${LATEST_VERSION} LEFT OUTER JOIN us.mpo_acronymns USING (mpo_id);";\
+	find $${SHP_DIR} \
+		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
+		-type f -delete;
+
+
 #####################################################
 
 #### External API
@@ -251,6 +290,9 @@ data/clean-downloads-directory:
 		! \( -name 'data.zip' -o -name 'link' \) \
 		-type f -delete
 
+data/clean-shapefiles-dir:
+	$(shell find ./data/shapefiles \( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \) -type f -delete)
+	@true
 
 data/clean-state-yrmo-downloads-directory:
 	@find data/inrix-downloads/${STATE}/${YEAR}/${MONTH}\
