@@ -11,9 +11,14 @@ PATH := $(PATH):node_modules/.bin
 
 .DEFAULT_GOAL := echo_conf
 
-MKFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+_MKFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-_DATA_DIR := ${MKFILE_DIR}data
+_BIN_DIR := ${_MKFILE_DIR}bin
+
+_PREPROCESSING_DIR := ${_MKFILE_DIR}preprocessing
+_INRIX_SHAPEFILE_PREPROCESSING_DIR := ${_PREPROCESSING_DIR}/shapefiles/inrix_shapefile
+
+_DATA_DIR := ${_MKFILE_DIR}data
 _DOWNLOAD_DIR := ${_DATA_DIR}/inrix-downloads
 
 _ETL_DIR := etl
@@ -280,6 +285,39 @@ db/upload-mpo-boundaries: db/create-database db/create-schema-us
 #####################################################
 
 #### External API
+
+preprocessing:
+	mkdir -p ${_PREPROCESSING_DIR}
+
+preprocessing/partition-inrix-shapefile:
+	source ${_BIN_DIR}/stateAbbreviations.sh;\
+	SHP_ZIP=${_INRIX_SHAPEFILE_PREPROCESSING_DIR}/USA.zip;\
+	STATES_DIR=${_INRIX_SHAPEFILE_PREPROCESSING_DIR}/states;\
+	if [ ! -f $${SHP_ZIP} ]; then\
+		echo 'ERROR: The INRIX-Shapefile is expected to be here: $${SHP_ZIP}';\
+	else\
+		rm -rf $${STATES_DIR};\
+		mkdir -p $${STATES_DIR};\
+		unzip -o $${SHP_ZIP} -d $${STATES_DIR};\
+		pushd $${STATES_DIR};\
+		echo $$PWD;\
+		for f in *; do \
+			state="$${f/\.*/}";\
+			dir="$${STATE_ABBREVIATIONS[$${state,,}]}";\
+			mkdir -p "$${dir}";\
+			mv "$${f}" "$${dir}";\
+		done;\
+		for state_dir in *; do\
+			pushd "$${state_dir}";\
+			ver=$$(ogrinfo -ro -so -al . | grep 'DBF_DATE_LAST_UPDATE' | sed 's/.*=//g; s/-//g');\
+			if [ -z $${ver} ]; then ver='xxxxxxxx'; fi;\
+			mkdir -p $${ver};\
+			find . -maxdepth 1 -type f -exec mv "{}" "$${ver}/{}" \;;\
+			popd;\
+			zip -r "$${state_dir}_$${ver}.zip" $${state_dir};\
+			rm -rf $${state_dir};\
+		done;\
+	fi
 
 data/download-inrix-data: ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip
 
