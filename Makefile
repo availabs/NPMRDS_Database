@@ -28,6 +28,8 @@ _ETL_TRANSFORMED_DIR := ${_ETL_DIR}/transformed
 _MPO_BOUNDARIES_DIR := ${_DATA_DIR}/shapefiles/mpo_boundaries/us
 _MPO_ACRONYMS_CSV_PATH := ${_DATA_DIR}/csvs/mpo_abbreviations/mpo_abbreviations.csv
 
+_INRIX_SHAPEFILES_DIR := ${_DATA_DIR}/shapefiles/inrix_shapefile
+
 # Transform STATE to lowercase
 STATE := $(shell echo ${STATE} | tr '[:upper:]' '[:lower:]')
 
@@ -189,12 +191,10 @@ db/create-root-npmrds-table: db/create-database
 	fi
 
 db/drop-npmrds-state-table:
-	$(info 'db/drop-npmrds-state-table')
 	@:$(call check_defined,STATE)
 	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/NPMRDS_Tables/state/dropStateNPMRDSDataTable.sql)"
 
 db/create-npmrds-state-table: db/create-root-npmrds-table db/create-schema-${STATE}
-	$(info 'db/create-npmrds-state-table')
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@psql -c '\d "${STATE}".npmrds' > /dev/null 2>&1 || \
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/NPMRDS_Tables/state/createStateNPMRDSDataTable.sql)"
@@ -202,7 +202,6 @@ db/create-npmrds-state-table: db/create-root-npmrds-table db/create-schema-${STA
 db/clean-npmrds-state-yrmo-table: db/drop-npmrds-state-yrmo-table db/create-npmrds-state-yrmo-table
 
 db/drop-npmrds-state-yrmo-table:
-	$(info 'db/drop-npmrds-state-yrmo-table')
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
@@ -221,7 +220,6 @@ db/drop-npmrds-state-yrmo-table:
 	fi
 
 db/create-npmrds-state-yrmo-table: db/create-npmrds-state-table
-	$(info 'db/create-npmrds-state-yrmo-table:')
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
@@ -250,8 +248,6 @@ db/upload-npmrds-state-yrmo: \
 
 	./bin/projectNPMRDSTableColumns.sh < ${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv | psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;'
 
-		# echo 'DO IT DO IT DO IT';\
-
 
 db/upload-mpo-boundaries: db/create-database db/create-schema-us
 	@# TODO: compare version in DB to version in data dir.
@@ -263,23 +259,50 @@ db/upload-mpo-boundaries: db/create-database db/create-schema-us
 	OGR_OUTPUT=$$(\
 		ogr2ogr -t_srs EPSG:4326 -f \
 			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-			"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=us -lco OVERWRITE=YES -nln "mpo_boundaries_v$${LATEST_VERSION}" 2>&1;\
+			"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=us -lco OVERWRITE=YES -nln "mpo_boundaries_$${LATEST_VERSION}" 2>&1;\
 	);\
 	if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
 		ogr2ogr -t_srs EPSG:4326 -f \
 			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-			"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "mpo_boundaries_v$${LATEST_VERSION}";\
+			"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "mpo_boundaries_$${LATEST_VERSION}";\
 	fi;\
 	if [ -f '${_MPO_ACRONYMS_CSV_PATH}' ]; then\
 		psql -c 'DROP TABLE IF EXISTS us.mpo_acronymns;';\
 		psql -c 'CREATE TABLE us.mpo_acronymns (mpo_id VARCHAR PRIMARY KEY, mpo_acrony VARCHAR);';\
 		cat '${_MPO_ACRONYMS_CSV_PATH}' | psql -c "COPY us.mpo_acronymns (mpo_id, mpo_acrony) FROM STDIN CSV HEADER;";\
 	fi;\
-	psql -c "CREATE VIEW public.mpo_boundaries AS SELECT * FROM us.mpo_boundaries_v$${LATEST_VERSION} LEFT OUTER JOIN us.mpo_acronymns USING (mpo_id);";\
+	psql -c "CREATE VIEW public.mpo_boundaries AS SELECT * FROM us.mpo_boundaries_$${LATEST_VERSION} LEFT OUTER JOIN us.mpo_acronymns USING (mpo_id);";\
 	find $${SHP_DIR} \
 		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
 		-type f -delete;
 
+db/upload-inrix-shapefile-for-state:
+	@:$(call check_defined,STATE)
+	@cd ${_INRIX_SHAPEFILES_DIR} && unzip -o ${STATE}_*.zip;\
+	VER=$$(ls ${_INRIX_SHAPEFILES_DIR}/${STATE} | sort | tail -1);\
+	LATEST_FILE_VERSION="inrix_shapefile_$${VER}";\
+	LATEST_PGDB_VERSION=$$(psql -t -c "SELECT table_name FROM information_schema.tables WHERE (table_schema='${STATE}') and (table_name LIKE 'inrix_shapefile_%') ORDER BY table_name DESC LIMIT 1;" | tr -d " \t\n\r";);\
+	echo "== lpgv: $${LATEST_PGDB_VERSION}";\
+	if [ -z $${LATEST_PGDB_VERSION} ] || [[ $${LATEST_FILE_VERSION} > $${LATEST_PGDB_VERSION} ]]; then\
+		if [ $${LATEST_PGDB_VERSION} ]; then\
+			psql -c "DROP TABLE IF EXISTS \"${STATE}\".$${LATEST_PGDB_VERSION} CASCADE;";\
+		fi;\
+		SHP_DIR="${_INRIX_SHAPEFILES_DIR}/${STATE}/$${VER}/";\
+		OGR_OUTPUT=$$(\
+			ogr2ogr -t_srs EPSG:4326 -f \
+				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+				"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=${STATE} -lco OVERWRITE=YES -nln "inrix_shapefile_$${VER}" 2>&1;\
+		);\
+		if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
+			ogr2ogr -t_srs EPSG:4326 -f \
+				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+				"$${SHP_DIR}" -lco SCHEMA=${STATE} -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "inrix_shapefile_$${VER}";\
+		fi;\
+		psql -c "CREATE TABLE IF NOT EXISTS public.inrix_shapefile (LIKE \"${STATE}\".$${LATEST_FILE_VERSION} EXCLUDING ALL);";\
+		psql -c "ALTER TABLE \"${STATE}\".$${LATEST_FILE_VERSION} INHERIT public.inrix_shapefile;";\
+	else\
+		echo "INRIX Shapefile in the database is the latest.";\
+	fi;
 
 
 #####################################################
@@ -300,7 +323,6 @@ preprocessing/partition-inrix-shapefile:
 		mkdir -p $${STATES_DIR};\
 		unzip -o $${SHP_ZIP} -d $${STATES_DIR};\
 		pushd $${STATES_DIR};\
-		echo $$PWD;\
 		for f in *; do \
 			state="$${f/\.*/}";\
 			dir="$${STATE_ABBREVIATIONS[$${state,,}]}";\
@@ -310,7 +332,7 @@ preprocessing/partition-inrix-shapefile:
 		for state_dir in *; do\
 			pushd "$${state_dir}";\
 			ver=$$(ogrinfo -ro -so -al . | grep 'DBF_DATE_LAST_UPDATE' | sed 's/.*=//g; s/-//g');\
-			if [ -z $${ver} ]; then ver='xxxxxxxx'; fi;\
+			if [ -z $${ver} ]; then ver='00000000'; fi;\
 			mkdir -p $${ver};\
 			find . -maxdepth 1 -type f -exec mv "{}" "$${ver}/{}" \;;\
 			popd;\
@@ -319,11 +341,14 @@ preprocessing/partition-inrix-shapefile:
 		done;\
 	fi
 
+data/copy-state-inrix-shapefile-from-preprocessing-to-data:
+	@:$(call check_defined,STATE)
+	@cp ${_PREPROCESSING_DIR}/shapefiles/inrix_shapefile/states/${STATE}_*.zip ${_INRIX_SHAPEFILES_DIR}
+
 data/download-inrix-data: ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/data.zip
 
 data/remove-state-yrmo-downloads-directory: 
 	rm -rf ${_DOWNLOAD_DIR}/${STATE}/${YEAR}/${MONTH}/
-
 
 # Removes any regular files not named data.zip or link
 data/clean-downloads-directory:
