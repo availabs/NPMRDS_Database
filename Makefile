@@ -252,7 +252,8 @@ db/upload-npmrds-state-yrmo: \
 db/upload-mpo-boundaries: db/create-database db/create-schema-us
 	@# TODO: compare version in DB to version in data dir.
 	@#       If a newer version available, upload. Otherwise, skip.
-	@LATEST_VERSION=$$(ls ${_MPO_BOUNDARIES_DIR} | sort | tail -1);\
+	@set -e;\
+	LATEST_VERSION=$$(ls ${_MPO_BOUNDARIES_DIR} | sort | tail -1);\
 	SHP_DIR=${_MPO_BOUNDARIES_DIR}/$${LATEST_VERSION};\
 	psql -c "DROP VIEW IF EXISTS public.mpo_boundaries;";\
 	pushd $${SHP_DIR} && unzip -o "*.zip" && popd;\
@@ -278,7 +279,7 @@ db/upload-mpo-boundaries: db/create-database db/create-schema-us
 
 db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
 	@:$(call check_defined,STATE)
-	cd ${_INRIX_SHAPEFILES_DIR} && unzip -o ${STATE}_*.zip;\
+	@cd ${_INRIX_SHAPEFILES_DIR} && unzip -o ${STATE}_*.zip;\
 	VER=$$(ls ${_INRIX_SHAPEFILES_DIR}/${STATE} | sort | tail -1);\
 	LATEST_FILE_VERSION="inrix_shapefile_$${VER}";\
 	LATEST_PGDB_VERSION=$$(psql -t -c "SELECT table_name FROM information_schema.tables WHERE (table_schema='${STATE}') and (table_name LIKE 'inrix_shapefile_%') ORDER BY table_name DESC LIMIT 1;" | tr -d " \t\n\r";);\
