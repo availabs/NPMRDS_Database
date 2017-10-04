@@ -169,7 +169,7 @@ db/drop-schema-%:
 	@schema=$*; psql -c "DROP SCHEMA IF EXISTS \"$${schema,,}\" CASCADE;"
 
 db/create-schema-%: db/create-database
-	@if [ -z $* ]; then\
+	@if [ ! '$*' ]; then\
 		echo "Schema not defined.";\
 		exit 1;\
 	else\
@@ -188,6 +188,12 @@ db/drop-root-npmrds-table:
 db/create-root-npmrds-table: db/create-database
 	@if ! psql -c '\d public.npmrds' > /dev/null 2>&1; then\
 		@psql -f './sql/NPMRDS_Tables/root/createRootNPMRDSDataTable.sql';\
+	fi
+
+db/create-root-tmc-date-ranges-table: db/create-database
+	@set -e;\
+	if ! psql -c '\d public.tmc_date_ranges' > /dev/null 2>&1; then\
+		psql -f './sql/tmc_date_ranges/createRootTMCDateRangeTable.sql';\
 	fi
 
 db/drop-npmrds-state-table:
@@ -247,6 +253,14 @@ db/upload-npmrds-state-yrmo: \
 	#./bin/projectNPMRDSTableColumns.sh < $<	| psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;'
 
 	./bin/projectNPMRDSTableColumns.sh < ${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv | psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;'
+
+db/create-state-tmc-date-ranges-table: db/create-schema-${STATE} db/create-root-tmc-date-ranges-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+			" ./sql/tmc_date_ranges/createStateTMCDateRangeTable.sql\
+		)";
 
 
 db/upload-mpo-boundaries: db/create-database db/create-schema-us
