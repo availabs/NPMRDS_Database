@@ -276,9 +276,9 @@ db/upload-mpo-boundaries: db/create-database db/create-schema-us
 		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
 		-type f -delete;
 
-db/upload-inrix-shapefile-for-state:
+db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
 	@:$(call check_defined,STATE)
-	@cd ${_INRIX_SHAPEFILES_DIR} && unzip -o ${STATE}_*.zip;\
+	cd ${_INRIX_SHAPEFILES_DIR} && unzip -o ${STATE}_*.zip;\
 	VER=$$(ls ${_INRIX_SHAPEFILES_DIR}/${STATE} | sort | tail -1);\
 	LATEST_FILE_VERSION="inrix_shapefile_$${VER}";\
 	LATEST_PGDB_VERSION=$$(psql -t -c "SELECT table_name FROM information_schema.tables WHERE (table_schema='${STATE}') and (table_name LIKE 'inrix_shapefile_%') ORDER BY table_name DESC LIMIT 1;" | tr -d " \t\n\r";);\
@@ -291,12 +291,12 @@ db/upload-inrix-shapefile-for-state:
 		OGR_OUTPUT=$$(\
 			ogr2ogr -t_srs EPSG:4326 -f \
 				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-				"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=${STATE} -lco OVERWRITE=YES -nln "inrix_shapefile_$${VER}" 2>&1;\
+				"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=${STATE} -lco OVERWRITE=YES -nln "$${LATEST_FILE_VERSION}" 2>&1;\
 		);\
 		if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
 			ogr2ogr -t_srs EPSG:4326 -f \
 				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-				"$${SHP_DIR}" -lco SCHEMA=${STATE} -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "inrix_shapefile_$${VER}";\
+				"$${SHP_DIR}" -lco SCHEMA=${STATE} -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "$${LATEST_FILE_VERSION}";\
 		fi;\
 		psql -c "CREATE TABLE IF NOT EXISTS public.inrix_shapefile (LIKE \"${STATE}\".$${LATEST_FILE_VERSION} EXCLUDING ALL);";\
 		psql -c "ALTER TABLE \"${STATE}\".$${LATEST_FILE_VERSION} INHERIT public.inrix_shapefile;";\
@@ -341,7 +341,10 @@ preprocessing/partition-inrix-shapefile:
 		done;\
 	fi
 
-data/copy-state-inrix-shapefile-from-preprocessing-to-data:
+${_INRIX_SHAPEFILES_DIR}:
+	@mkdir -p ${_INRIX_SHAPEFILES_DIR};
+
+data/copy-state-inrix-shapefile-from-preprocessing-to-data: ${_INRIX_SHAPEFILES_DIR}
 	@:$(call check_defined,STATE)
 	@cp ${_PREPROCESSING_DIR}/shapefiles/inrix_shapefile/states/${STATE}_*.zip ${_INRIX_SHAPEFILES_DIR}
 
