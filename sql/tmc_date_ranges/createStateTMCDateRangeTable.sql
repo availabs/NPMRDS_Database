@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS "__STATE__".tmc_date_ranges;
+BEGIN;
 
 CREATE TABLE "__STATE__".tmc_date_ranges (
   LIKE tmc_date_ranges INCLUDING ALL
@@ -26,5 +26,7 @@ ALTER TABLE "__STATE__".tmc_date_ranges
 
 CLUSTER VERBOSE "__STATE__".tmc_date_ranges 
   USING tmc_date_ranges_pkey;
+
+COMMIT;
 
 ANALYZE VERBOSE "__STATE__".tmc_date_ranges;

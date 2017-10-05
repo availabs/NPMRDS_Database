@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS tmc_date_ranges CASCADE;

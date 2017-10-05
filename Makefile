@@ -181,7 +181,7 @@ db/create-schema-%: db/create-database
 	fi
 
 db/drop-root-npmrds-table:
-	@if ! psql -c '\d public.npmrds' > /dev/null 2>&1; then\
+	@if psql -c '\d public.npmrds' > /dev/null 2>&1; then\
 		psql -f './sql/NPMRDS_Tables/root/dropRootNPMRDSDataTable.sql';\
 	fi
 
@@ -320,7 +320,113 @@ db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
 	fi;
 
 db/create-state-abbreviations-table: db/create-database
-	@psql -f './sql/state_abbreviations/createStateAbbreviationsTable.sql';
+	@if ! psql -c '\d public.state_abbreviations' > /dev/null 2>&1; then\
+		psql -f 'sql/state_abbreviations/createStateAbbreviationsTable.sql';\
+	fi
+
+
+
+db/drop-enum-types:\
+	db/drop-traffic-dist-functional-class-type \
+	db/drop-geography-level-type \
+	db/drop-functional-class-type \
+	db/drop-traffic-dist-day-type \
+	db/drop-traffic-dist-congestion-level-type \
+	db/drop-traffic-dist-directionality-type
+
+db/drop-traffic-dist-functional-class-type:
+	@if [[ $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'traffic_dist_functional_class_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/traffic_dist_functional_class_type/dropTrafficDistFunctionalClassType.sql';\
+	fi
+
+db/drop-geography-level-type:
+	@if [[ $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'geography_level_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/geography_level_type/dropGeographyLevelType.sql';\
+	fi
+
+db/drop-functional-class-type:
+	@if [[ $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'functional_class_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/functional_class_type/dropFunctionalClassType.sql';\
+	fi
+
+db/drop-traffic-dist-day-type:
+	@if [[ $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'traffic_dist_day_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/traffic_dist_day_type/dropTrafficDistDayType.sql';\
+	fi
+
+db/drop-traffic-dist-congestion-level-type:
+	@if [[ $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'traffic_dist_congestion_level_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/traffic_dist_congestion_level_type/dropTrafficDistCongestionLevelType.sql';\
+	fi
+
+db/drop-traffic-dist-directionality-type:
+	@if [[ $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'traffic_dist_directionality_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/traffic_dist_directionality_type/dropTrafficDistDirectionalityType.sql';\
+	fi
+
+
+db/create-traffic-dist-functional-class-type: db/create-database
+	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'traffic_dist_functional_class_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/traffic_dist_functional_class_type/createTrafficDistFunctionalClassType.sql';\
+	fi
+
+db/create-geography-level-type: db/create-database
+	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'geography_level_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/geography_level_type/createGeographyLevelType.sql';\
+	fi
+
+db/create-functional-class-type: db/create-database
+	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'functional_class_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/functional_class_type/createFunctionalClassType.sql';\
+	fi
+
+db/create-traffic-dist-day-type: db/create-database
+	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'traffic_dist_day_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/traffic_dist_day_type/createTrafficDistDayType.sql';\
+	fi
+
+db/create-traffic-dist-congestion-level-type: db/create-database
+	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'traffic_dist_congestion_level_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/traffic_dist_congestion_level_type/createTrafficDistCongestionLevelType.sql';\
+	fi
+
+db/create-traffic-dist-directionality-type: db/create-database
+	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'traffic_dist_directionality_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/traffic_dist_directionality_type/createTrafficDistDirectionalityType.sql';\
+	fi
+
+db/create-enum-types:\
+	db/create-database \
+	db/create-traffic-dist-functional-class-type \
+	db/create-geography-level-type \
+	db/create-functional-class-type \
+	db/create-traffic-dist-day-type \
+	db/create-traffic-dist-congestion-level-type \
+	db/create-traffic-dist-directionality-type
+
+db/drop-root-occupancy-factor-table:
+	@if psql -c '\d public.occupancy_factor' > /dev/null 2>&1; then\
+		psql -f 'sql/occupancy_factor/drop_root_occupancy_factor_table.sql';\
+	fi
+
+db/create-root-occupancy-factor-table: db/create-geography-level-type
+	@if ! psql -c '\d public.occupancy_factor' > /dev/null 2>&1; then\
+		psql -f 'sql/occupancy_factor/create_root_occupancy_factor_table.sql';\
+	fi
+
+db/drop-state-occupancy-factor-table:
+	@:$(call check_defined,STATE)
+	@if psql -c '\d "${STATE}".occupancy_factor' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" sql/occupancy_factor/drop_state_occupancy_factor_table.sql)";\
+	fi
+
+
+db/create-state-occupancy-factor-table: db/create-state-abbreviations-table db/create-root-occupancy-factor-table
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".occupancy_factor' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" sql/occupancy_factor/create_state_occupancy_factor_table.sql)";\
+	fi
+
 
 
 #####################################################

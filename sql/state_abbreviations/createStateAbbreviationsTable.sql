@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS state_abbreviations CASCADE;
+BEGIN;
 
 CREATE TABLE state_abbreviations (
   state_name   VARCHAR(20) PRIMARY KEY,
@@ -59,3 +59,5 @@ INSERT INTO state_abbreviations (state_name, abbreviation)
     ('Wisconsin', 'wi'),
     ('Wyoming', 'wy')
 ;
+
+COMMIT;
