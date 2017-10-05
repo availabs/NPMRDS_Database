@@ -319,6 +319,9 @@ db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
 		echo "INRIX Shapefile in the database is the latest.";\
 	fi;
 
+db/create-state-abbreviations-table: db/create-database
+	@psql -f './sql/state_abbreviations/createStateAbbreviationsTable.sql';
+
 
 #####################################################
 
