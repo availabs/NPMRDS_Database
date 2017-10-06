@@ -1,2 +1,3 @@
-postgres.env
 postgres.docker.env
+here_credentials.js
+postgres.env*

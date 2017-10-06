@@ -17,6 +17,7 @@ _BIN_DIR := ${_MKFILE_DIR}bin
 
 _PREPROCESSING_DIR := ${_MKFILE_DIR}preprocessing
 _INRIX_SHAPEFILE_PREPROCESSING_DIR := ${_PREPROCESSING_DIR}/shapefiles/inrix_shapefile
+# _HERE_SHAPEFILE_PREPROCESSING_DIR := ${_PREPROCESSING_DIR}/shapefiles/here_shapefile
 
 _DATA_DIR := ${_MKFILE_DIR}data
 _DOWNLOAD_DIR := ${_DATA_DIR}/inrix-downloads
@@ -29,6 +30,11 @@ _MPO_BOUNDARIES_DIR := ${_DATA_DIR}/shapefiles/mpo_boundaries/us
 _MPO_ACRONYMS_CSV_PATH := ${_DATA_DIR}/csvs/mpo_abbreviations/mpo_abbreviations.csv
 
 _INRIX_SHAPEFILES_DIR := ${_DATA_DIR}/shapefiles/inrix_shapefile
+# _HERE_SHAPEFILES_DIR := ${_DATA_DIR}/shapefiles/here_shapefile
+
+_SCRAPED_SPEEDLIMITS_DIR := "${_MKFILE_DIR}/src/speedlimitScraper/data"
+_PARSED_SPEEDLIMITS_DIR := "${_MKFILE_DIR}/src/speedlimitScraper/parsed-speedlimit-data"
+_SPEEDLIMITS_DATA_DIR := "${_DATA_DIR}/csv/speedlimits"
 
 # Transform STATE to lowercase
 STATE := $(shell echo ${STATE} | tr '[:upper:]' '[:lower:]')
@@ -182,12 +188,12 @@ db/create-schema-%: db/create-database
 
 db/drop-root-npmrds-table:
 	@if psql -c '\d public.npmrds' > /dev/null 2>&1; then\
-		psql -f './sql/NPMRDS_Tables/root/dropRootNPMRDSDataTable.sql';\
+		psql -f './sql/npmrds/root/dropRootNPMRDSDataTable.sql';\
 	fi
 
 db/create-root-npmrds-table: db/create-database
 	@if ! psql -c '\d public.npmrds' > /dev/null 2>&1; then\
-		@psql -f './sql/NPMRDS_Tables/root/createRootNPMRDSDataTable.sql';\
+		@psql -f './sql/npmrds/root/createRootNPMRDSDataTable.sql';\
 	fi
 
 db/create-root-tmc-date-ranges-table: db/create-database
@@ -198,12 +204,12 @@ db/create-root-tmc-date-ranges-table: db/create-database
 
 db/drop-npmrds-state-table:
 	@:$(call check_defined,STATE)
-	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/NPMRDS_Tables/state/dropStateNPMRDSDataTable.sql)"
+	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/npmrds/state/dropStateNPMRDSDataTable.sql)"
 
 db/create-npmrds-state-table: db/create-root-npmrds-table db/create-schema-${STATE}
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@psql -c '\d "${STATE}".npmrds' > /dev/null 2>&1 || \
-		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/NPMRDS_Tables/state/createStateNPMRDSDataTable.sql)"
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/npmrds/state/createStateNPMRDSDataTable.sql)"
 
 db/clean-npmrds-state-yrmo-table: db/drop-npmrds-state-yrmo-table db/create-npmrds-state-yrmo-table
 
@@ -221,7 +227,7 @@ db/drop-npmrds-state-yrmo-table:
 				s/__MONTH__/${MONTH}/g;\
 				s/__START_DATE__/$${START_DATE}/g;\
 				s/__END_DATE__/$${END_DATE}/g;\
-			" ./sql/NPMRDS_Tables/state/dropStateNPMRDSYrMoTable.sql\
+			" ./sql/npmrds/state/dropStateNPMRDSYrMoTable.sql\
 		)";\
 	fi
 
@@ -239,7 +245,7 @@ db/create-npmrds-state-yrmo-table: db/create-npmrds-state-table
 				s/__MONTH__/${MONTH}/g;\
 				s/__START_DATE__/$${START_DATE}/g;\
 				s/__END_DATE__/$${END_DATE}/g;\
-			" ./sql/NPMRDS_Tables/state/createStateNPMRDSYrMoTable.sql\
+			" ./sql/npmrds/state/createStateNPMRDSYrMoTable.sql\
 		)";\
 	fi
 
@@ -306,12 +312,12 @@ db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
 		OGR_OUTPUT=$$(\
 			ogr2ogr -t_srs EPSG:4326 -f \
 				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-				"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=${STATE} -lco OVERWRITE=YES -nln "$${LATEST_FILE_VERSION}" 2>&1;\
+				"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=${STATE} -lco GEOM_TYPE=geometry -lco OVERWRITE=YES -nln "$${LATEST_FILE_VERSION}" 2>&1;\
 		);\
 		if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
 			ogr2ogr -t_srs EPSG:4326 -f \
 				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-				"$${SHP_DIR}" -lco SCHEMA=${STATE} -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "$${LATEST_FILE_VERSION}";\
+				"$${SHP_DIR}" -lco SCHEMA=${STATE} -lco GEOM_TYPE=geometry -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "$${LATEST_FILE_VERSION}";\
 		fi;\
 		psql -c "CREATE TABLE IF NOT EXISTS public.inrix_shapefile (LIKE \"${STATE}\".$${LATEST_FILE_VERSION} EXCLUDING ALL);";\
 		psql -c "ALTER TABLE \"${STATE}\".$${LATEST_FILE_VERSION} INHERIT public.inrix_shapefile;";\
@@ -420,7 +426,6 @@ db/drop-state-occupancy-factor-table:
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" sql/occupancy_factor/drop_state_occupancy_factor_table.sql)";\
 	fi
 
-
 db/create-state-occupancy-factor-table: db/create-state-abbreviations-table db/create-root-occupancy-factor-table
 	@:$(call check_defined,STATE)
 	@if ! psql -c '\d "${STATE}".occupancy_factor' > /dev/null 2>&1; then\
@@ -428,10 +433,85 @@ db/create-state-occupancy-factor-table: db/create-state-abbreviations-table db/c
 	fi
 
 
+db/drop-tmc-attributes:
+	# TODO: Handle dependencies
+	@if psql -c '\d "public".tmc_attributes' > /dev/null 2>&1; then\
+		psql -f './sql/tmc_attributes/dropTMCAttributesMaterializedView.sql';\
+	fi
+
+db/create-tmc-attributes:
+	# TODO: Handle dependencies
+	@if ! psql -c '\d "public".tmc_attributes' > /dev/null 2>&1; then\
+		psql -f './sql/tmc_attributes/createTMCAttributesMaterializedView.sql';\
+	fi
+
 
 #####################################################
 
 #### External API
+
+${_SPEEDLIMITS_DATA_DIR}:
+	mkdir -p ${_SPEEDLIMITS_DATA_DIR}
+
+scraping/scrape-speedlimits: db/upload-inrix-shapefile-for-state
+	@:$(call check_defined,STATE)
+	@if [ ! -d "${_SCRAPED_SPEEDLIMITS_DIR}/${STATE}" ]; then\
+		echo 'Scraping speedlimits.';\
+		node ./src/speedlimitScraper/speedlimitsScraper.js --state=${STATE};\
+	fi
+	
+scraping/update-scraped-speedlimits-info: db/upload-inrix-shapefile-for-state
+	@:$(call check_defined,STATE)
+	node ./src/speedlimitScraper/speedlimitsScraper.js --state=${STATE};\
+	
+preprocessing/create-speedlimits-csv: scraping/scrape-speedlimits
+	@:$(call check_defined,STATE)
+	@if [ ! -f "${_PARSED_SPEEDLIMITS_DIR}/${STATE}_avg_speedlimits.csv" ]; then\
+		node ./src/speedlimitScraper/createSpeedlimitsCSV.js --state=${STATE};\
+	fi
+
+data/move-speedlimits-csv-to-data-dir: ${_SPEEDLIMITS_DATA_DIR} preprocessing/create-speedlimits-csv
+	@:$(call check_defined,STATE)
+	@if [ ! -d "${_SPEEDLIMITS_DATA_DIR}/${STATE}_avg_speedlimits.csv" ]; then\
+		mv "${_PARSED_SPEEDLIMITS_DIR}/${STATE}_avg_speedlimits.csv" "${_SPEEDLIMITS_DATA_DIR}/${STATE}_avg_speedlimits.csv";\
+	fi
+	
+db/drop-root-average-speedlimits-table:
+	@if psql -c '\d public.avg_speedlimits' > /dev/null 2>&1; then\
+		psql -f './sql/avg_speedlimits/dropRootAverageSpeedLimitsTable.sql';\
+	fi
+
+db/create-root-average-speedlimits-table:
+	@if ! psql -c '\d public.avg_speedlimits' > /dev/null 2>&1; then\
+		psql -f './sql/avg_speedlimits/createRootAverageSpeedLimitsTable.sql';\
+	fi
+
+db/drop-state-average-speedlimits-table:
+	@if psql -c '\d ${STATE}.avg_speedlimits' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/avg_speedlimits/dropStateAvgSpeedlimitsTable.sql)";\
+	fi
+
+db/create-state-average-speedlimits-table: data/move-speedlimits-csv-to-data-dir db/create-root-average-speedlimits-table db/create-schema-${STATE}
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d ${STATE}.avg_speedlimits' > /dev/null 2>&1; then\
+		psql -c "$$(sed 's/__STATE__/${STATE}/g' ./sql/avg_speedlimits/createStateAvgSpeedlimitsTable.sql)";\
+		cat ${_SPEEDLIMITS_DATA_DIR}/${STATE}_avg_speedlimits.csv |\
+			psql -c "$$(sed 's/__STATE__/${STATE}/g' ./sql/avg_speedlimits/loadStateSpeedlimits.sql)";\
+		psql -c "$$(sed 's/__STATE__/${STATE}/g' ./sql/avg_speedlimits/finishStateAvgSpeedlimitsTable.sql)";\
+	fi
+
+db/drop-federal-holidays-table:
+	@if psql -c '\d public.federal_holidays' > /dev/null 2>&1; then\
+		psql -f './sql/federal_holidays/dropFederalHolidaysTable.sql';\
+	fi
+
+db/create-federal-holidays-table: db/create-database
+	@if ! psql -c '\d public.federal_holidays' > /dev/null 2>&1; then\
+		psql -f './sql/federal_holidays/createFederalHolidaysTable.sql';\
+	fi
+
+
+	
 
 preprocessing:
 	mkdir -p ${_PREPROCESSING_DIR}
@@ -465,8 +545,17 @@ preprocessing/partition-inrix-shapefile:
 		done;\
 	fi
 
+# preprocessing/extract-here-shapefile-from-tar: ${_HERE_SHAPEFILES_DIR}
+	# @set -e;\
+	# cd ${_HERE_SHAPEFILE_PREPROCESSING_DIR};\
+	# LATEST_TAR="$$(find '${_HERE_SHAPEFILE_PREPROCESSING_DIR}' -maxdepth 1 -name '*.tar' | sort | tail -1)";\
+	# tar -xf "$${LATEST_TAR}" -C'${_HERE_SHAPEFILES_DIR}' --wildcards "*Shapefile*";
+
 ${_INRIX_SHAPEFILES_DIR}:
 	@mkdir -p ${_INRIX_SHAPEFILES_DIR};
+
+# ${_HERE_SHAPEFILES_DIR}:
+	# @mkdir -p ${_HERE_SHAPEFILES_DIR};
 
 data/copy-state-inrix-shapefile-from-preprocessing-to-data: ${_INRIX_SHAPEFILES_DIR}
 	@:$(call check_defined,STATE)
@@ -585,4 +674,36 @@ ${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}:
 
 ${_ETL_TRANSFORMED_DIR}:
 	@mkdir -p ${_ETL_TRANSFORMED_DIR}
+
+# db/upload-here-shapefile: db/create-database
+	# @:$(call check_defined,STATE)
+	# @cd ${_HERE_SHAPEFILES_DIR} && unzip -o *.zip;\
+	# VER=$$(ls ${_HERE_SHAPEFILES_DIR} | sort | tail -1);\
+	# LATEST_FILE_VERSION="here_shapefile_$${VER}";\
+	# LATEST_PGDB_VERSION=$$(psql -t -c "SELECT table_name FROM information_schema.tables WHERE (table_name LIKE 'here_shapefile_%') ORDER BY table_name DESC LIMIT 1;" | tr -d " \t\n\r";);\
+	# if [ -z $${LATEST_PGDB_VERSION} ] || [[ $${LATEST_FILE_VERSION} > $${LATEST_PGDB_VERSION} ]]; then\
+		# if [ $${LATEST_PGDB_VERSION} ]; then\
+			# psql -c "DROP TABLE IF EXISTS \"${STATE}\".$${LATEST_PGDB_VERSION} CASCADE;";\
+		# fi;\
+		# SHP_DIR="${_HERE_SHAPEFILES_DIR}/${STATE}/$${VER}/";\
+		# OGR_OUTPUT=$$(\
+			# ogr2ogr -t_srs EPSG:4326 -f \
+				# PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+				# "$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=${STATE} -lco OVERWRITE=YES -nln "$${LATEST_FILE_VERSION}" 2>&1;\
+		# );\
+		# if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
+			# ogr2ogr -t_srs EPSG:4326 -f \
+				# PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+				# "$${SHP_DIR}" -lco SCHEMA=${STATE} -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "$${LATEST_FILE_VERSION}";\
+		# fi;\
+		# psql -c "CREATE TABLE IF NOT EXISTS public.here_shapefile (LIKE \"${STATE}\".$${LATEST_FILE_VERSION} EXCLUDING ALL);";\
+		# psql -c "ALTER TABLE \"${STATE}\".$${LATEST_FILE_VERSION} INHERIT public.here_shapefile;";\
+	# fi;
+
+# db/upload-here-link-speedlimits:
+	# @:$(call check_defined,STATE)
+	# @if ! psql -c '\d public.here_link_speedlimits' > /dev/null 2>&1; then\
+		# node ${_MKFILE_DIR}/src/speedlimitScraper/uploadSpeedlimits.js --state=${STATE} --overwrite;\
+	# fi
+	
 
