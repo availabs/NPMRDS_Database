@@ -474,6 +474,74 @@ db/create-tmc-attributes:
 		psql -f './sql/tmc_attributes/createTMCAttributesMaterializedView.sql';\
 	fi
 
+db/create-nprm1and2TimeBinFunc:
+	@psql -f './sql/nprm1and2TimeBinFunc/createNPRM1and2TimeBinFunc.sql'
+
+db/create-nprm3and4TimeBinFunc:
+	@psql -f './sql/nprm3and4TimeBinFunc/createNPRM3and4TimeBinFunc.sql'
+
+
+db/drop-root-nprm1and2_time_dist_table:
+	@psql -f './sql/nprm1and2_time_dist/drop_root_nprm1and2_time_dist_table.sql'
+
+
+db/create-root-nprm1and2_time_dist_table:
+	@psql -f './sql/nprm1and2_time_dist/create_root_nprm1and2_time_dist_table.sql'
+
+
+db/drop-state-nprm1and2_time_dist_table:
+	@:$(call check_defined,STATE)
+	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm1and2_time_dist/drop_state_nprm1and2_time_dist_table.sql)"
+
+db/create-state-nprm1and2_time_dist_table: db/create-root-nprm1and2_time_dist_table
+	@:$(call check_defined,STATE)
+	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm1and2_time_dist/create_state_nprm1and2_time_dist_table.sql)"
+
+
+db/drop-root-nprm3and4_time_dist_table:
+	@psql -f './sql/nprm3and4_hourly_travel_time_averages/drop_root_nprm3and4_hourly_travel_time_averages.sql'
+
+db/create-root-nprm3and4_time_dist_table:
+	@psql -f './sql/nprm3and4_hourly_travel_time_averages/create_root_nprm3and4_hourly_travel_time_averages.sql'
+
+db/drop-state-nprm3and4_time_dist_table:
+	@:$(call check_defined,STATE)
+	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm3and4_hourly_travel_time_averages/drop_state_nprm3and4_hourly_travel_time_averages.sql)"
+
+db/create-state-nprm3and4_time_dist_table: db/drop-root-nprm3and4_time_dist_table
+	@:$(call check_defined,STATE)
+	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm3and4_hourly_travel_time_averages/create_state_nprm3and4_hourly_travel_time_averages.sql)"
+
+
+db/drop-root-nprm5and6_truck_time_dist_table:
+	@psql -f './sql/nprm5and6_truck_time_dist/drop_root_nprm5and6_truck_time_dist.sql'
+
+db/create-root-nprm5and6_truck_time_dist_table:
+	@psql -f './sql/nprm5and6_truck_time_dist/create_root_nprm5and6_truck_time_dist.sql'
+
+db/drop-state-nprm5and6_truck_time_dist_table:
+	@:$(call check_defined,STATE)
+	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm5and6_truck_time_dist/drop_state_nprm5and6_truck_time_dist.sql)"
+
+db/create-state-nprm5and6_truck_time_dist_table: db/drop-root-nprm5and6_truck_time_dist_table
+	@:$(call check_defined,STATE)
+	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm5and6_truck_time_dist/create_state_nprm5and6_truck_time_dist.sql)"
+
+
+db/drop-root-nprm7_time_dist_table:
+	@psql -f './sql/nprm7_time_dist/drop_root_nprm7_time_dist.sql'
+
+db/create-root-nprm7_time_dist_table:
+	@psql -f './sql/nprm7_time_dist/create_root_nprm7_time_dist.sql'
+
+db/drop-state-nprm7_time_dist_table:
+	@:$(call check_defined,STATE)
+	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm7_time_dist/drop_state_nprm7_time_dist.sql)"
+
+db/create-state-nprm7_time_dist_table: db/drop-root-nprm7_time_dist_table
+	@:$(call check_defined,STATE)
+	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm7_time_dist/create_state_nprm7_time_dist.sql)"
+
 
 #####################################################
 

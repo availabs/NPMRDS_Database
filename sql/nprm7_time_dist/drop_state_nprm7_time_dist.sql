@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS "__STATE__".nprm7_time_dist CASCADE;
