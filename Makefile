@@ -254,11 +254,40 @@ db/upload-npmrds-state-yrmo: \
 	db/drop-npmrds-state-yrmo-table \
 	db/create-npmrds-state-yrmo-table
 
-	#${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv \
+	@# These should be integrated into this target/recipe
+	@#${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv \
+	@#./bin/projectNPMRDSTableColumns.sh < $<	| psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;'
 
-	#./bin/projectNPMRDSTableColumns.sh < $<	| psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;'
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
 
-	./bin/projectNPMRDSTableColumns.sh < ${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv | psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;'
+	@if [[ $$(psql -t -c 'SELECT * FROM "${STATE}".npmrds_y${YEAR}m${MONTH} LIMIT 1;' | tr -d " \t\n\r";) ]]; then\
+		./bin/projectNPMRDSTableColumns.sh < ${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv | psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;';\
+	fi
+
+# TODO: make this a dependency: db/upload-npmrds-state-yrmo
+db/postprocess-npmrds-state-yrmo:
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if psql -c '\d "${STATE}".npmrds_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/npmrds/state/coalesceTimes.sql\
+		)";\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/npmrds/state/deleteEmptyRows.sql\
+		)";\
+	fi
+
 
 db/create-state-tmc-date-ranges-table: db/create-schema-${STATE} db/create-root-tmc-date-ranges-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
