@@ -31,7 +31,7 @@ const stateCodes = {
 }
 
 const shapefileURLs = {
-  cbsa_combined: `https://www2.census.gov/geo/tiger/TIGER${VERSION}/CSA/tl_${VERSION}_us_csa.zip`,
+  core_based_statistical_area: `https://www2.census.gov/geo/tiger/TIGER${VERSION}/CSA/tl_${VERSION}_us_csa.zip`,
   cbsa_metro: `https://www2.census.gov/geo/tiger/TIGER${VERSION}/METDIV/tl_${VERSION}_us_metdiv.zip`,
   cbsa_metro_micro: `https://www2.census.gov/geo/tiger/TIGER${VERSION}/CBSA/tl_${VERSION}_us_cbsa.zip`,
   cbsa_new_england: `https://www2.census.gov/geo/tiger/TIGER${VERSION}/NECTA/tl_${VERSION}_us_necta.zip`,
@@ -76,7 +76,7 @@ geographyTypes.forEach(geoType => {
   const stateCode = filename.replace(new RegExp(`tl_${VERSION}_`), '').replace(/_.*/, '')
   const state = stateCodes[stateCode]
 
-  const downloadDir = join(dataDir, geoType, state, VERSION)
+  const downloadDir = join(dataDir, `${geoType}_boundaries`, state, VERSION)
   const filepath = join(downloadDir, filename)
 
   mkdirpSync(downloadDir)	

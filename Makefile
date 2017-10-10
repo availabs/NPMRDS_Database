@@ -35,7 +35,9 @@ _ETL_TRANSFORMED_DIR := ${_ETL_DIR}/transformed
 _MPO_BOUNDARIES_DIR := ${_DATA_DIR}/shapefiles/mpo_boundaries/us
 _MPO_ACRONYMS_CSV_PATH := ${_DATA_DIR}/csvs/mpo_abbreviations/mpo_abbreviations.csv
 
-_URBAN_AREAS_DIR := ${_DATA_DIR}/shapefiles/urban_area/us
+_URBAN_AREAS_DIR := ${_DATA_DIR}/shapefiles/urban_area_boundaries/us
+
+_CORE_BASED_STATISTICAL_AREAS_DIR := ${_DATA_DIR}/shapefiles/core_based_statistical_area_boundaries/us
 
 _INRIX_SHAPEFILES_DIR := ${_DATA_DIR}/shapefiles/inrix_shapefile
 
@@ -355,7 +357,7 @@ db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
 		echo "INRIX Shapefile in the database is the latest.";\
 	fi;
 
-db/upload-urban-area-shapefile: db/create-database db/create-schema-us
+db/upload-urban-area-boundaries-shapefile: db/create-database db/create-schema-us
 	@set -e;\
 	LATEST_VERSION=$$(ls ${_URBAN_AREAS_DIR} | sort | tail -1);\
 	SHP_DIR=${_URBAN_AREAS_DIR}/$${LATEST_VERSION};\
@@ -363,21 +365,49 @@ db/upload-urban-area-shapefile: db/create-database db/create-schema-us
 	OGR_OUTPUT=$$(\
 		ogr2ogr -t_srs EPSG:4326 -f \
 			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-			"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=us -lco OVERWRITE=YES -nln "urban_area_$${LATEST_VERSION}" 2>&1;\
+			"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=us -lco OVERWRITE=YES -nln "urban_area_boundaries_$${LATEST_VERSION}" 2>&1;\
 	);\
 	if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
 		OGR_OUTPUT=$$(\
 			ogr2ogr -t_srs EPSG:4326 -f \
 				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-				"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "urban_area_$${LATEST_VERSION}";\
+				"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "urban_area_boundaries_$${LATEST_VERSION}";\
 		);\
 		if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
 			echo $${OGR_OUTPUT};\
 			exit 1;\
 		fi;\
 	fi;\
-	psql -c "DROP VIEW IF EXISTS public.urban_areas;";\
-	psql -c "CREATE VIEW public.urban_area AS SELECT * FROM us.urban_area_$${LATEST_VERSION};";\
+	psql -c "DROP VIEW IF EXISTS public.urban_area_boundaries;";\
+	psql -c "CREATE VIEW public.urban_area_boundaries AS SELECT * FROM us.urban_area_boundaries_$${LATEST_VERSION};";\
+	find $${SHP_DIR} \
+		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
+		-type f -delete;
+
+
+db/upload-core-based-staticstical-area-boundaries-shapefile: db/create-database db/create-schema-us
+	@set -e;\
+	LATEST_VERSION=$$(ls ${_CORE_BASED_STATISTICAL_AREAS_DIR} | sort | tail -1);\
+	SHP_DIR=${_CORE_BASED_STATISTICAL_AREAS_DIR}/$${LATEST_VERSION};\
+	pushd $${SHP_DIR} && unzip -o "*.zip" && popd;\
+	OGR_OUTPUT=$$(\
+		ogr2ogr -t_srs EPSG:4326 -f \
+			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+			"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=us -lco OVERWRITE=YES -nln "core_based_staticstical_area_boundaries_$${LATEST_VERSION}" 2>&1;\
+	);\
+	if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
+		OGR_OUTPUT=$$(\
+			ogr2ogr -t_srs EPSG:4326 -f \
+				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+				"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "core_based_staticstical_area_boundaries_$${LATEST_VERSION}";\
+		);\
+		if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
+			echo $${OGR_OUTPUT};\
+			exit 1;\
+		fi;\
+	fi;\
+	psql -c "DROP VIEW IF EXISTS public.core_based_staticstical_area_boundaries;";\
+	psql -c "CREATE VIEW public.core_based_staticstical_area_boundaries AS SELECT * FROM us.core_based_staticstical_area_boundaries_$${LATEST_VERSION};";\
 	find $${SHP_DIR} \
 		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
 		-type f -delete;
@@ -639,9 +669,6 @@ db/create-state-nprm3and4-hourly-travel-time-avgs-yrmo-table: \
 			" ./sql/nprm3and4_hourly_travel_time_avgs/create_state_nprm3and4_hourly_travel_time_avgs_yrmo.sql\
 		)";\
 	fi
-
-
-
 
 
 db/drop-root-nprm5and6-truck-time-dist-table:
@@ -932,8 +959,11 @@ scraping/update-scraped-speedlimits-info: db/upload-inrix-shapefile-for-state
 	@:$(call check_defined,STATE)
 	node ./src/speedlimitScraper/speedlimitsScraper.js --state=${STATE};\
 
-scraping/download-urban-areas-boundaries-shapefile:
+scraping/download-urban-area-boundaries-shapefile:
 	${_BIN_DIR}/scrapeCensus.js --geographyType=urban_area
+	
+scraping/download-core-based-statistical-area-boundaries-shapefile:
+	${_BIN_DIR}/scrapeCensus.js --geographyType=core_based_statistical_area
 	
 
 preprocessing/create-speedlimits-csv: scraping/scrape-speedlimits
