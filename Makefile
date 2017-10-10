@@ -17,7 +17,6 @@ _BIN_DIR := ${_MKFILE_DIR}bin
 
 _PREPROCESSING_DIR := ${_MKFILE_DIR}preprocessing
 _INRIX_SHAPEFILE_PREPROCESSING_DIR := ${_PREPROCESSING_DIR}/shapefiles/inrix_shapefile
-# _HERE_SHAPEFILE_PREPROCESSING_DIR := ${_PREPROCESSING_DIR}/shapefiles/here_shapefile
 
 _DATA_DIR := ${_MKFILE_DIR}data
 _DOWNLOAD_DIR := ${_DATA_DIR}/inrix-downloads
@@ -30,7 +29,6 @@ _MPO_BOUNDARIES_DIR := ${_DATA_DIR}/shapefiles/mpo_boundaries/us
 _MPO_ACRONYMS_CSV_PATH := ${_DATA_DIR}/csvs/mpo_abbreviations/mpo_abbreviations.csv
 
 _INRIX_SHAPEFILES_DIR := ${_DATA_DIR}/shapefiles/inrix_shapefile
-# _HERE_SHAPEFILES_DIR := ${_DATA_DIR}/shapefiles/here_shapefile
 
 _SCRAPED_SPEEDLIMITS_DIR := "${_MKFILE_DIR}/src/speedlimitScraper/data"
 _PARSED_SPEEDLIMITS_DIR := "${_MKFILE_DIR}/src/speedlimitScraper/parsed-speedlimit-data"
@@ -481,96 +479,222 @@ db/create-nprm3and4TimeBinFunc:
 	@psql -f './sql/nprm3and4TimeBinFunc/createNPRM3and4TimeBinFunc.sql'
 
 
-db/drop-root-nprm1and2_time_dist_table:
+db/drop-root-nprm1and2-time-dist-table:
 	@if psql -c '\d "public".nprm1and2_time_dist' > /dev/null 2>&1; then\
 		psql -f './sql/nprm1and2_time_dist/drop_root_nprm1and2_time_dist_table.sql';\
 	fi
 
 
-db/create-root-nprm1and2_time_dist_table:
+db/create-root-nprm1and2-time-dist-table:
 	@if ! psql -c '\d "public".nprm1and2_time_dist' > /dev/null 2>&1; then\
 		psql -f './sql/nprm1and2_time_dist/create_root_nprm1and2_time_dist_table.sql';\
 	fi
 
 
-db/drop-state-nprm1and2_time_dist_table:
+db/drop-state-nprm1and2-time-dist-table:
 	@:$(call check_defined,STATE)
 	@if psql -c '\d "${STATE}".nprm1and2_time_dist' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm1and2_time_dist/drop_state_nprm1and2_time_dist_table.sql)";\
 	fi
 
-db/create-state-nprm1and2_time_dist_table: db/create-root-nprm1and2_time_dist_table
+db/create-state-nprm1and2-time-dist-table: db/create-root-nprm1and2-time-dist-table
 	@:$(call check_defined,STATE)
 	@if ! psql -c '\d "${STATE}".nprm1and2_time_dist' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm1and2_time_dist/create_state_nprm1and2_time_dist_table.sql)";\
 	fi
 
 
-db/drop-root-nprm3and4_time_dist_table:
+
+db/drop-state-nprm1and2-time-dist-yrmo-table:
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if psql -c '\d "${STATE}".nprm1and2_time_dist_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/nprm1and2_time_dist/drop_state_nprm1and2_time_dist_yrmo_table.sql\
+		)";\
+	fi
+
+db/create-state-nprm1and2-time-dist-yrmo-table: db/create-state-nprm1and2-time-dist-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if ! psql -c '\d "${STATE}".nprm1and2_time_dist_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/nprm1and2_time_dist/create_state_nprm1and2_time_dist_yrmo_table.sql\
+		)";\
+	fi
+
+
+db/drop-root-nprm3and4-hourly-travel-time-avgs-table:
 	@if psql -c '\d public.nprm3and4_hourly_travel_time_avgs' > /dev/null 2>&1; then\
 		psql -f './sql/nprm3and4_hourly_travel_time_avgs/drop_root_nprm3and4_hourly_travel_time_avgs.sql';\
 	fi
 
-db/create-root-nprm3and4_time_dist_table:
+db/create-root-nprm3and4-hourly-travel-time-avgs-table:
 	@if ! psql -c '\d public.nprm3and4_hourly_travel_time_avgs' > /dev/null 2>&1; then\
 		psql -f './sql/nprm3and4_hourly_travel_time_avgs/create_root_nprm3and4_hourly_travel_time_avgs.sql';\
 	fi
 
-db/drop-state-nprm3and4_time_dist_table:
+db/drop-state-nprm3and4-hourly-travel-time-avgs-table:
 	@:$(call check_defined,STATE)
 	@if psql -c '\d "${STATE}".nprm3and4_hourly_travel_time_avgs' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm3and4_hourly_travel_time_avgs/drop_state_nprm3and4_hourly_travel_time_avgs.sql)";\
 	fi
 
-db/create-state-nprm3and4_time_dist_table: db/create-root-nprm3and4_time_dist_table
+db/create-state-nprm3and4-hourly-travel-time-avgs-table: \
+	db/create-root-nprm3and4-hourly-travel-time-avgs-table
+
 	@:$(call check_defined,STATE)
 	@if ! psql -c '\d "${STATE}".nprm3and4_hourly_travel_time_avgs' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm3and4_hourly_travel_time_avgs/create_state_nprm3and4_hourly_travel_time_avgs.sql)";\
 	fi
 
-db/drop-root-nprm5and6_truck_time_dist_table:
+
+db/drop-state-nprm3and4-hourly-travel-time-avgs-yrmo-table:
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if psql -c '\d "${STATE}".nprm3and4_hourly_travel_time_avgs_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/nprm3and4_hourly_travel_time_avgs/drop_state_nprm3and4_hourly_travel_time_avgs_yrmo.sql\
+		)";\
+	fi
+
+db/create-state-nprm3and4-hourly-travel-time-avgs-yrmo-table: \
+	db/create-state-nprm3and4-hourly-travel-time-avgs-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if ! psql -c '\d "${STATE}".nprm3and4_hourly_travel_time_avgs_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/nprm3and4_hourly_travel_time_avgs/create_state_nprm3and4_hourly_travel_time_avgs_yrmo.sql\
+		)";\
+	fi
+
+
+
+
+
+db/drop-root-nprm5and6-truck-time-dist-table:
 	@if psql -c '\d public.nprm5and6_truck_time_dist' > /dev/null 2>&1; then\
 		psql -f './sql/nprm5and6_truck_time_dist/drop_root_nprm5and6_truck_time_dist.sql';\
 	fi
 
-db/create-root-nprm5and6_truck_time_dist_table:
+db/create-root-nprm5and6-truck-time-dist-table:
 	@if ! psql -c '\d public.nprm5and6_truck_time_dist' > /dev/null 2>&1; then\
 		psql -f './sql/nprm5and6_truck_time_dist/create_root_nprm5and6_truck_time_dist.sql';\
 	fi
 
-db/drop-state-nprm5and6_truck_time_dist_table:
+db/drop-state-nprm5and6-truck-time-dist-table:
 	@:$(call check_defined,STATE)
 	@if psql -c '\d "${STATE}".nprm5and6_truck_time_dist' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm5and6_truck_time_dist/drop_state_nprm5and6_truck_time_dist.sql)";\
 	fi
 
-db/create-state-nprm5and6_truck_time_dist_table: db/create-root-nprm5and6_truck_time_dist_table
+db/create-state-nprm5and6-truck-time-dist-table: db/create-root-nprm5and6-truck-time-dist-table
 	@:$(call check_defined,STATE)
 	@if ! psql -c '\d "${STATE}".nprm5and6_truck_time_dist' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm5and6_truck_time_dist/create_state_nprm5and6_truck_time_dist.sql)";\
 	fi
 
-db/drop-root-nprm7_time_dist_table:
+db/drop-state-nprm5and6-truck-time-dist-yrmo-table:
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if psql -c '\d "${STATE}".nprm5and6_truck_time_dist_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/nprm5and6_truck_time_dist/drop_state_nprm5and6_truck_time_dist_yrmo.sql\
+		)";\
+	fi
+
+db/create-state-nprm5and6-truck-time-dist-yrmo-table: \
+	db/create-state-nprm3and4-hourly-travel-time-avgs-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if ! psql -c '\d "${STATE}".nprm5and6_truck_time_dist_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/nprm5and6_truck_time_dist/create_state_nprm5and6_truck_time_dist_yrmo.sql\
+		)";\
+	fi
+
+
+db/drop-root-nprm7-time-dist-table:
 	@if psql -c '\d public.nprm7_time_dist' > /dev/null 2>&1; then\
 		psql -f './sql/nprm7_time_dist/drop_root_nprm7_time_dist.sql';\
 	fi
 
-db/create-root-nprm7_time_dist_table:
+db/create-root-nprm7-time-dist-table:
 	@if ! psql -c '\d public.nprm7_time_dist' > /dev/null 2>&1; then\
 		psql -f './sql/nprm7_time_dist/create_root_nprm7_time_dist.sql';\
 	fi
 
-db/drop-state-nprm7_time_dist_table:
+db/drop-state-nprm7-time-dist-table:
 	@:$(call check_defined,STATE)
 	@if psql -c '\d "${STATE}".nprm7_time_dist' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm7_time_dist/drop_state_nprm7_time_dist.sql)";\
 	fi
 
-db/create-state-nprm7_time_dist_table: db/create-root-nprm7_time_dist_table
+db/create-state-nprm7-time-dist-table: db/create-root-nprm7-time-dist-table
 	@:$(call check_defined,STATE)
 	@if ! psql -c '\d "${STATE}".nprm7_time_dist' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm7_time_dist/create_state_nprm7_time_dist.sql)";\
 	fi
+
+db/drop-state-nprm7-time-dist-yrmo-table:
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if psql -c '\d "${STATE}".nprm7_time_dist_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/nprm7_time_dist/drop_state_nprm7_time_dist_yrmo.sql
+		)";\
+	fi
+
+db/create-state-nprm7-time-dist-yrmo-table: \
+	db/create-state-nprm7-time-dist-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if ! psql -c '\d "${STATE}".nprm7_time_dist_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/nprm7_time_dist/create_state_nprm7_time_dist_yrmo.sql\
+		)";\
+	fi
+
 
 
 db/drop-root-lottr-percentiles-table:
@@ -871,36 +995,3 @@ ${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}:
 
 ${_ETL_TRANSFORMED_DIR}:
 	@mkdir -p ${_ETL_TRANSFORMED_DIR}
-
-# db/upload-here-shapefile: db/create-database
-	# @:$(call check_defined,STATE)
-	# @cd ${_HERE_SHAPEFILES_DIR} && unzip -o *.zip;\
-	# VER=$$(ls ${_HERE_SHAPEFILES_DIR} | sort | tail -1);\
-	# LATEST_FILE_VERSION="here_shapefile_$${VER}";\
-	# LATEST_PGDB_VERSION=$$(psql -t -c "SELECT table_name FROM information_schema.tables WHERE (table_name LIKE 'here_shapefile_%') ORDER BY table_name DESC LIMIT 1;" | tr -d " \t\n\r";);\
-	# if [ -z $${LATEST_PGDB_VERSION} ] || [[ $${LATEST_FILE_VERSION} > $${LATEST_PGDB_VERSION} ]]; then\
-		# if [ $${LATEST_PGDB_VERSION} ]; then\
-			# psql -c "DROP TABLE IF EXISTS \"${STATE}\".$${LATEST_PGDB_VERSION} CASCADE;";\
-		# fi;\
-		# SHP_DIR="${_HERE_SHAPEFILES_DIR}/${STATE}/$${VER}/";\
-		# OGR_OUTPUT=$$(\
-			# ogr2ogr -t_srs EPSG:4326 -f \
-				# PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-				# "$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=${STATE} -lco OVERWRITE=YES -nln "$${LATEST_FILE_VERSION}" 2>&1;\
-		# );\
-		# if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
-			# ogr2ogr -t_srs EPSG:4326 -f \
-				# PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-				# "$${SHP_DIR}" -lco SCHEMA=${STATE} -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "$${LATEST_FILE_VERSION}";\
-		# fi;\
-		# psql -c "CREATE TABLE IF NOT EXISTS public.here_shapefile (LIKE \"${STATE}\".$${LATEST_FILE_VERSION} EXCLUDING ALL);";\
-		# psql -c "ALTER TABLE \"${STATE}\".$${LATEST_FILE_VERSION} INHERIT public.here_shapefile;";\
-	# fi;
-
-# db/upload-here-link-speedlimits:
-	# @:$(call check_defined,STATE)
-	# @if ! psql -c '\d public.here_link_speedlimits' > /dev/null 2>&1; then\
-		# node ${_MKFILE_DIR}/src/speedlimitScraper/uploadSpeedlimits.js --state=${STATE} --overwrite;\
-	# fi
-	
-
