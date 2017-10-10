@@ -11,6 +11,13 @@ PATH := $(PATH):node_modules/.bin
 
 .DEFAULT_GOAL := echo_conf
 
+# Transform STATE to lowercase
+STATE := $(shell echo ${STATE} | tr '[:upper:]' '[:lower:]')
+
+# zero-pad months: see https://stackoverflow.com/a/9671373/3970755
+MONTH:=$(shell if [ ${MONTH} ]; then printf '%02d' ${MONTH}; fi)
+
+
 _MKFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 _BIN_DIR := ${_MKFILE_DIR}bin
@@ -28,17 +35,13 @@ _ETL_TRANSFORMED_DIR := ${_ETL_DIR}/transformed
 _MPO_BOUNDARIES_DIR := ${_DATA_DIR}/shapefiles/mpo_boundaries/us
 _MPO_ACRONYMS_CSV_PATH := ${_DATA_DIR}/csvs/mpo_abbreviations/mpo_abbreviations.csv
 
+_URBAN_AREAS_DIR := ${_DATA_DIR}/shapefiles/urban_area/us
+
 _INRIX_SHAPEFILES_DIR := ${_DATA_DIR}/shapefiles/inrix_shapefile
 
 _SCRAPED_SPEEDLIMITS_DIR := "${_MKFILE_DIR}/src/speedlimitScraper/data"
 _PARSED_SPEEDLIMITS_DIR := "${_MKFILE_DIR}/src/speedlimitScraper/parsed-speedlimit-data"
 _SPEEDLIMITS_DATA_DIR := "${_DATA_DIR}/csv/speedlimits"
-
-# Transform STATE to lowercase
-STATE := $(shell echo ${STATE} | tr '[:upper:]' '[:lower:]')
-
-# zero-pad months: see https://stackoverflow.com/a/9671373/3970755
-MONTH:=$(shell if [ ${MONTH} ]; then printf '%02d' ${MONTH}; fi)
 
 # https://www.gnu.org/software/make/manual/make.html#Special-Targets
 # The targets which .SECONDARY depends on are treated as intermediate files,
@@ -302,7 +305,6 @@ db/upload-mpo-boundaries: db/create-database db/create-schema-us
 	@set -e;\
 	LATEST_VERSION=$$(ls ${_MPO_BOUNDARIES_DIR} | sort | tail -1);\
 	SHP_DIR=${_MPO_BOUNDARIES_DIR}/$${LATEST_VERSION};\
-	psql -c "DROP VIEW IF EXISTS public.mpo_boundaries;";\
 	pushd $${SHP_DIR} && unzip -o "*.zip" && popd;\
 	OGR_OUTPUT=$$(\
 		ogr2ogr -t_srs EPSG:4326 -f \
@@ -319,6 +321,7 @@ db/upload-mpo-boundaries: db/create-database db/create-schema-us
 		psql -c 'CREATE TABLE us.mpo_acronymns (mpo_id VARCHAR PRIMARY KEY, mpo_acrony VARCHAR);';\
 		cat '${_MPO_ACRONYMS_CSV_PATH}' | psql -c "COPY us.mpo_acronymns (mpo_id, mpo_acrony) FROM STDIN CSV HEADER;";\
 	fi;\
+	psql -c "DROP VIEW IF EXISTS public.mpo_boundaries;";\
 	psql -c "CREATE VIEW public.mpo_boundaries AS SELECT * FROM us.mpo_boundaries_$${LATEST_VERSION} LEFT OUTER JOIN us.mpo_acronymns USING (mpo_id);";\
 	find $${SHP_DIR} \
 		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
@@ -351,6 +354,36 @@ db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
 	else\
 		echo "INRIX Shapefile in the database is the latest.";\
 	fi;
+
+db/upload-urban-area-shapefile: db/create-database db/create-schema-us
+	@set -e;\
+	LATEST_VERSION=$$(ls ${_URBAN_AREAS_DIR} | sort | tail -1);\
+	SHP_DIR=${_URBAN_AREAS_DIR}/$${LATEST_VERSION};\
+	pushd $${SHP_DIR} && unzip -o "*.zip" && popd;\
+	OGR_OUTPUT=$$(\
+		ogr2ogr -t_srs EPSG:4326 -f \
+			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+			"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=us -lco OVERWRITE=YES -nln "urban_area_$${LATEST_VERSION}" 2>&1;\
+	);\
+	if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
+		OGR_OUTPUT=$$(\
+			ogr2ogr -t_srs EPSG:4326 -f \
+				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+				"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "urban_area_$${LATEST_VERSION}";\
+		);\
+		if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
+			echo $${OGR_OUTPUT};\
+			exit 1;\
+		fi;\
+	fi;\
+	psql -c "DROP VIEW IF EXISTS public.urban_areas;";\
+	psql -c "CREATE VIEW public.urban_area AS SELECT * FROM us.urban_area_$${LATEST_VERSION};";\
+	find $${SHP_DIR} \
+		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
+		-type f -delete;
+
+
+
 
 db/create-state-abbreviations-table: db/create-database
 	@if ! psql -c '\d public.state_abbreviations' > /dev/null 2>&1; then\
@@ -502,6 +535,7 @@ db/create-state-nprm1and2-time-dist-table: db/create-root-nprm1and2-time-dist-ta
 	@if ! psql -c '\d "${STATE}".nprm1and2_time_dist' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm1and2_time_dist/create_state_nprm1and2_time_dist_table.sql)";\
 	fi
+
 
 
 
@@ -897,7 +931,11 @@ scraping/scrape-speedlimits: db/upload-inrix-shapefile-for-state
 scraping/update-scraped-speedlimits-info: db/upload-inrix-shapefile-for-state
 	@:$(call check_defined,STATE)
 	node ./src/speedlimitScraper/speedlimitsScraper.js --state=${STATE};\
+
+scraping/download-urban-areas-boundaries-shapefile:
+	${_BIN_DIR}/scrapeCensus.js --geographyType=urban_area
 	
+
 preprocessing/create-speedlimits-csv: scraping/scrape-speedlimits
 	@:$(call check_defined,STATE)
 	@if [ ! -f "${_PARSED_SPEEDLIMITS_DIR}/${STATE}_avg_speedlimits.csv" ]; then\
