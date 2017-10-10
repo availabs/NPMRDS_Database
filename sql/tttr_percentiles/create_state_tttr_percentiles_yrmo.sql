@@ -27,7 +27,8 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
            (epoch / 3) AS fifteen_min_bin,
            date,
            ROUND(AVG(COALESCE(travel_time_freight_trucks, travel_time_all_vehicles))) AS avg_travel_time
-      FROM "__STATE__".npmrds_y__YEAR__m__MONTH__
+      FROM "__STATE__".npmrds
+      WHERE (date >= '__START_DATE__'::DATE) AND (date < '__END_DATE__'::DATE)
       GROUP BY tmc, state, date, fifteen_min_bin
   ) AS averages
   GROUP BY tmc, time_period

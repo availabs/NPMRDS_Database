@@ -27,8 +27,9 @@ CREATE TEMPORARY TABLE tmp_monthly_counts AS
          nprm1and2TimeBinFunc(date::date, epoch::integer) AS time_period,
          travel_time_all_vehicles,
          COUNT(*) AS ct
-  FROM "__STATE__".npmrds_y__YEAR__m__MONTH__
+  FROM "__STATE__".npmrds
   WHERE (epoch BETWEEN (6*12) AND (20*12-1))
+    AND ((date >= DATE '__START_DATE__') AND (date < '__END_DATE__'))
   GROUP BY tmc, 
            time_period,
            --  nprm1and2TimeBinFunc(date::date, epoch::integer),

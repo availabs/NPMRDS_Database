@@ -39,7 +39,8 @@ INSERT INTO "__STATE__".nprm7_time_dist_y__YEAR__m__MONTH__
                (epoch / 12) AS hour,
                travel_time_all_vehicles,
                COUNT(*) AS ct
-        FROM "__STATE__".npmrds_y__YEAR__m__MONTH__
+        FROM "__STATE__".npmrds
+        WHERE ((date >= DATE '__START_DATE__') AND (date < '__END_DATE__'))
         GROUP BY tmc, hour, travel_time_all_vehicles -- for occurrances
       ) AS occurrances
       GROUP BY tmc, hour

@@ -524,11 +524,20 @@ db/create-state-nprm1and2-time-dist-yrmo-table: db/create-state-nprm1and2-time-d
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
 	@if ! psql -c '\d "${STATE}".nprm1and2_time_dist_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		if [[ ${MONTH} -eq 0 ]]; then\
+			START_DATE="$$(date -d "${YEAR}-01-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 year" '+%F')";\
+		else\
+			START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 month" '+%F')";\
+		fi;\
 		psql -c "$$(\
 			sed "\
 				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
+				s/__START_DATE__/$${START_DATE}/g;\
+				s/__END_DATE__/$${END_DATE}/g;\
 			" ./sql/nprm1and2_time_dist/create_state_nprm1and2_time_dist_yrmo_table.sql\
 		)";\
 	fi
@@ -579,11 +588,20 @@ db/create-state-nprm3and4-hourly-travel-time-avgs-yrmo-table: \
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
 	@if ! psql -c '\d "${STATE}".nprm3and4_hourly_travel_time_avgs_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		if [[ ${MONTH} -eq 0 ]]; then\
+			START_DATE="$$(date -d "${YEAR}-01-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 year" '+%F')";\
+		else\
+			START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 month" '+%F')";\
+		fi;\
 		psql -c "$$(\
 			sed "\
 				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
+				s/__START_DATE__/$${START_DATE}/g;\
+				s/__END_DATE__/$${END_DATE}/g;\
 			" ./sql/nprm3and4_hourly_travel_time_avgs/create_state_nprm3and4_hourly_travel_time_avgs_yrmo.sql\
 		)";\
 	fi
@@ -634,11 +652,20 @@ db/create-state-nprm5and6-truck-time-dist-yrmo-table: \
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
 	@if ! psql -c '\d "${STATE}".nprm5and6_truck_time_dist_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		if [[ ${MONTH} -eq 0 ]]; then\
+			START_DATE="$$(date -d "${YEAR}-01-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 year" '+%F')";\
+		else\
+			START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 month" '+%F')";\
+		fi;\
 		psql -c "$$(\
 			sed "\
 				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
+				s/__START_DATE__/$${START_DATE}/g;\
+				s/__END_DATE__/$${END_DATE}/g;\
 			" ./sql/nprm5and6_truck_time_dist/create_state_nprm5and6_truck_time_dist_yrmo.sql\
 		)";\
 	fi
@@ -686,11 +713,20 @@ db/create-state-nprm7-time-dist-yrmo-table: \
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
 	@if ! psql -c '\d "${STATE}".nprm7_time_dist_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		if [[ ${MONTH} -eq 0 ]]; then\
+			START_DATE="$$(date -d "${YEAR}-01-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 year" '+%F')";\
+		else\
+			START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 month" '+%F')";\
+		fi;\
 		psql -c "$$(\
 			sed "\
 				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
+				s/__START_DATE__/$${START_DATE}/g;\
+				s/__END_DATE__/$${END_DATE}/g;\
 			" ./sql/nprm7_time_dist/create_state_nprm7_time_dist_yrmo.sql\
 		)";\
 	fi
@@ -739,11 +775,20 @@ db/create-state-lottr-percentiles-yrmo-table: \
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
 	@if ! psql -c '\d "${STATE}".lottr_percentiles_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		if [[ ${MONTH} -eq 0 ]]; then\
+			START_DATE="$$(date -d "${YEAR}-01-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 year" '+%F')";\
+		else\
+			START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 month" '+%F')";\
+		fi;\
 		psql -c "$$(\
 			sed "\
 				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
+				s/__START_DATE__/$${START_DATE}/g;\
+				s/__END_DATE__/$${END_DATE}/g;\
 			" ./sql/lottr_percentiles/create_state_lottr_percentiles_yrmo.sql\
 		)";\
 	fi
@@ -791,11 +836,20 @@ db/create-state-tttr-percentiles-yrmo-table: \
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
 	@if ! psql -c '\d "${STATE}".tttr_percentiles_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		if [[ ${MONTH} -eq 0 ]]; then\
+			START_DATE="$$(date -d "${YEAR}-01-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 year" '+%F')";\
+		else\
+			START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 month" '+%F')";\
+		fi;\
 		psql -c "$$(\
 			sed "\
 				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
+				s/__START_DATE__/$${START_DATE}/g;\
+				s/__END_DATE__/$${END_DATE}/g;\
 			" ./sql/tttr_percentiles/create_state_tttr_percentiles_yrmo.sql\
 		)";\
 	fi

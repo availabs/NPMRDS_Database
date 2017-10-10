@@ -56,8 +56,9 @@ INSERT INTO "__STATE__".nprm5and6_truck_time_dist_y__YEAR__m__MONTH__
              travel_time_all_vehicles
            ) AS travel_time,
            COUNT(*) AS ct
-    FROM "__STATE__".npmrds_y__YEAR__m__MONTH__ 
+    FROM "__STATE__".npmrds
       LEFT OUTER JOIN tmc_attributes USING (tmc)
+    WHERE ((date >= DATE '__START_DATE__') AND (date < '__END_DATE__'))
     GROUP BY tmc, travel_time
   ) AS occurrances
   GROUP BY tmc);

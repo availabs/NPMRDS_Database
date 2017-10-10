@@ -26,8 +26,9 @@ CREATE TABLE "__STATE__".lottr_percentiles_y__YEAR__m__MONTH__ AS
              date,
              (epoch / 3) AS fifteen_min_bin,
              ROUND(AVG(travel_time_all_vehicles)) AS avg_travel_time
-        FROM "__STATE__".npmrds_y__YEAR__m__MONTH__
-        WHERE (epoch BETWEEN 72 AND 239) -- between is inclusive
+        FROM "__STATE__".npmrds
+        WHERE (date >= '__START_DATE__'::DATE) AND (date < '__END_DATE__'::DATE)
+          AND (epoch BETWEEN 72 AND 239) -- between is inclusive
         GROUP BY tmc, state, date, fifteen_min_bin
     ) AS averages
     GROUP BY tmc, time_period
