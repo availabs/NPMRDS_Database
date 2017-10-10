@@ -676,7 +676,7 @@ db/drop-state-nprm7-time-dist-yrmo-table:
 				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
-			" ./sql/nprm7_time_dist/drop_state_nprm7_time_dist_yrmo.sql
+			" ./sql/nprm7_time_dist/drop_state_nprm7_time_dist_yrmo.sql\
 		)";\
 	fi
 
@@ -719,6 +719,35 @@ db/create-state-lottr-percentiles-table: db/create-root-lottr-percentiles-table
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/lottr_percentiles/create_state_lottr_percentiles.sql)";\
 	fi
 
+db/drop-state-lottr-percentiles-yrmo-table:
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if psql -c '\d "${STATE}".lottr_percentiles_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/lottr_percentiles/drop_state_lottr_percentiles_yrmo.sql\
+		)";\
+	fi
+
+db/create-state-lottr-percentiles-yrmo-table: \
+	db/create-state-lottr-percentiles-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if ! psql -c '\d "${STATE}".lottr_percentiles_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/lottr_percentiles/create_state_lottr_percentiles_yrmo.sql\
+		)";\
+	fi
+
 
 db/drop-root-tttr-percentiles-table:
 	@if psql -c '\d public.tttr_percentiles' > /dev/null 2>&1; then\
@@ -740,6 +769,35 @@ db/create-state-tttr-percentiles-table: db/create-root-tttr-percentiles-table
 	@:$(call check_defined,STATE)
 	@if ! psql -c '\d "${STATE}".tttr_percentiles' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tttr_percentiles/create_state_tttr_percentiles.sql)";\
+	fi
+
+db/drop-state-tttr-percentiles-yrmo-table:
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if psql -c '\d "${STATE}".tttr_percentiles_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/tttr_percentiles/drop_state_tttr_percentiles_yrmo.sql\
+		)";\
+	fi
+
+db/create-state-tttr-percentiles-yrmo-table: \
+	db/create-state-tttr-percentiles-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if ! psql -c '\d "${STATE}".tttr_percentiles_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/tttr_percentiles/create_state_tttr_percentiles_yrmo.sql\
+		)";\
 	fi
 
 
@@ -764,6 +822,7 @@ db/create-state-top-level-travel-time-reliability-table: db/create-root-top-leve
 	@if ! psql -c '\d "${STATE}".top_level_travel_time_reliability' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/top_level_travel_time_reliability/create_state_top_level_travel_time_reliability.sql)";\
 	fi
+
 
 
 
