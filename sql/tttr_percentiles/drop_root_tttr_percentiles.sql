@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS tttr_percentiles CASCADE;

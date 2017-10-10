@@ -482,65 +482,165 @@ db/create-nprm3and4TimeBinFunc:
 
 
 db/drop-root-nprm1and2_time_dist_table:
-	@psql -f './sql/nprm1and2_time_dist/drop_root_nprm1and2_time_dist_table.sql'
+	@if psql -c '\d "public".nprm1and2_time_dist' > /dev/null 2>&1; then\
+		psql -f './sql/nprm1and2_time_dist/drop_root_nprm1and2_time_dist_table.sql';\
+	fi
 
 
 db/create-root-nprm1and2_time_dist_table:
-	@psql -f './sql/nprm1and2_time_dist/create_root_nprm1and2_time_dist_table.sql'
+	@if ! psql -c '\d "public".nprm1and2_time_dist' > /dev/null 2>&1; then\
+		psql -f './sql/nprm1and2_time_dist/create_root_nprm1and2_time_dist_table.sql';\
+	fi
 
 
 db/drop-state-nprm1and2_time_dist_table:
 	@:$(call check_defined,STATE)
-	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm1and2_time_dist/drop_state_nprm1and2_time_dist_table.sql)"
+	@if psql -c '\d "${STATE}".nprm1and2_time_dist' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm1and2_time_dist/drop_state_nprm1and2_time_dist_table.sql)";\
+	fi
 
 db/create-state-nprm1and2_time_dist_table: db/create-root-nprm1and2_time_dist_table
 	@:$(call check_defined,STATE)
-	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm1and2_time_dist/create_state_nprm1and2_time_dist_table.sql)"
+	@if ! psql -c '\d "${STATE}".nprm1and2_time_dist' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm1and2_time_dist/create_state_nprm1and2_time_dist_table.sql)";\
+	fi
 
 
 db/drop-root-nprm3and4_time_dist_table:
-	@psql -f './sql/nprm3and4_hourly_travel_time_averages/drop_root_nprm3and4_hourly_travel_time_averages.sql'
+	@if psql -c '\d public.nprm3and4_hourly_travel_time_avgs' > /dev/null 2>&1; then\
+		psql -f './sql/nprm3and4_hourly_travel_time_avgs/drop_root_nprm3and4_hourly_travel_time_avgs.sql';\
+	fi
 
 db/create-root-nprm3and4_time_dist_table:
-	@psql -f './sql/nprm3and4_hourly_travel_time_averages/create_root_nprm3and4_hourly_travel_time_averages.sql'
+	@if ! psql -c '\d public.nprm3and4_hourly_travel_time_avgs' > /dev/null 2>&1; then\
+		psql -f './sql/nprm3and4_hourly_travel_time_avgs/create_root_nprm3and4_hourly_travel_time_avgs.sql';\
+	fi
 
 db/drop-state-nprm3and4_time_dist_table:
 	@:$(call check_defined,STATE)
-	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm3and4_hourly_travel_time_averages/drop_state_nprm3and4_hourly_travel_time_averages.sql)"
+	@if psql -c '\d "${STATE}".nprm3and4_hourly_travel_time_avgs' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm3and4_hourly_travel_time_avgs/drop_state_nprm3and4_hourly_travel_time_avgs.sql)";\
+	fi
 
-db/create-state-nprm3and4_time_dist_table: db/drop-root-nprm3and4_time_dist_table
+db/create-state-nprm3and4_time_dist_table: db/create-root-nprm3and4_time_dist_table
 	@:$(call check_defined,STATE)
-	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm3and4_hourly_travel_time_averages/create_state_nprm3and4_hourly_travel_time_averages.sql)"
-
+	@if ! psql -c '\d "${STATE}".nprm3and4_hourly_travel_time_avgs' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm3and4_hourly_travel_time_avgs/create_state_nprm3and4_hourly_travel_time_avgs.sql)";\
+	fi
 
 db/drop-root-nprm5and6_truck_time_dist_table:
-	@psql -f './sql/nprm5and6_truck_time_dist/drop_root_nprm5and6_truck_time_dist.sql'
+	@if psql -c '\d public.nprm5and6_truck_time_dist' > /dev/null 2>&1; then\
+		psql -f './sql/nprm5and6_truck_time_dist/drop_root_nprm5and6_truck_time_dist.sql';\
+	fi
 
 db/create-root-nprm5and6_truck_time_dist_table:
-	@psql -f './sql/nprm5and6_truck_time_dist/create_root_nprm5and6_truck_time_dist.sql'
+	@if ! psql -c '\d public.nprm5and6_truck_time_dist' > /dev/null 2>&1; then\
+		psql -f './sql/nprm5and6_truck_time_dist/create_root_nprm5and6_truck_time_dist.sql';\
+	fi
 
 db/drop-state-nprm5and6_truck_time_dist_table:
 	@:$(call check_defined,STATE)
-	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm5and6_truck_time_dist/drop_state_nprm5and6_truck_time_dist.sql)"
+	@if psql -c '\d "${STATE}".nprm5and6_truck_time_dist' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm5and6_truck_time_dist/drop_state_nprm5and6_truck_time_dist.sql)";\
+	fi
 
-db/create-state-nprm5and6_truck_time_dist_table: db/drop-root-nprm5and6_truck_time_dist_table
+db/create-state-nprm5and6_truck_time_dist_table: db/create-root-nprm5and6_truck_time_dist_table
 	@:$(call check_defined,STATE)
-	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm5and6_truck_time_dist/create_state_nprm5and6_truck_time_dist.sql)"
-
+	@if ! psql -c '\d "${STATE}".nprm5and6_truck_time_dist' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm5and6_truck_time_dist/create_state_nprm5and6_truck_time_dist.sql)";\
+	fi
 
 db/drop-root-nprm7_time_dist_table:
-	@psql -f './sql/nprm7_time_dist/drop_root_nprm7_time_dist.sql'
+	@if psql -c '\d public.nprm7_time_dist' > /dev/null 2>&1; then\
+		psql -f './sql/nprm7_time_dist/drop_root_nprm7_time_dist.sql';\
+	fi
 
 db/create-root-nprm7_time_dist_table:
-	@psql -f './sql/nprm7_time_dist/create_root_nprm7_time_dist.sql'
+	@if ! psql -c '\d public.nprm7_time_dist' > /dev/null 2>&1; then\
+		psql -f './sql/nprm7_time_dist/create_root_nprm7_time_dist.sql';\
+	fi
 
 db/drop-state-nprm7_time_dist_table:
 	@:$(call check_defined,STATE)
-	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm7_time_dist/drop_state_nprm7_time_dist.sql)"
+	@if psql -c '\d "${STATE}".nprm7_time_dist' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm7_time_dist/drop_state_nprm7_time_dist.sql)";\
+	fi
 
-db/create-state-nprm7_time_dist_table: db/drop-root-nprm7_time_dist_table
+db/create-state-nprm7_time_dist_table: db/create-root-nprm7_time_dist_table
 	@:$(call check_defined,STATE)
-	@psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm7_time_dist/create_state_nprm7_time_dist.sql)"
+	@if ! psql -c '\d "${STATE}".nprm7_time_dist' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/nprm7_time_dist/create_state_nprm7_time_dist.sql)";\
+	fi
+
+
+db/drop-root-lottr-percentiles-table:
+	@if psql -c '\d public.lottr_percentiles' > /dev/null 2>&1; then\
+		psql -f './sql/lottr_percentiles/drop_root_lottr_percentiles.sql';\
+	fi
+
+db/create-root-lottr-percentiles-table:
+	@if ! psql -c '\d public.lottr_percentiles' > /dev/null 2>&1; then\
+		psql -f './sql/lottr_percentiles/create_root_lottr_percentiles.sql';\
+	fi
+
+db/drop-state-lottr-percentiles-table:
+	@:$(call check_defined,STATE)
+	@if psql -c '\d "${STATE}".lottr_percentiles' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/lottr_percentiles/drop_state_lottr_percentiles.sql)";\
+	fi
+
+db/create-state-lottr-percentiles-table: db/create-root-lottr-percentiles-table
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".lottr_percentiles' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/lottr_percentiles/create_state_lottr_percentiles.sql)";\
+	fi
+
+
+db/drop-root-tttr-percentiles-table:
+	@if psql -c '\d public.tttr_percentiles' > /dev/null 2>&1; then\
+		psql -f './sql/tttr_percentiles/drop_root_tttr_percentiles.sql';\
+	fi
+
+db/create-root-tttr-percentiles-table:
+	@if ! psql -c '\d public.tttr_percentiles' > /dev/null 2>&1; then\
+		psql -f './sql/tttr_percentiles/create_root_tttr_percentiles.sql';\
+	fi
+
+db/drop-state-tttr-percentiles-table:
+	@:$(call check_defined,STATE)
+	@if psql -c '\d "${STATE}".tttr_percentiles' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tttr_percentiles/drop_state_tttr_percentiles.sql)";\
+	fi
+
+db/create-state-tttr-percentiles-table: db/create-root-tttr-percentiles-table
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".tttr_percentiles' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tttr_percentiles/create_state_tttr_percentiles.sql)";\
+	fi
+
+
+db/drop-root-top-level-travel-time-reliability-table:
+	@if psql -c '\d public.top_level_travel_time_reliability' > /dev/null 2>&1; then\
+		psql -f './sql/top_level_travel_time_reliability/drop_root_top_level_travel_time_reliability.sql';\
+	fi
+
+db/create-root-top-level-travel-time-reliability-table:
+	@if ! psql -c '\d public.top_level_travel_time_reliability' > /dev/null 2>&1; then\
+		psql -f './sql/top_level_travel_time_reliability/create_root_top_level_travel_time_reliability.sql';\
+	fi
+
+db/drop-state-top-level-travel-time-reliability-table:
+	@:$(call check_defined,STATE)
+	@if psql -c '\d "${STATE}".top_level_travel_time_reliability' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/top_level_travel_time_reliability/drop_state_top_level_travel_time_reliability.sql)";\
+	fi
+
+db/create-state-top-level-travel-time-reliability-table: db/create-root-top-level-travel-time-reliability-table
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".top_level_travel_time_reliability' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/top_level_travel_time_reliability/create_state_top_level_travel_time_reliability.sql)";\
+	fi
+
 
 
 #####################################################
