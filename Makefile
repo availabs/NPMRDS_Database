@@ -393,21 +393,21 @@ db/upload-core-based-staticstical-area-boundaries-shapefile: db/create-database 
 	OGR_OUTPUT=$$(\
 		ogr2ogr -t_srs EPSG:4326 -f \
 			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-			"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=us -lco OVERWRITE=YES -nln "core_based_staticstical_area_boundaries_$${LATEST_VERSION}" 2>&1;\
+			"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=us -lco OVERWRITE=YES -nln "core_based_statistical_area_boundaries_$${LATEST_VERSION}" 2>&1;\
 	);\
 	if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
 		OGR_OUTPUT=$$(\
 			ogr2ogr -t_srs EPSG:4326 -f \
 				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-				"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "core_based_staticstical_area_boundaries_$${LATEST_VERSION}";\
+				"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "core_based_statistical_area_boundaries_$${LATEST_VERSION}";\
 		);\
 		if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
 			echo $${OGR_OUTPUT};\
 			exit 1;\
 		fi;\
 	fi;\
-	psql -c "DROP VIEW IF EXISTS public.core_based_staticstical_area_boundaries;";\
-	psql -c "CREATE VIEW public.core_based_staticstical_area_boundaries AS SELECT * FROM us.core_based_staticstical_area_boundaries_$${LATEST_VERSION};";\
+	psql -c "DROP VIEW IF EXISTS public.core_based_statistical_area_boundaries;";\
+	psql -c "CREATE VIEW public.core_based_statistical_area_boundaries AS SELECT * FROM us.core_based_statistical_area_boundaries_$${LATEST_VERSION};";\
 	find $${SHP_DIR} \
 		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
 		-type f -delete;
@@ -418,6 +418,68 @@ db/upload-core-based-staticstical-area-boundaries-shapefile: db/create-database 
 db/create-state-abbreviations-table: db/create-database
 	@if ! psql -c '\d public.state_abbreviations' > /dev/null 2>&1; then\
 		psql -f 'sql/state_abbreviations/createStateAbbreviationsTable.sql';\
+	fi
+
+
+db/drop-root-regions-table:
+	@if psql -c '\d public.regions' > /dev/null 2>&1; then\
+		psql -f ./sql/regions/drop_root_regions_table.sql;\
+	fi
+
+db/create-root-regions-table: db/create-database
+	@if ! psql -c '\d public.regions' > /dev/null 2>&1; then\
+		psql -f ./sql/regions/create_root_regions_table.sql;\
+	fi
+
+
+db/drop-state-regions-table:
+	@:$(call check_defined,STATE)
+	@if psql -c '\d "${STATE}".regions' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/regions/drop_state_regions_table.sql)";\
+	fi
+
+db/create-state-regions-table: db/create-root-regions-table
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".regions' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/regions/create_state_regions_table.sql)";\
+	fi
+
+
+db/load-state-regions-table: db/create-state-regions-table
+	@:$(call check_defined,STATE)
+	@if [ -f ./sql/regions/${STATE}/load_regions.sql ]; then\
+		psql -f ./sql/regions/${STATE}/load_regions.sql;\
+	fi
+
+
+db/drop-root-region-to-county-table:
+	@if psql -c '\d public.region_to_county' > /dev/null 2>&1; then\
+		psql -f ./sql/region_to_county/drop_root_region_to_county_table.sql;\
+	fi
+
+db/create-root-region-to-county-table: db/create-database
+	@if ! psql -c '\d public.region_to_county' > /dev/null 2>&1; then\
+		psql -f ./sql/region_to_county/create_root_region_to_county_table.sql;\
+	fi
+
+
+db/drop-state-region-to-county-table:
+	@:$(call check_defined,STATE)
+	@if psql -c '\d "${STATE}".region_to_county' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/region_to_county/drop_state_region_to_county_table.sql)";\
+	fi
+
+db/create-state-region-to-county-table: db/create-root-region-to-county-table
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".region_to_county' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/region_to_county/create_state_region_to_county_table.sql)";\
+	fi
+
+
+db/load-state-region-to-county-table: db/create-state-region-to-county-table
+	@:$(call check_defined,STATE)
+	@if [ -f ./sql/region_to_county/${STATE}/load_region_to_county.sql ]; then\
+		psql -f ./sql/region_to_county/${STATE}/load_region_to_county.sql;\
 	fi
 
 

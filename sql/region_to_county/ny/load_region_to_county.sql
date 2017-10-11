@@ -1,0 +1,75 @@
+-- https://www.dot.ny.gov/divisions/engineering/technical-services/hds-respository/Traffic%20Data%20Report%202011%20Appendix%20D%20-%20NYSDOT%20Regions%20and%20County%20Codes.pdf
+
+BEGIN;
+
+TRUNCATE ny.region_to_county;
+
+INSERT INTO ny.region_to_county (region_id, county_name, state)
+  VALUES
+    (1, 'Albany', 'ny'),
+    (1, 'Essex', 'ny'),
+    (1, 'Greene', 'ny'),
+    (1, 'Rensselaer', 'ny'),
+    (1, 'Saratoga', 'ny'),
+    (1, 'Schenectady', 'ny'),
+    (1, 'Warren', 'ny'),
+    (1, 'Washington', 'ny'),
+    (2, 'Fulton', 'ny'),
+    (2, 'Hamilton', 'ny'),
+    (2, 'Herkimer', 'ny'),
+    (2, 'Madison', 'ny'),
+    (2, 'Montgomery', 'ny'),
+    (2, 'Oneida', 'ny'),
+    (3, 'Cayuga', 'ny'),
+    (3, 'Cortland', 'ny'),
+    (3, 'Onondaga', 'ny'),
+    (3, 'Oswego', 'ny'),
+    (3, 'Seneca', 'ny'),
+    (3, 'Tompkins', 'ny'),
+    (4, 'Genesee', 'ny'),
+    (4, 'Livingston', 'ny'),
+    (4, 'Monroe', 'ny'),
+    (4, 'Ontario', 'ny'),
+    (4, 'Orleans', 'ny'),
+    (4, 'Wayne', 'ny'),
+    (4, 'Wyoming', 'ny'),
+    (5, 'Cattaraugus', 'ny'),
+    (5, 'Chautauqua', 'ny'),
+    (5, 'Erie', 'ny'),
+    (5, 'Niagara', 'ny'),
+    (6, 'Allegany', 'ny'),
+    (6, 'Chemung', 'ny'),
+    (6, 'Schuyler', 'ny'),
+    (6, 'Steuben', 'ny'),
+    (6, 'Yates', 'ny'),
+    (7, 'Clinton', 'ny'),
+    (7, 'Franklin', 'ny'),
+    (7, 'Jefferson', 'ny'),
+    (7, 'Lewis', 'ny'),
+    (7, 'St Lawrence', 'ny'),
+    (8, 'Columbia', 'ny'),
+    (8, 'Dutchess', 'ny'),
+    (8, 'Orange', 'ny'),
+    (8, 'Putnam', 'ny'),
+    (8, 'Rockland', 'ny'),
+    (8, 'Ulster', 'ny'),
+    (8, 'Westchester', 'ny'),
+    (9, 'Broome', 'ny'),
+    (9, 'Chenango', 'ny'),
+    (9, 'Delaware', 'ny'),
+    (9, 'Otsego', 'ny'),
+    (9, 'Schoharie', 'ny'),
+    (9, 'Sullivan', 'ny'),
+    (9, 'Tioga', 'ny'),
+    (10, 'Nassau', 'ny'),
+    (10, 'Suffolk', 'ny'),
+    (11, 'Bronx', 'ny'),
+    (11, 'Kings', 'ny'),
+    (11, 'New York', 'ny'),
+    (11, 'Queens', 'ny'),
+    (11, 'Richmond', 'ny')
+;
+
+COMMIT;
+
+VACUUM ANALYZE ny.region_to_county;
