@@ -7,6 +7,7 @@ CREATE MATERIALIZED VIEW tmc_attributes
       SELECT
           tmc,
           geoid AS cbsa_code,
+          name AS cbsa_name,
           ST_Length(
             ST_Intersection(
               tmc_shp.wkb_geometry,
@@ -24,7 +25,8 @@ CREATE MATERIALIZED VIEW tmc_attributes
     ), cte_tmc_to_cbsa AS (
       SELECT
           tmc,
-          cbsa_code
+          cbsa_code,
+          cbsa_name
         FROM cte_tmc_cbsa_intersections
         WHERE (tmc, intersection_len) IN (
           SELECT
@@ -37,6 +39,7 @@ CREATE MATERIALIZED VIEW tmc_attributes
       SELECT
           tmc,
           mpo_id AS mpo_code,
+          mpo_name,
           ST_Length(
             ST_Intersection(
               tmc_shp.wkb_geometry,
@@ -54,7 +57,8 @@ CREATE MATERIALIZED VIEW tmc_attributes
     ), cte_tmc_to_mpo AS (
       SELECT
           tmc,
-          mpo_code
+          mpo_code,
+          mpo_name
         FROM cte_tmc_mpo_intersections
         WHERE (tmc, intersection_len) IN (
           SELECT
@@ -134,7 +138,16 @@ CREATE MATERIALIZED VIEW tmc_attributes
         avg_speedlimit,
 
         cte_tmc_to_cbsa.cbsa_code,
-        cte_tmc_to_mpo.mpo_code
+        cte_tmc_to_cbsa.cbsa_name,
+
+        cte_tmc_to_mpo.mpo_code,
+        cte_tmc_to_mpo.mpo_name,
+
+        inrix_shapefile.urban_code AS ua_code,
+        ua.name10 AS ua_name,
+
+        regions.id AS region_code,
+        regions.name AS region_name
 
     FROM inrix_shapefile
       LEFT OUTER JOIN state_abbreviations
@@ -145,11 +158,25 @@ CREATE MATERIALIZED VIEW tmc_attributes
           AND (inrix_shapefile.county = occupancy_factor.geography_level_name)
           AND (occupancy_factor.geography_level = 'COUNTY')
         )
-      LEFT OUTER JOIN avg_speedlimits USING (tmc)
-      LEFT OUTER JOIN cte_tmc_to_cbsa USING (tmc)
-      LEFT OUTER JOIN cte_tmc_to_mpo USING (tmc)
+      LEFT OUTER JOIN avg_speedlimits
+        USING (tmc)
+      LEFT OUTER JOIN cte_tmc_to_cbsa
+        USING (tmc)
+      LEFT OUTER JOIN cte_tmc_to_mpo
+        USING (tmc)
+      LEFT OUTER JOIN urban_area_boundaries AS ua
+        ON (LPAD(inrix_shapefile.urban_code::text, 5) = ua.geoid10)
+      LEFT OUTER JOIN region_to_county AS r_to_c
+        ON (
+          (inrix_shapefile.county = r_to_c.county)
+          AND
+          (state_abbreviations.abbreviation = r_to_c.state)
+        )
+      LEFT OUTER JOIN regions
+        ON (r_to_c.region_id = regions.id)
 
-    WITH NO DATA;
+    WITH NO DATA
+;
 
 REFRESH MATERIALIZED VIEW tmc_attributes;
 

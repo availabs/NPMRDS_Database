@@ -4,7 +4,7 @@ BEGIN;
 
 TRUNCATE ny.region_to_county;
 
-INSERT INTO ny.region_to_county (region_id, county_name, state)
+INSERT INTO ny.region_to_county (region_id, county, state)
   VALUES
     (1, 'Albany', 'ny'),
     (1, 'Essex', 'ny'),
@@ -46,7 +46,7 @@ INSERT INTO ny.region_to_county (region_id, county_name, state)
     (7, 'Franklin', 'ny'),
     (7, 'Jefferson', 'ny'),
     (7, 'Lewis', 'ny'),
-    (7, 'St Lawrence', 'ny'),
+    (7, 'St. Lawrence', 'ny'),
     (8, 'Columbia', 'ny'),
     (8, 'Dutchess', 'ny'),
     (8, 'Orange', 'ny'),

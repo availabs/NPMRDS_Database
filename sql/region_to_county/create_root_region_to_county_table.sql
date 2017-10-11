@@ -4,7 +4,7 @@ BEGIN;
 
 CREATE TABLE region_to_county (
   region_id SMALLINT,
-  county_name VARCHAR,
+  county VARCHAR,
   state VARCHAR(2)
 ) WITH (fillfactor=100, autovacuum_enabled=false);
 COMMIT;
