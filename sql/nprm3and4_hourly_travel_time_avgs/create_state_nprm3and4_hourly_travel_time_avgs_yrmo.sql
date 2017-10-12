@@ -43,8 +43,7 @@ INSERT INTO "__STATE__".nprm3and4_hourly_travel_time_avgs_y__YEAR__m__MONTH__
 				 AVG(travel_time_all_vehicles) AS avg_travel_time,
 				 nprm3and4TimeBinFunc(epoch::integer) AS time_period
       FROM "__STATE__".npmrds
-        JOIN inrix_shapefile
-        USING(tmc)
+        LEFT OUTER JOIN tmc_attributes USING(tmc)
       WHERE ((epoch BETWEEN 72 AND 108) OR (epoch BETWEEN 192 AND 227))
         AND (EXTRACT(DOW FROM date) BETWEEN 1 AND 5) -- Weekdays
         AND (date NOT IN (SELECT date from federal_holidays))

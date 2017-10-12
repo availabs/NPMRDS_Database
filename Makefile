@@ -1000,7 +1000,52 @@ db/create-state-top-level-travel-time-reliability-table: db/create-root-top-leve
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/top_level_travel_time_reliability/create_state_top_level_travel_time_reliability.sql)";\
 	fi
 
+db/load-state-top-level-travel-time-reliability-yrmo-table: db/create-state-top-level-travel-time-reliability-table
+	@:$(call check_defined,STATE)
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@psql -c "$$(\
+		sed "\
+			s/__STATE__/${STATE}/g;\
+			s/__YEAR__/${YEAR}/g;\
+			s/__MONTH__/${MONTH}/g;\
+			" ./sql/top_level_travel_time_reliability/create_state_top_level_travel_time_reliability_yrmo.sql\
+		)";\
 
+
+db/drop-root-top-level-freight-reliability-table:
+	@if psql -c '\d public.top_level_freight_reliability' > /dev/null 2>&1; then\
+		psql -f './sql/top_level_freight_reliability/drop_root_top_level_freight_reliability.sql';\
+	fi
+
+db/create-root-top-level-freight-reliability-table:
+	@if ! psql -c '\d public.top_level_freight_reliability' > /dev/null 2>&1; then\
+		psql -f './sql/top_level_freight_reliability/create_root_top_level_freight_reliability.sql';\
+	fi
+
+db/drop-state-top-level-freight-reliability-table:
+	@:$(call check_defined,STATE)
+	@if psql -c '\d "${STATE}".top_level_freight_reliability' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/top_level_freight_reliability/drop_state_top_level_freight_reliability.sql)";\
+	fi
+
+db/create-state-top-level-freight-reliability-table: db/create-root-top-level-freight-reliability-table
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".top_level_freight_reliability' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/top_level_freight_reliability/create_state_top_level_freight_reliability.sql)";\
+	fi
+
+db/load-state-top-level-freight-reliability-yrmo-table: db/create-state-top-level-freight-reliability-table
+	@:$(call check_defined,STATE)
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@psql -c "$$(\
+		sed "\
+			s/__STATE__/${STATE}/g;\
+			s/__YEAR__/${YEAR}/g;\
+			s/__MONTH__/${MONTH}/g;\
+			" ./sql/top_level_freight_reliability/create_state_top_level_freight_reliability_yrmo.sql\
+		)";\
 
 
 #####################################################

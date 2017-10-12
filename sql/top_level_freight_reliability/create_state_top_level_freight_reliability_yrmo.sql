@@ -30,7 +30,6 @@ SELECT tmc::VARCHAR(9),
          ((data->'WEEKEND')->1)::TEXT::REAL / NULLIF(((data->'WEEKEND')->0)::TEXT::REAL, 0),
          ((data->'OVERNIGHT')->1)::TEXT::REAL / NULLIF(((data->'OVERNIGHT')->0)::TEXT::REAL, 0)
        )::REAL AS tttr_for_tmc,
-      data,
        CASE WHEN (is_interstate = true) THEN 'INTERSTATE'::functional_class_type
          ELSE 'NONINTERSTATE'::functional_class_type
        END AS functional_class,
@@ -77,6 +76,7 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
       GROUP BY functional_class
   ) AS measure_calculation
   FULL OUTER JOIN (
+    -- The summary stats for excluded TMCs.
     SELECT functional_class,
            SUM(tmp_tmc_data.miles) AS excluded_mi,
            COUNT(tmp_tmc_data.tmc) AS excluded_tmcs_ct
@@ -86,6 +86,67 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
       GROUP BY functional_class
   ) AS excluded
   USING (functional_class)
+
+UNION ALL -- Region Level
+
+SELECT '__STATE__'::VARCHAR(2) AS state,
+       __YEAR__::SMALLINT AS year,
+       __MONTH__::SMALLINT AS month,
+       'REGION'::geography_level_type AS geography_level,
+       geography_name::VARCHAR,
+       functional_class::functional_class_type,
+       ROUND(included_mi::NUMERIC, 3)::REAL AS included_mi,
+       ROUND(excluded_mi::NUMERIC, 3)::REAL AS excluded_mi,
+       included_tmcs_ct::INTEGER,
+       excluded_tmcs_ct::INTEGER,
+       ARRAY[
+         ROUND(tttr_quartiles[1]::NUMERIC, 3),
+         ROUND(tttr_quartiles[2]::NUMERIC, 3),
+         ROUND(tttr_quartiles[3]::NUMERIC, 3),
+         ROUND(tttr_quartiles[4]::NUMERIC, 3),
+         ROUND(tttr_quartiles[5]::NUMERIC, 3)
+       ]::REAL[5] AS tttr_quartiles,
+       ROUND(tttr_mean::NUMERIC, 3)::REAL AS tttr_mean,
+       ROUND(tttr_stddev::NUMERIC, 3)::REAL AS tttr_stddev,
+       ROUND((weighted_total / included_mi)::NUMERIC, 3)::REAL AS fr
+  FROM (
+    SELECT region_name AS geography_name,
+           functional_class,
+           SUM(tmp_tmc_data.miles * tttr_for_tmc)::REAL AS weighted_total,
+           SUM(tmp_tmc_data.miles) AS included_mi,
+           PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
+             WITHIN GROUP (ORDER BY tttr_for_tmc) AS tttr_quartiles,
+           AVG(tttr_for_tmc) AS tttr_mean,
+           STDDEV_POP(tttr_for_tmc) AS tttr_stddev,
+           COUNT(tmp_tmc_data.tmc) AS included_tmcs_ct
+      FROM tmp_tmc_data
+      INNER JOIN tmc_attributes AS tmc_attrs
+        ON (
+          (tmp_tmc_data.tmc = tmc_attrs.tmc)
+            AND
+          (tmc_attrs.state = '__STATE__')
+        ) 
+      WHERE ((tttr_for_tmc IS NOT NULL) AND (tmp_tmc_data.miles IS NOT NULL))
+        AND (region_name IS NOT NULL)
+      GROUP BY geography_name, functional_class
+  ) AS measure_calculation
+  FULL OUTER JOIN (
+    SELECT region_name AS geography_name,
+           functional_class,
+           SUM(tmp_tmc_data.miles) AS excluded_mi,
+           COUNT(tmp_tmc_data.tmc) AS excluded_tmcs_ct
+      FROM tmp_tmc_data
+      INNER JOIN tmc_attributes AS tmc_attrs
+        ON (
+          (tmp_tmc_data.tmc = tmc_attrs.tmc)
+            AND
+          (tmc_attrs.state = '__STATE__')
+        ) 
+      WHERE ((tttr_for_tmc IS NULL) OR  (tmp_tmc_data.miles IS NULL))
+        AND (region_name IS NOT NULL)
+      GROUP BY geography_name, functional_class
+  ) AS excluded
+  USING (geography_name, functional_class)
 
 UNION ALL -- County Level
 
@@ -110,7 +171,7 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
        ROUND(tttr_stddev::NUMERIC, 3)::REAL AS tttr_stddev,
        ROUND((weighted_total / included_mi)::NUMERIC, 3)::REAL AS fr
   FROM (
-    SELECT admin_level_3 AS geography_name,
+    SELECT county AS geography_name,
            functional_class,
            SUM(tmp_tmc_data.miles * tttr_for_tmc)::REAL AS weighted_total,
            SUM(tmp_tmc_data.miles) AS included_mi,
@@ -120,30 +181,30 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
            STDDEV_POP(tttr_for_tmc) AS tttr_stddev,
            COUNT(tmp_tmc_data.tmc) AS included_tmcs_ct
       FROM tmp_tmc_data
-      INNER JOIN static_file_data_with_state_view AS geo_partitions
+      INNER JOIN tmc_attributes AS tmc_attrs
         ON (
-          (tmp_tmc_data.tmc = geo_partitions.tmc)
+          (tmp_tmc_data.tmc = tmc_attrs.tmc)
             AND
-          (geo_partitions.state = '__STATE__')
+          (tmc_attrs.state = '__STATE__')
         ) 
-      WHERE (tttr_for_tmc IS NOT NULL)
-        AND (tmp_tmc_data.miles IS NOT NULL)
+      WHERE ((tttr_for_tmc IS NOT NULL) AND (tmp_tmc_data.miles IS NOT NULL))
+        AND (county IS NOT NULL)
       GROUP BY geography_name, functional_class
   ) AS measure_calculation
   FULL OUTER JOIN (
-    SELECT admin_level_3 AS geography_name,
+    SELECT county AS geography_name,
            functional_class,
            SUM(tmp_tmc_data.miles) AS excluded_mi,
            COUNT(tmp_tmc_data.tmc) AS excluded_tmcs_ct
       FROM tmp_tmc_data
-      INNER JOIN static_file_data_with_state_view AS geo_partitions
+      INNER JOIN tmc_attributes AS tmc_attrs
         ON (
-          (tmp_tmc_data.tmc = geo_partitions.tmc)
+          (tmp_tmc_data.tmc = tmc_attrs.tmc)
             AND
-          (geo_partitions.state = '__STATE__')
+          (tmc_attrs.state = '__STATE__')
         ) 
-      WHERE (tttr_for_tmc IS NULL)
-        OR  (tmp_tmc_data.miles IS NULL)
+      WHERE ((tttr_for_tmc IS NULL) OR (tmp_tmc_data.miles IS NULL))
+        AND (county IS NOT NULL)
       GROUP BY geography_name, functional_class
   ) AS excluded
   USING (geography_name, functional_class)
@@ -171,7 +232,7 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
        ROUND(tttr_stddev::NUMERIC, 3)::REAL AS tttr_stddev,
        ROUND((weighted_total / included_mi)::NUMERIC, 3)::REAL AS fr
   FROM (
-    SELECT mpo AS geography_name,
+    SELECT mpo_name AS geography_name,
            functional_class,
            SUM(tmp_tmc_data.miles * tttr_for_tmc)::REAL AS weighted_total,
            SUM(tmp_tmc_data.miles) AS included_mi,
@@ -181,30 +242,30 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
            STDDEV_POP(tttr_for_tmc) AS tttr_stddev,
            COUNT(tmp_tmc_data.tmc) AS included_tmcs_ct
       FROM tmp_tmc_data
-      INNER JOIN mpo_to_tmc AS geo_partitions
+      INNER JOIN tmc_attributes AS tmc_attrs
         ON (
-          (tmp_tmc_data.tmc = geo_partitions.tmc)
+          (tmp_tmc_data.tmc = tmc_attrs.tmc)
             AND
-          (geo_partitions.state = '__STATE__')
+          (tmc_attrs.state = '__STATE__')
         ) 
-      WHERE (tttr_for_tmc IS NOT NULL)
-        AND (tmp_tmc_data.miles IS NOT NULL)
+      WHERE ((tttr_for_tmc IS NOT NULL) AND (tmp_tmc_data.miles IS NOT NULL))
+        AND (mpo_name IS NOT NULL)
       GROUP BY geography_name, functional_class
   ) AS measure_calculation
   FULL OUTER JOIN (
-    SELECT mpo AS geography_name,
+    SELECT mpo_name AS geography_name,
            functional_class,
            SUM(tmp_tmc_data.miles) AS excluded_mi,
            COUNT(tmp_tmc_data.tmc) AS excluded_tmcs_ct
       FROM tmp_tmc_data
-        INNER JOIN mpo_to_tmc AS geo_partitions
+        INNER JOIN tmc_attributes AS tmc_attrs
         ON (
-          (tmp_tmc_data.tmc = geo_partitions.tmc)
+          (tmp_tmc_data.tmc = tmc_attrs.tmc)
             AND
-          (geo_partitions.state = '__STATE__')
+          (tmc_attrs.state = '__STATE__')
         ) 
-      WHERE (tttr_for_tmc IS NULL)
-        OR  (tmp_tmc_data.miles IS NULL)
+      WHERE ((tttr_for_tmc IS NULL) OR  (tmp_tmc_data.miles IS NULL))
+        AND (mpo_name IS NOT NULL)
       GROUP BY geography_name, functional_class
   ) AS excluded
   USING (geography_name, functional_class)
@@ -232,7 +293,7 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
        ROUND(tttr_stddev::NUMERIC, 3)::REAL AS tttr_stddev,
        ROUND((weighted_total / included_mi)::NUMERIC, 3)::REAL AS fr
   FROM (
-    SELECT cbsa AS geography_name,
+    SELECT cbsa_name AS geography_name,
            functional_class,
            SUM(tmp_tmc_data.miles * tttr_for_tmc)::REAL AS weighted_total,
            SUM(tmp_tmc_data.miles) AS included_mi,
@@ -242,30 +303,30 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
            STDDEV_POP(tttr_for_tmc) AS tttr_stddev,
            COUNT(tmp_tmc_data.tmc) AS included_tmcs_ct
       FROM tmp_tmc_data
-      INNER JOIN cbsa_to_tmc AS geo_partitions
+      INNER JOIN tmc_attributes AS tmc_attrs
         ON (
-          (tmp_tmc_data.tmc = geo_partitions.tmc)
+          (tmp_tmc_data.tmc = tmc_attrs.tmc)
             AND
-          (geo_partitions.state = '__STATE__')
+          (tmc_attrs.state = '__STATE__')
         ) 
-      WHERE (tttr_for_tmc IS NOT NULL)
-        AND (tmp_tmc_data.miles IS NOT NULL)
+      WHERE ((tttr_for_tmc IS NOT NULL) AND (tmp_tmc_data.miles IS NOT NULL))
+        AND (cbsa_name IS NOT NULL)
       GROUP BY geography_name, functional_class
   ) AS measure_calculation
   FULL OUTER JOIN (
-    SELECT cbsa AS geography_name,
+    SELECT cbsa_name AS geography_name,
            functional_class,
            SUM(tmp_tmc_data.miles) AS excluded_mi,
            COUNT(tmp_tmc_data.tmc) AS excluded_tmcs_ct
       FROM tmp_tmc_data
-        INNER JOIN cbsa_to_tmc AS geo_partitions
+        INNER JOIN tmc_attributes AS tmc_attrs
         ON (
-          (tmp_tmc_data.tmc = geo_partitions.tmc)
+          (tmp_tmc_data.tmc = tmc_attrs.tmc)
             AND
-          (geo_partitions.state = '__STATE__')
+          (tmc_attrs.state = '__STATE__')
         ) 
-      WHERE (tttr_for_tmc IS NULL)
-        OR  (tmp_tmc_data.miles IS NULL)
+      WHERE ((tttr_for_tmc IS NULL) OR (tmp_tmc_data.miles IS NULL))
+        AND (cbsa_name IS NOT NULL)
       GROUP BY geography_name, functional_class
   ) AS excluded
   USING (geography_name, functional_class)
@@ -293,7 +354,7 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
        ROUND(tttr_stddev::NUMERIC, 3)::REAL AS tttr_stddev,
        ROUND((weighted_total / included_mi)::NUMERIC, 3)::REAL AS fr
   FROM (
-    SELECT ua AS geography_name,
+    SELECT ua_name AS geography_name,
            functional_class,
            SUM(tmp_tmc_data.miles * tttr_for_tmc)::REAL AS weighted_total,
            SUM(tmp_tmc_data.miles) AS included_mi,
@@ -303,30 +364,30 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
            STDDEV_POP(tttr_for_tmc) AS tttr_stddev,
            COUNT(tmp_tmc_data.tmc) AS included_tmcs_ct
       FROM tmp_tmc_data
-      INNER JOIN ua_to_tmc AS geo_partitions
+      INNER JOIN tmc_attributes AS tmc_attrs
         ON (
-          (tmp_tmc_data.tmc = geo_partitions.tmc)
+          (tmp_tmc_data.tmc = tmc_attrs.tmc)
             AND
-          (geo_partitions.state = '__STATE__')
+          (tmc_attrs.state = '__STATE__')
         ) 
-      WHERE (tttr_for_tmc IS NOT NULL)
-        AND (tmp_tmc_data.miles IS NOT NULL)
+      WHERE ((tttr_for_tmc IS NOT NULL) AND (tmp_tmc_data.miles IS NOT NULL))
+        AND (ua_name IS NOT NULL)
       GROUP BY geography_name, functional_class
   ) AS measure_calculation
   FULL OUTER JOIN (
-    SELECT ua AS geography_name,
+    SELECT ua_name AS geography_name,
            functional_class,
            SUM(tmp_tmc_data.miles) AS excluded_mi,
            COUNT(tmp_tmc_data.tmc) AS excluded_tmcs_ct
       FROM tmp_tmc_data
-        INNER JOIN ua_to_tmc AS geo_partitions
+        INNER JOIN tmc_attributes AS tmc_attrs
         ON (
-          (tmp_tmc_data.tmc = geo_partitions.tmc)
+          (tmp_tmc_data.tmc = tmc_attrs.tmc)
             AND
-          (geo_partitions.state = '__STATE__')
+          (tmc_attrs.state = '__STATE__')
         ) 
-      WHERE (tttr_for_tmc IS NULL)
-        OR  (tmp_tmc_data.miles IS NULL)
+      WHERE ((tttr_for_tmc IS NULL) OR (tmp_tmc_data.miles IS NULL))
+        AND (ua_name IS NOT NULL)
       GROUP BY geography_name, functional_class
   ) AS excluded
   USING (geography_name, functional_class)
