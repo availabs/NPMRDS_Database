@@ -141,7 +141,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
                   THEN 'SEVERE_CONGESTION'::traffic_dist_congestion_level_type
                 WHEN (speed_reduction_factor < 0.9) 
                   THEN 'MODERATE_CONGESTION'::traffic_dist_congestion_level_type
-                ELSE 'LOW_CONGESTION'::traffic_dist_congestion_level_type
+                ELSE 'NO2LOW_CONGESTION'::traffic_dist_congestion_level_type
               END
             ELSE
               CASE
@@ -151,7 +151,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
                   THEN 'SEVERE_CONGESTION'::traffic_dist_congestion_level_type
                 WHEN (speed_reduction_factor < 0.8) 
                   THEN 'MODERATE_CONGESTION'::traffic_dist_congestion_level_type
-                ELSE 'LOW_CONGESTION'::traffic_dist_congestion_level_type
+                ELSE 'NO2LOW_CONGESTION'::traffic_dist_congestion_level_type
               END
           END AS congestion_level,
           CASE

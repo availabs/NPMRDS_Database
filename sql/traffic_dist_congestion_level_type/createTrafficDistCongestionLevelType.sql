@@ -1,5 +1,5 @@
 CREATE TYPE traffic_dist_congestion_level_type AS ENUM (
-  'LOW_CONGESTION',
+  'NO2LOW_CONGESTION',
   'MODERATE_CONGESTION',
   'SEVERE_CONGESTION'
 );
