@@ -1,7 +1,7 @@
-/* This view will be used to partition the attribute tables by state. */
-BEGIN;
+/* 27 minute run time */
 
-CREATE MATERIALIZED VIEW tmc_attributes
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
   WITH (fillfactor = 100) AS 
     WITH cte_tmc_cbsa_intersections AS (
       SELECT
@@ -67,6 +67,104 @@ CREATE MATERIALIZED VIEW tmc_attributes
             FROM cte_tmc_mpo_intersections
             GROUP BY tmc
         )
+    ), cte_speed_reduction_factor AS (
+      SELECT
+          tmc,
+
+          avg_free_flow_travel_time,
+          avg_peak_period_travel_time,
+          (avg_free_flow_travel_time / avg_peak_period_travel_time)::REAL AS speed_reduction_factor,
+
+          CASE 
+            WHEN ((f_system = 0) OR (f_system = 1)) THEN 'FREEWAY'::traffic_dist_functional_class_type
+            ELSE 'NONFREEWAY'::traffic_dist_functional_class_type
+          END AS functional_class,
+
+          (miles / (avg_free_flow_travel_time / (60 * 60)))::REAL AS avg_free_flow_speed_mph,
+          (miles / (avg_peak_period_travel_time / (60 * 60)))::REAL AS avg_peak_period_speed_mph
+
+        FROM (
+            SELECT 
+                tmc,
+                AVG(travel_time_all_vehicles)::REAL AS avg_peak_period_travel_time
+              FROM npmrds
+              WHERE (
+                     (epoch BETWEEN (12 * 6) AND ((12 * 10) - 1)) /* 6am til 10am */
+                  OR (epoch BETWEEN (12 * (3+12)) AND ((12 * (7+12)) - 1)) /* 3am til 7pm */
+                ) AND (travel_time_all_vehicles > 0)
+           GROUP BY tmc
+          ) AS peak NATURAL FULL OUTER JOIN (
+            SELECT 
+                tmc,
+                AVG(travel_time_all_vehicles)::REAL AS avg_free_flow_travel_time
+              FROM npmrds
+              WHERE (
+                     (epoch BETWEEN (12 * 0) AND ((12 * 5) - 1)) /* midnight til 5am */
+                  OR (epoch BETWEEN (12 * (10+12)) AND ((12 * (12+12)) - 1)) /* 10pm til midnight */
+                )
+                AND (travel_time_all_vehicles > 0)
+              GROUP BY tmc
+          ) AS free_flow FULL OUTER JOIN inrix_shapefile USING (tmc)
+    ), cte_directionality_factors AS (
+      SELECT
+          tmc,
+          avg_am_peak_travel_time, 
+          avg_pm_peak_travel_time,
+          (miles / ((avg_am_peak_travel_time / (60*60))))::REAL AS avg_am_peak_speed_mph, 
+          (miles / ((avg_pm_peak_travel_time / (60*60))))::REAL AS avg_pm_peak_speed_mph
+        FROM (
+            SELECT 
+                tmc,
+                AVG(travel_time_all_vehicles)::REAL AS avg_am_peak_travel_time
+              FROM npmrds
+              WHERE (epoch BETWEEN (12 * 6) AND ((12 * 10) - 1))
+                AND (travel_time_all_vehicles > 0)
+              GROUP BY tmc
+          ) AS am_peak NATURAL FULL OUTER JOIN (
+            SELECT 
+                tmc,
+                AVG(travel_time_all_vehicles)::REAL AS avg_pm_peak_travel_time
+              FROM npmrds
+              WHERE (epoch BETWEEN (12 * (3+12)) AND ((12 * (7+12)) - 1))
+                AND (travel_time_all_vehicles > 0)
+              GROUP BY tmc
+          ) AS pm_peak FULL OUTER JOIN inrix_shapefile USING (tmc)
+    ), cte_traffic_distribution_factors AS (
+      SELECT 
+          tmc,
+          CASE functional_class
+            WHEN 'FREEWAY' THEN
+              CASE
+                WHEN (speed_reduction_factor IS NULL)
+                  THEN NULL::traffic_dist_congestion_level_type
+                WHEN (speed_reduction_factor < 0.75)
+                  THEN 'SEVERE_CONGESTION'::traffic_dist_congestion_level_type
+                WHEN (speed_reduction_factor < 0.9) 
+                  THEN 'MODERATE_CONGESTION'::traffic_dist_congestion_level_type
+                ELSE 'LOW_CONGESTION'::traffic_dist_congestion_level_type
+              END
+            ELSE
+              CASE
+                WHEN (speed_reduction_factor IS NULL)
+                  THEN NULL::traffic_dist_congestion_level_type
+                WHEN (speed_reduction_factor < 0.65)
+                  THEN 'SEVERE_CONGESTION'::traffic_dist_congestion_level_type
+                WHEN (speed_reduction_factor < 0.8) 
+                  THEN 'MODERATE_CONGESTION'::traffic_dist_congestion_level_type
+                ELSE 'LOW_CONGESTION'::traffic_dist_congestion_level_type
+              END
+          END AS congestion_level,
+          CASE
+            WHEN ((avg_am_peak_speed_mph IS NULL) OR (avg_pm_peak_speed_mph IS NULL))
+              THEN NULL::traffic_dist_directionality_type
+            WHEN (avg_am_peak_speed_mph - avg_pm_peak_speed_mph) > 6
+              THEN 'PM_PEAK'::traffic_dist_directionality_type
+            WHEN (avg_pm_peak_speed_mph - avg_am_peak_speed_mph) > 6
+              THEN 'AM_PEAK'::traffic_dist_directionality_type
+            ELSE 'EVEN_DIST'::traffic_dist_directionality_type
+          END AS directionality
+        FROM cte_speed_reduction_factor
+          NATURAL FULL OUTER JOIN cte_directionality_factors
     ) 
     SELECT
         inrix_shapefile.tmc,
@@ -147,7 +245,10 @@ CREATE MATERIALIZED VIEW tmc_attributes
         ua.name10 AS ua_name,
 
         regions.id AS region_code,
-        regions.name AS region_name
+        regions.name AS region_name,
+
+        traffic_dist_factors.congestion_level,
+        traffic_dist_factors.directionality
 
     FROM inrix_shapefile
       LEFT OUTER JOIN state_abbreviations
@@ -174,19 +275,17 @@ CREATE MATERIALIZED VIEW tmc_attributes
         )
       LEFT OUTER JOIN regions
         ON (r_to_c.region_id = regions.id)
-
+      LEFT OUTER JOIN cte_traffic_distribution_factors AS traffic_dist_factors
+        ON (inrix_shapefile.tmc = traffic_dist_factors.tmc)
     WITH NO DATA
 ;
 
-REFRESH MATERIALIZED VIEW tmc_attributes;
+REFRESH MATERIALIZED VIEW CONCURRENTLY tmc_attributes;
 
-CREATE INDEX IF NOT EXISTS static_file_data_idx ON tmc_attributes (tmc);
+CREATE INDEX IF NOT EXISTS tmc_attributes_idx ON tmc_attributes (tmc);
 
-CLUSTER VERBOSE tmc_attributes USING static_file_data_idx;
+CLUSTER VERBOSE tmc_attributes USING tmc_attributes_idx;
 
 COMMIT;
 
 ANALYZE tmc_attributes;
-
-
-COMMIT;

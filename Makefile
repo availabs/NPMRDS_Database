@@ -788,6 +788,18 @@ db/load-state-top-level-freight-reliability-yrmo-table: db/create-state-top-leve
 			" ./sql/top_level_freight_reliability/create_state_top_level_freight_reliability_yrmo.sql\
 		)";\
 
+db/drop-traffic-distributions-table:
+	@if psql -c '\d public.traffic_distributions' > /dev/null 2>&1; then\
+		psql -f ./sql/traffic_distributions/dropTrafficDistributionsTable.sql;\
+	fi
+
+db/create-traffic-distributions-table:
+	@if ! psql -c '\d public.traffic_distributions' > /dev/null 2>&1; then\
+		psql -f ./sql/traffic_distributions/createTrafficDistributionsTable.sql;\
+	fi
+
+
+
 
 #####################################################
 
