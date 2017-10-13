@@ -1,1 +1,0 @@
-DROP TABLE IF EXISTS nprm7_time_dist CASCADE;
