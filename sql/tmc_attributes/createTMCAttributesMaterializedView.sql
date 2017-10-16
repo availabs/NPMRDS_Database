@@ -39,6 +39,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
       SELECT
           tmc,
           mpo_id AS mpo_code,
+          mpo_acrony,
           mpo_name,
           ST_Length(
             ST_Intersection(
@@ -58,6 +59,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
       SELECT
           tmc,
           mpo_code,
+          mpo_acrony,
           mpo_name
         FROM cte_tmc_mpo_intersections
         WHERE (tmc, intersection_len) IN (
@@ -239,9 +241,10 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
         cte_tmc_to_cbsa.cbsa_name,
 
         cte_tmc_to_mpo.mpo_code,
+        cte_tmc_to_mpo.mpo_acrony,
         cte_tmc_to_mpo.mpo_name,
 
-        inrix_shapefile.urban_code AS ua_code,
+        LPAD(inrix_shapefile.urban_code::text, 5) AS ua_code,
         ua.name10 AS ua_name,
 
         regions.id AS region_code,
@@ -280,7 +283,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
     WITH NO DATA
 ;
 
-REFRESH MATERIALIZED VIEW CONCURRENTLY tmc_attributes;
+REFRESH MATERIALIZED VIEW tmc_attributes;
 
 CREATE INDEX IF NOT EXISTS tmc_attributes_idx ON tmc_attributes (tmc);
 

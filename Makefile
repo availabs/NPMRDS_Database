@@ -798,6 +798,17 @@ db/create-traffic-distributions-table:
 		psql -f ./sql/traffic_distributions/createTrafficDistributionsTable.sql;\
 	fi
 
+db/drop-geography-level-road-miles-breakdown-view:
+	@if psql -c '\d public.geography_level_road_miles_breakdown_view' > /dev/null 2>&1; then\
+		psql -f './sql/geography_level_road_miles_breakdown_view/dropStateGeographyLevelRoadMilesBreakdownView.sql';\
+	fi
+
+db/create-geography-level-road-miles-breakdown-view: db/create-tmc-attributes
+	@if ! psql -c '\d public.geography_level_road_miles_breakdown_view' > /dev/null 2>&1; then\
+		psql -f './sql/geography_level_road_miles_breakdown_view/createStateGeographyLevelRoadMilesBreakdownTable.sql';\
+	fi
+
+
 
 
 
