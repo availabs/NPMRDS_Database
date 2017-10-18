@@ -69,6 +69,38 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
             FROM cte_tmc_mpo_intersections
             GROUP BY tmc
         )
+    ), cte_tmc_ua_intersections AS (
+      SELECT
+          tmc,
+          geoid10 AS ua_code,
+          name10 AS ua_name,
+          ST_Length(
+            ST_Intersection(
+              tmc_shp.wkb_geometry,
+              ua_shp.wkb_geometry
+            )
+          ) AS intersection_len
+        FROM inrix_shapefile AS tmc_shp
+          INNER JOIN urban_area_boundaries AS ua_shp
+          ON (
+            ST_Intersects(
+              tmc_shp.wkb_geometry,
+              ua_shp.wkb_geometry
+            )
+          )
+    ), cte_tmc_to_ua AS (
+      SELECT
+          tmc,
+          ua_code,
+          ua_name
+        FROM cte_tmc_ua_intersections
+        WHERE (tmc, intersection_len) IN (
+          SELECT
+              tmc,
+              MAX(intersection_len)
+            FROM cte_tmc_ua_intersections
+            GROUP BY tmc
+        )
     ), cte_speed_reduction_factor AS (
       SELECT
           tmc,
@@ -244,8 +276,8 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
         cte_tmc_to_mpo.mpo_acrony,
         cte_tmc_to_mpo.mpo_name,
 
-        LPAD(inrix_shapefile.urban_code::text, 5) AS ua_code,
-        ua.name10 AS ua_name,
+        cte_tmc_to_ua.ua_code,
+        cte_tmc_to_ua.ua_name,
 
         regions.id AS region_code,
         regions.name AS region_name,
@@ -268,8 +300,8 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
         USING (tmc)
       LEFT OUTER JOIN cte_tmc_to_mpo
         USING (tmc)
-      LEFT OUTER JOIN urban_area_boundaries AS ua
-        ON (LPAD(inrix_shapefile.urban_code::text, 5) = ua.geoid10)
+      LEFT OUTER JOIN cte_tmc_to_ua AS cte_tmc_to_ua
+        USING (tmc)
       LEFT OUTER JOIN region_to_county AS r_to_c
         ON (
           (inrix_shapefile.county = r_to_c.county)

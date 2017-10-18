@@ -11,7 +11,7 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
        ) AS data
   FROM (
     SELECT tmc,
-           CASE WHEN ((fifteen_min_bin < 24) OR (fifteen_min_bin > 63)) THEN 'OVERNIGHT'
+           CASE WHEN ((fifteen_min_bin < 24) OR (fifteen_min_bin > 80)) THEN 'OVERNIGHT'
                 ELSE CASE WHEN (EXTRACT(DOW from date) BETWEEN 1 AND 5) THEN
                           CASE WHEN (fifteen_min_bin BETWEEN 24 AND 39) THEN 'AM_PEAK'
                                WHEN (fifteen_min_bin BETWEEN 40 AND 63) THEN 'MIDDAY'
@@ -42,7 +42,7 @@ ALTER TABLE "__STATE__".tttr_percentiles_y__YEAR__m__MONTH__
     CHECK ((year = __YEAR__) AND (month = __MONTH__)),
   ALTER COLUMN data SET STATISTICS 0,
   INHERIT "__STATE__".tttr_percentiles,
-  SET (fillfactor = 100);
+  SET (fillfactor = 100, autovacuum_enabled=false);
 
 
 CREATE UNIQUE INDEX tttr_percentiles_y__YEAR__m__MONTH___idx

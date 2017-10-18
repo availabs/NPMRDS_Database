@@ -140,24 +140,24 @@ CREATE VIEW geography_level_road_miles_breakdown_view
         state
       FROM (
           SELECT 
-              region_name AS geography_level_name,
+              region_code::VARCHAR AS geography_level_name,
               SUM(miles) AS interstate_miles,
               COUNT(tmc) AS interstate_tmcs_ct,
               state
             FROM tmc_attributes
             WHERE (is_interstate = true)
-              AND (region_name IS NOT NULL)
-            GROUP BY region_name, state
+              AND (region_code IS NOT NULL)
+            GROUP BY region_code, state
         ) AS t1 NATURAL FULL OUTER JOIN (
           SELECT
-              region_name AS geography_level_name,
+              region_code::VARCHAR AS geography_level_name,
               SUM(miles) AS noninterstate_miles,
               COUNT(tmc) AS noninterstate_tmcs_ct,
               state
             FROM tmc_attributes
             WHERE ((is_interstate = false) OR (is_interstate IS NULL))
-              AND (region_name IS NOT NULL)
-            GROUP BY region_name, state
+              AND (region_code IS NOT NULL)
+            GROUP BY region_code, state
         ) AS T2
 
 

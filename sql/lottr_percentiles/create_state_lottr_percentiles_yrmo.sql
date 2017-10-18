@@ -35,6 +35,7 @@ CREATE TABLE "__STATE__".lottr_percentiles_y__YEAR__m__MONTH__ AS
   ) AS percentiles
   GROUP BY tmc;
 
+
 ALTER TABLE "__STATE__".lottr_percentiles_y__YEAR__m__MONTH__
   ADD CONSTRAINT state_check 
     CHECK (state = '__STATE__'),
@@ -42,7 +43,7 @@ ALTER TABLE "__STATE__".lottr_percentiles_y__YEAR__m__MONTH__
     CHECK ((year = __YEAR__) AND (month = __MONTH__)),
   ALTER COLUMN data SET STATISTICS 0,
   INHERIT "__STATE__".lottr_percentiles,
-  SET (fillfactor = 100);
+  SET (fillfactor = 100, autovacuum_enabled=false);
 
 
 CREATE UNIQUE INDEX lottr_percentiles_y__YEAR__m__MONTH___idx
