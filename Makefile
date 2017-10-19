@@ -867,6 +867,57 @@ db/create-state-total-excessive-delay-yrmo-table: \
 	fi
 
 
+db/drop-root-top-level-total-excessive-delay-table:
+	@if psql -c '\d public.top_level_total_excessive_delay' > /dev/null 2>&1; then\
+		psql -f './sql/top_level_total_excessive_delay/drop_root_top_level_total_excessive_delay.sql';\
+	fi
+
+db/create-root-top-level-total-excessive-delay-table:
+	@if ! psql -c '\d public.top_level_total_excessive_delay' > /dev/null 2>&1; then\
+		psql -f './sql/top_level_total_excessive_delay/create_root_top_level_total_excessive_delay.sql';\
+	fi
+
+db/drop-state-top-level-total-excessive-delay-table:
+	@:$(call check_defined,STATE)
+	@if psql -c '\d "${STATE}".top_level_total_excessive_delay' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/top_level_total_excessive_delay/drop_state_top_level_total_excessive_delay.sql)";\
+	fi
+
+db/create-state-top-level-total-excessive-delay-table: db/create-root-top-level-total-excessive-delay-table
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".top_level_total_excessive_delay' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/top_level_total_excessive_delay/create_state_top_level_total_excessive_delay.sql)";\
+	fi
+
+db/drop-state-top-level-total-excessive-delay-yrmo-table:
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if psql -c '\d "${STATE}".top_level_total_excessive_delay_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/top_level_total_excessive_delay/drop_state_top_level_total_excessive_delay_yrmo.sql\
+		)";\
+	fi
+
+db/create-state-top-level-total-excessive-delay-yrmo-table: \
+	db/create-state-top-level-total-excessive-delay-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if ! psql -c '\d "${STATE}".top_level_total_excessive_delay_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/top_level_total_excessive_delay/create_state_top_level_total_excessive_delay_yrmo.sql\
+		)";\
+	fi
+
 #####################################################
 
 #### External API

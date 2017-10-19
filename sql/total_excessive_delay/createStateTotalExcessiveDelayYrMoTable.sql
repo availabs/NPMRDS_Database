@@ -18,15 +18,22 @@ CREATE TABLE IF NOT EXISTS "__STATE__".total_excessive_delay_y__YEAR__m__MONTH__
       __YEAR__::SMALLINT AS year,
       __MONTH__::SMALLINT AS month,
       SUM(
-        ROUND(((LEAST(harmonic_mean, 900) - excessive_delay_threshold_time_s) / 3600)::NUMERIC, 3) 
-        * (tmc_info.aadt * (hourly_volumes.pct_daily_vol / 100.0) / 4 /*15min*/ / 2 /*aadt is bidirectional*/)
+        ROUND(
+          (
+            GREATEST(
+              LEAST(harmonic_mean_travel_time, 900) - excessive_delay_threshold_time_s,
+              0
+            ) / 3600
+          )::NUMERIC, 
+        3) 
+        * (tmc_info.aadt * (hourly_volumes.pct_daily_vol / 100.0) / 4 /*15min*/ / 2 /*aadt is bidir*/)
       )::DOUBLE PRECISION AS total_excessive_delay
     FROM (
         SELECT
             tmc,
             date,
             FLOOR(epoch / 3)::SMALLINT AS quarter_hour_bin,
-            (COUNT(1) / SUM(1/NULLIF(travel_time_all_vehicles, 0))) AS harmonic_mean
+            (COUNT(1) / SUM(1/NULLIF(travel_time_all_vehicles, 0))) AS harmonic_mean_travel_time
           FROM "__STATE__".npmrds
           WHERE ((date >= '__START_DATE__'::DATE) AND (date < '__END_DATE__'::DATE))
           GROUP BY
@@ -90,7 +97,7 @@ CREATE TABLE IF NOT EXISTS "__STATE__".total_excessive_delay_y__YEAR__m__MONTH__
               )
             )
           )
-    WHERE ((harmonic_mean - excessive_delay_threshold_time_s) > 0)
+    WHERE ((harmonic_mean_travel_time - excessive_delay_threshold_time_s) > 0)
     GROUP BY travel_times.tmc
 ;
 
