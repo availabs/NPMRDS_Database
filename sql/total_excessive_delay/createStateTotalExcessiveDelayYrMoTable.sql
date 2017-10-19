@@ -100,7 +100,6 @@ ALTER TABLE "__STATE__".total_excessive_delay_y__YEAR__m__MONTH__
     CHECK (state = '__STATE__'),
   ADD CONSTRAINT date_range 
     CHECK ((year = __YEAR__) AND (month = __MONTH__)),
-  ALTER COLUMN data SET STATISTICS 0,
   INHERIT "__STATE__".total_excessive_delay,
   SET (fillfactor = 100, autovacuum_enabled=false);
 
