@@ -1,4 +1,4 @@
-CREATE TABLE tttr_percentiles (
+CREATE TABLE public.tttr_percentiles (
   state VARCHAR(2),
   tmc   VARCHAR(9),
   year  SMALLINT,

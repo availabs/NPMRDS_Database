@@ -221,15 +221,11 @@ db/drop-npmrds-state-yrmo-table:
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
 	@if ! psql -c '\d "${STATE}".npmrds_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
-		START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
-		END_DATE="$$(date -d "${START_DATE} + 1 month" '+%F')";\
 		psql -c "$$(\
 			sed "\
 				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
-				s/__START_DATE__/$${START_DATE}/g;\
-				s/__END_DATE__/$${END_DATE}/g;\
 			" ./sql/npmrds/state/dropStateNPMRDSYrMoTable.sql\
 		)";\
 	fi
@@ -240,7 +236,7 @@ db/create-npmrds-state-yrmo-table: db/create-npmrds-state-table
 	@:$(call check_defined,MONTH)
 	@if ! psql -c '\d "${STATE}".npmrds_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
 		START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
-		END_DATE="$$(date -d "${START_DATE} + 1 month" '+%F')";\
+		END_DATE="$$(date -d "$${START_DATE} + 1 month" '+%F')";\
 		psql -c "$$(\
 			sed "\
 				s/__STATE__/${STATE}/g;\
@@ -810,6 +806,65 @@ db/create-geography-level-road-miles-breakdown-view: db/create-tmc-attributes
 
 
 
+db/drop-root-total-excessive-delay-table:
+	@if psql -c '\d public.total_excessive_delay' > /dev/null 2>&1; then\
+		psql -f './sql/total_excessive_delay/dropRootTotalExcessiveDelayTable.sql';\
+	fi
+
+db/create-root-total-excessive-delay-table:
+	@if ! psql -c '\d public.total_excessive_delay' > /dev/null 2>&1; then\
+		psql -f './sql/total_excessive_delay/createRootTotalExcessiveDelayTable.sql';\
+	fi
+
+db/drop-state-total-excessive-delay-table:
+	@:$(call check_defined,STATE)
+	@if psql -c '\d "${STATE}".total_excessive_delay' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/total_excessive_delay/dropStateTotalExcessiveDelayTable.sql)";\
+	fi
+
+db/create-state-total-excessive-delay-table: db/create-root-total-excessive-delay-table
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".total_excessive_delay' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/total_excessive_delay/createStateTotalExcessiveDelayTable.sql)";\
+	fi
+
+db/drop-state-total-excessive-delay-yrmo-table:
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if psql -c '\d "${STATE}".total_excessive_delay_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/total_excessive_delay/dropStateTotalExcessiveDelayYrMoTable.sql\
+		)";\
+	fi
+
+db/create-state-total-excessive-delay-yrmo-table: \
+	db/create-state-total-excessive-delay-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if ! psql -c '\d "${STATE}".total_excessive_delay_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		if [[ ${MONTH} -eq 0 ]]; then\
+			START_DATE="$$(date -d "${YEAR}-01-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 year" '+%F')";\
+		else\
+			START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
+			END_DATE="$$(date -d "$${START_DATE} + 1 month" '+%F')";\
+		fi;\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+				s/__START_DATE__/$${START_DATE}/g;\
+				s/__END_DATE__/$${END_DATE}/g;\
+			" ./sql/total_excessive_delay/createStateTotalExcessiveDelayYrMoTable.sql\
+		)";\
+	fi
 
 
 #####################################################
