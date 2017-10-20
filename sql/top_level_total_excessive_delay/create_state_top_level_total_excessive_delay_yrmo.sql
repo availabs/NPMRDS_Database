@@ -17,6 +17,15 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
          included_tmcs_ct::INTEGER,
          excluded_tmcs_ct::INTEGER,
          ARRAY[
+           ROUND(xdelay_quartiles[1]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[2]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[3]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[4]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[5]::NUMERIC, 3)
+         ]::DOUBLE PRECISION[5] AS xdelay_quartiles,
+         ROUND(xdelay_mean::NUMERIC, 3)::DOUBLE PRECISION AS xdelay_mean,
+         ROUND(xdelay_stddev::NUMERIC, 3)::DOUBLE PRECISION AS xdelay_stddev,
+         ARRAY[
            ROUND(xdelay_per_mile_quartiles[1]::NUMERIC, 3),
            ROUND(xdelay_per_mile_quartiles[2]::NUMERIC, 3),
            ROUND(xdelay_per_mile_quartiles[3]::NUMERIC, 3),
@@ -32,6 +41,10 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                3
              )AS total_excessive_delay,
              SUM(miles) AS included_mi,
+             PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
+               WITHIN GROUP (ORDER BY total_excessive_delay) AS xdelay_quartiles,
+             AVG(total_excessive_delay) AS xdelay_mean,
+             STDDEV_POP(total_excessive_delay) AS xdelay_stddev,
              PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
                WITHIN GROUP (ORDER BY total_excessive_delay / miles) AS xdelay_per_mile_quartiles,
              AVG(total_excessive_delay / miles) AS xdelay_per_mile_mean,
@@ -69,6 +82,15 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
          included_tmcs_ct::INTEGER,
          excluded_tmcs_ct::INTEGER,
          ARRAY[
+           ROUND(xdelay_quartiles[1]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[2]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[3]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[4]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[5]::NUMERIC, 3)
+         ]::DOUBLE PRECISION[5] AS xdelay_quartiles,
+         ROUND(xdelay_mean::NUMERIC, 3)::DOUBLE PRECISION AS xdelay_mean,
+         ROUND(xdelay_stddev::NUMERIC, 3)::DOUBLE PRECISION AS xdelay_stddev,
+         ARRAY[
            ROUND(xdelay_per_mile_quartiles[1]::NUMERIC, 3),
            ROUND(xdelay_per_mile_quartiles[2]::NUMERIC, 3),
            ROUND(xdelay_per_mile_quartiles[3]::NUMERIC, 3),
@@ -85,6 +107,10 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                3
              ) AS total_excessive_delay,
              SUM(miles) AS included_mi,
+             PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
+               WITHIN GROUP (ORDER BY total_excessive_delay) AS xdelay_quartiles,
+             AVG(total_excessive_delay) AS xdelay_mean,
+             STDDEV_POP(total_excessive_delay) AS xdelay_stddev,
              PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
                WITHIN GROUP (ORDER BY total_excessive_delay / miles) AS xdelay_per_mile_quartiles,
              AVG(total_excessive_delay / miles) AS xdelay_per_mile_mean,
@@ -125,6 +151,15 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
          included_tmcs_ct::INTEGER,
          excluded_tmcs_ct::INTEGER,
          ARRAY[
+           ROUND(xdelay_quartiles[1]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[2]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[3]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[4]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[5]::NUMERIC, 3)
+         ]::DOUBLE PRECISION[5] AS xdelay_quartiles,
+         ROUND(xdelay_mean::NUMERIC, 3)::DOUBLE PRECISION AS xdelay_mean,
+         ROUND(xdelay_stddev::NUMERIC, 3)::DOUBLE PRECISION AS xdelay_stddev,
+         ARRAY[
            ROUND(xdelay_per_mile_quartiles[1]::NUMERIC, 3),
            ROUND(xdelay_per_mile_quartiles[2]::NUMERIC, 3),
            ROUND(xdelay_per_mile_quartiles[3]::NUMERIC, 3),
@@ -141,6 +176,10 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                3
              ) AS total_excessive_delay,
              SUM(miles) AS included_mi,
+             PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
+               WITHIN GROUP (ORDER BY total_excessive_delay) AS xdelay_quartiles,
+             AVG(total_excessive_delay) AS xdelay_mean,
+             STDDEV_POP(total_excessive_delay) AS xdelay_stddev,
              PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
                WITHIN GROUP (ORDER BY total_excessive_delay / miles) AS xdelay_per_mile_quartiles,
              AVG(total_excessive_delay / miles) AS xdelay_per_mile_mean,
@@ -181,6 +220,15 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
          included_tmcs_ct::INTEGER,
          excluded_tmcs_ct::INTEGER,
          ARRAY[
+           ROUND(xdelay_quartiles[1]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[2]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[3]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[4]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[5]::NUMERIC, 3)
+         ]::DOUBLE PRECISION[5] AS xdelay_quartiles,
+         ROUND(xdelay_mean::NUMERIC, 3)::DOUBLE PRECISION AS xdelay_mean,
+         ROUND(xdelay_stddev::NUMERIC, 3)::DOUBLE PRECISION AS xdelay_stddev,
+         ARRAY[
            ROUND(xdelay_per_mile_quartiles[1]::NUMERIC, 3),
            ROUND(xdelay_per_mile_quartiles[2]::NUMERIC, 3),
            ROUND(xdelay_per_mile_quartiles[3]::NUMERIC, 3),
@@ -197,6 +245,10 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                3
              ) AS total_excessive_delay,
              SUM(miles) AS included_mi,
+             PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
+               WITHIN GROUP (ORDER BY total_excessive_delay) AS xdelay_quartiles,
+             AVG(total_excessive_delay) AS xdelay_mean,
+             STDDEV_POP(total_excessive_delay) AS xdelay_stddev,
              PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
                WITHIN GROUP (ORDER BY total_excessive_delay / miles) AS xdelay_per_mile_quartiles,
              AVG(total_excessive_delay / miles) AS xdelay_per_mile_mean,
@@ -237,6 +289,15 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
          included_tmcs_ct::INTEGER,
          excluded_tmcs_ct::INTEGER,
          ARRAY[
+           ROUND(xdelay_quartiles[1]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[2]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[3]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[4]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[5]::NUMERIC, 3)
+         ]::DOUBLE PRECISION[5] AS xdelay_quartiles,
+         ROUND(xdelay_mean::NUMERIC, 3)::DOUBLE PRECISION AS xdelay_mean,
+         ROUND(xdelay_stddev::NUMERIC, 3)::DOUBLE PRECISION AS xdelay_stddev,
+         ARRAY[
            ROUND(xdelay_per_mile_quartiles[1]::NUMERIC, 3),
            ROUND(xdelay_per_mile_quartiles[2]::NUMERIC, 3),
            ROUND(xdelay_per_mile_quartiles[3]::NUMERIC, 3),
@@ -253,6 +314,10 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                3
              ) AS total_excessive_delay,
              SUM(miles) AS included_mi,
+             PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
+               WITHIN GROUP (ORDER BY total_excessive_delay) AS xdelay_quartiles,
+             AVG(total_excessive_delay) AS xdelay_mean,
+             STDDEV_POP(total_excessive_delay) AS xdelay_stddev,
              PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
                WITHIN GROUP (ORDER BY total_excessive_delay / miles) AS xdelay_per_mile_quartiles,
              AVG(total_excessive_delay / miles) AS xdelay_per_mile_mean,
@@ -293,6 +358,15 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
          included_tmcs_ct::INTEGER,
          excluded_tmcs_ct::INTEGER,
          ARRAY[
+           ROUND(xdelay_quartiles[1]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[2]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[3]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[4]::NUMERIC, 3),
+           ROUND(xdelay_quartiles[5]::NUMERIC, 3)
+         ]::DOUBLE PRECISION[5] AS xdelay_quartiles,
+         ROUND(xdelay_mean::NUMERIC, 3)::DOUBLE PRECISION AS xdelay_mean,
+         ROUND(xdelay_stddev::NUMERIC, 3)::DOUBLE PRECISION AS xdelay_stddev,
+         ARRAY[
            ROUND(xdelay_per_mile_quartiles[1]::NUMERIC, 3),
            ROUND(xdelay_per_mile_quartiles[2]::NUMERIC, 3),
            ROUND(xdelay_per_mile_quartiles[3]::NUMERIC, 3),
@@ -309,6 +383,10 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                3
              ) AS total_excessive_delay,
              SUM(miles) AS included_mi,
+             PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
+               WITHIN GROUP (ORDER BY total_excessive_delay) AS xdelay_quartiles,
+             AVG(total_excessive_delay) AS xdelay_mean,
+             STDDEV_POP(total_excessive_delay) AS xdelay_stddev,
              PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
                WITHIN GROUP (ORDER BY total_excessive_delay / miles) AS xdelay_per_mile_quartiles,
              AVG(total_excessive_delay / miles) AS xdelay_per_mile_mean,
