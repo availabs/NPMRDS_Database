@@ -918,6 +918,20 @@ db/create-state-top-level-total-excessive-delay-yrmo-table: \
 		)";\
 	fi
 
+
+db/drop-terse-bq-top-level-measures-fn:
+	@psql -f './sql/bg_top_level_measures_fn/drop_terse_bq_top_level_measures_fn.sql'
+
+db/create-terse-bq-top-level-measures-fn:
+	@psql -f './sql/bg_top_level_measures_fn/create_terse_bq_top_level_measures_fn.sql'
+		
+db/drop-verbose-bq-top-level-measures-fn:
+	@psql -f './sql/bg_top_level_measures_fn/drop_verbose_bq_top_level_measures_fn.sql'
+
+db/create-verbose-bq-top-level-measures-fn:
+	@psql -f './sql/bg_top_level_measures_fn/create_verbose_bq_top_level_measures_fn.sql'
+		
+
 #####################################################
 
 #### External API
