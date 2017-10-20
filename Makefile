@@ -932,6 +932,20 @@ db/create-verbose-bq-top-level-measures-fn:
 	@psql -f './sql/bg_top_level_measures_fn/create_verbose_bq_top_level_measures_fn.sql'
 		
 
+db/create-npmrds-year-fn:
+	@psql -f './sql/npmrds_year_fn/create_npmrds_year_function.sql'
+
+db/create-npmrds-month-fn:
+	@psql -f './sql/npmrds_month_fn/create_npmrds_month_function.sql'
+		
+db/create-npmrds-date-fn:
+	@psql -f './sql/npmrds_date_fn/create_npmrds_date_function.sql'
+
+db/create-timestamptoepoch-fn:
+	@psql -f './sql/timestamptoepoch_fn/create_timestamptoepoch_function.sql'
+
+		
+
 #####################################################
 
 #### External API
