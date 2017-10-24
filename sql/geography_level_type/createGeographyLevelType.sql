@@ -4,5 +4,6 @@ CREATE TYPE geography_level_type AS ENUM (
   'MPO',
   'REGION',
   'STATE',
+  'TMC',
   'UA'
 );

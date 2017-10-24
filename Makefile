@@ -920,16 +920,16 @@ db/create-state-top-level-total-excessive-delay-yrmo-table: \
 
 
 db/drop-terse-bq-top-level-measures-fn:
-	@psql -f './sql/bg_top_level_measures_fn/drop_terse_bq_top_level_measures_fn.sql'
+	@psql -f './sql/bq_top_level_measures_fn/drop_terse_bq_top_level_measures_fn.sql'
 
 db/create-terse-bq-top-level-measures-fn:
-	@psql -f './sql/bg_top_level_measures_fn/create_terse_bq_top_level_measures_fn.sql'
+	@psql -f './sql/bq_top_level_measures_fn/create_terse_bq_top_level_measures_fn.sql'
 		
 db/drop-verbose-bq-top-level-measures-fn:
-	@psql -f './sql/bg_top_level_measures_fn/drop_verbose_bq_top_level_measures_fn.sql'
+	@psql -f './sql/bq_top_level_measures_fn/drop_verbose_bq_top_level_measures_fn.sql'
 
 db/create-verbose-bq-top-level-measures-fn:
-	@psql -f './sql/bg_top_level_measures_fn/create_verbose_bq_top_level_measures_fn.sql'
+	@psql -f './sql/bq_top_level_measures_fn/create_verbose_bq_top_level_measures_fn.sql'
 		
 
 db/create-npmrds-year-fn:

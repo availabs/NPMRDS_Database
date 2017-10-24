@@ -183,7 +183,6 @@ CREATE FUNCTION verbose_bq_top_level_measures_fn (
                   year,
                   month,
                   functional_class,
-                  fr,
                   included_mi,
                   excluded_mi,
                   included_tmcs_ct,
@@ -196,7 +195,7 @@ CREATE FUNCTION verbose_bq_top_level_measures_fn (
                   xdelay_per_mile_stddev
                 )
               )
-              FROM top_level_freight_reliability
+              FROM top_level_total_excessive_delay
               WHERE 
                 (state = ANY($1::VARCHAR[]))
                 AND (
