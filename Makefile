@@ -518,6 +518,11 @@ db/drop-traffic-dist-directionality-type:
 		psql -f 'sql/traffic_dist_directionality_type/dropTrafficDistDirectionalityType.sql';\
 	fi
 
+db/drop-phed-peak-period-type:
+	@if [[ $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'phed_peak_period_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/phed_peak_period_type/dropPHEDPeakPeriodType.sql';\
+	fi
+
 
 db/create-traffic-dist-functional-class-type: db/create-database
 	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'traffic_dist_functional_class_type';" | tr -d " \t\n\r";) ]]; then\
@@ -547,6 +552,11 @@ db/create-traffic-dist-congestion-level-type: db/create-database
 db/create-traffic-dist-directionality-type: db/create-database
 	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'traffic_dist_directionality_type';" | tr -d " \t\n\r";) ]]; then\
 		psql -f 'sql/traffic_dist_directionality_type/createTrafficDistDirectionalityType.sql';\
+	fi
+
+db/create-phed-peak-period-type: db/create-database
+	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'phed_peak_period_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f 'sql/phed_peak_period_type/createPHEDPeakPeriodType.sql';\
 	fi
 
 db/create-enum-types:\
@@ -806,48 +816,48 @@ db/create-geography-level-road-miles-breakdown-view: db/create-tmc-attributes
 
 
 
-db/drop-root-total-excessive-delay-table:
-	@if psql -c '\d public.total_excessive_delay' > /dev/null 2>&1; then\
-		psql -f './sql/total_excessive_delay/dropRootTotalExcessiveDelayTable.sql';\
+db/drop-root-excessive_delay_brkdwn-table:
+	@if psql -c '\d public.excessive_delay_brkdwn' > /dev/null 2>&1; then\
+		psql -f './sql/excessive_delay_brkdwn/dropRootExcessiveDelayBrkdwwnTable.sql';\
 	fi
 
-db/create-root-total-excessive-delay-table:
-	@if ! psql -c '\d public.total_excessive_delay' > /dev/null 2>&1; then\
-		psql -f './sql/total_excessive_delay/createRootTotalExcessiveDelayTable.sql';\
+db/create-root-excessive_delay_brkdwn-table:
+	@if ! psql -c '\d public.excessive_delay_brkdwn' > /dev/null 2>&1; then\
+		psql -f './sql/excessive_delay_brkdwn/createRootExcessiveDelayBrkdwnTable.sql';\
 	fi
 
-db/drop-state-total-excessive-delay-table:
+db/drop-state-excessive_delay_brkdwn-table:
 	@:$(call check_defined,STATE)
-	@if psql -c '\d "${STATE}".total_excessive_delay' > /dev/null 2>&1; then\
-		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/total_excessive_delay/dropStateTotalExcessiveDelayTable.sql)";\
+	@if psql -c '\d "${STATE}".excessive_delay_brkdwn' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/excessive_delay_brkdwn/dropStateExcessiveDelayBrkdwnTable.sql)";\
 	fi
 
-db/create-state-total-excessive-delay-table: db/create-root-total-excessive-delay-table
+db/create-state-excessive_delay_brkdwn-table: db/create-root-excessive_delay_brkdwn-table
 	@:$(call check_defined,STATE)
-	@if ! psql -c '\d "${STATE}".total_excessive_delay' > /dev/null 2>&1; then\
-		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/total_excessive_delay/createStateTotalExcessiveDelayTable.sql)";\
+	@if ! psql -c '\d "${STATE}".excessive_delay_brkdwn' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/excessive_delay_brkdwn/createStateExcessiveDelayBrkdwnTable.sql)";\
 	fi
 
-db/drop-state-total-excessive-delay-yrmo-table:
+db/drop-state-excessive_delay_brkdwn-yrmo-table:
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
-	@if psql -c '\d "${STATE}".total_excessive_delay_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+	@if psql -c '\d "${STATE}".excessive_delay_brkdwn_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
 		psql -c "$$(\
 			sed "\
 				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
-			" ./sql/total_excessive_delay/dropStateTotalExcessiveDelayYrMoTable.sql\
+			" ./sql/excessive_delay_brkdwn/dropStateExcessiveDelayBrkdwnYrMoTable.sql\
 		)";\
 	fi
 
-db/create-state-total-excessive-delay-yrmo-table: \
-	db/create-state-total-excessive-delay-table
+db/create-state-excessive_delay_brkdwn-yrmo-table: \
+	db/create-state-excessive_delay_brkdwn-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
-	@if ! psql -c '\d "${STATE}".total_excessive_delay_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+	@if ! psql -c '\d "${STATE}".excessive_delay_brkdwn_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
 		if [[ ${MONTH} -eq 0 ]]; then\
 			START_DATE="$$(date -d "${YEAR}-01-01" '+%F')";\
 			END_DATE="$$(date -d "$${START_DATE} + 1 year" '+%F')";\
@@ -862,7 +872,7 @@ db/create-state-total-excessive-delay-yrmo-table: \
 				s/__MONTH__/${MONTH}/g;\
 				s/__START_DATE__/$${START_DATE}/g;\
 				s/__END_DATE__/$${END_DATE}/g;\
-			" ./sql/total_excessive_delay/createStateTotalExcessiveDelayYrMoTable.sql\
+			" ./sql/excessive_delay_brkdwn/createStateExcessiveDelayBrkdwnYrMoTable.sql\
 		)";\
 	fi
 
