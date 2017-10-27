@@ -51,10 +51,15 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
     SELECT
         travel_times.tmc::VARCHAR AS tmc,
         quarter_hour_bin::SMALLINT,
-        GREATEST(
-          LEAST(harmonic_mean_travel_time - excessive_delay_threshold_time_s, 900),
-          0
-        ) / 3600 AS excessive_delay_hrs
+        ROUND(
+          (
+            GREATEST(
+              LEAST(harmonic_mean_travel_time - excessive_delay_threshold_time_s, 900),
+              0
+            ) / 3600
+          )::NUMERIC,
+          3
+        ) AS excessive_delay_hrs
       FROM (
           SELECT
               tmc,
@@ -63,7 +68,11 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
               (COUNT(1) / SUM(1/NULLIF(travel_time_all_vehicles, 0))) AS harmonic_mean_travel_time
             FROM "__STATE__".npmrds
             WHERE ((date >= '__START_DATE__'::DATE) AND (date < '__END_DATE__'::DATE))
-              AND (epoch BETWEEN (6*12) AND (20*12 - 1))
+              AND (
+                (epoch BETWEEN (6*12) AND (10*12 - 1))
+                OR
+                (epoch BETWEEN (15*12) AND (20*12 - 1))
+              )
               AND (EXTRACT(DOW FROM date) BETWEEN 1 AND 5)
             GROUP BY
               tmc,
@@ -71,59 +80,6 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
               quarter_hour_bin
         ) travel_times
           LEFT OUTER JOIN cte_tmc_info USING (tmc)
-  ), cte_quarter_hour_summary_stats AS (
-      SELECT
-          tmc,
-          quarter_hour_bin,
-          JSONB_BUILD_OBJECT(
-            'total_xdelay_hrs',
-            ROUND(
-              SUM(
-                ROUND(excessive_delay_hrs::NUMERIC, 3)
-                * (
-                  cte_tmc_info.aadt
-                  * (cte_hourly_volumes.pct_daily_vol / 100.0)
-                  / 4 /*15min*/
-                  / 2 /*aadt is bidir*/
-                )
-              )::NUMERIC,
-              3
-            ),
-
-            'summary_stats',
-            JSONB_BUILD_OBJECT(
-              'sum',
-              ROUND(
-                SUM(ROUND(excessive_delay_hrs::NUMERIC, 3))::NUMERIC,
-                3
-              ),
-
-              'quartiles',
-              PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
-                WITHIN GROUP (ORDER BY excessive_delay_hrs)::REAL[5],
-
-              'mean',
-              AVG(excessive_delay_hrs)::REAL,
-
-              'stddev',
-              STDDEV_POP(excessive_delay_hrs)::REAL,
-
-              '15_min_bin_ct',
-              COUNT(1)::SMALLINT
-            )
-          ) AS brkdwn
-      FROM cte_delays_by_quarter_hour
-        LEFT OUTER JOIN cte_tmc_info USING (tmc)
-        LEFT OUTER JOIN cte_hourly_volumes ON (
-          (
-            FLOOR(cte_delays_by_quarter_hour.quarter_hour_bin / 4)::SMALLINT
-              = cte_hourly_volumes.hour::SMALLINT
-          )
-          AND (cte_tmc_info.functional_class = cte_hourly_volumes.functional_class)
-          AND (cte_tmc_info.congestion_level = cte_hourly_volumes.congestion_level)
-          AND (cte_tmc_info.directionality = cte_hourly_volumes.directionality)
-        )
-      GROUP BY cte_delays_by_quarter_hour.tmc, quarter_hour_bin, aadt, pct_daily_vol
   ), cte_hourly_summary_stats AS (
       SELECT
           tmc,
@@ -132,7 +88,7 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
             'total_xdelay_hrs',
             ROUND(
               SUM(
-                ROUND(excessive_delay_hrs::NUMERIC, 3)
+                excessive_delay_hrs
                 * (
                   cte_tmc_info.aadt
                   * (cte_hourly_volumes.pct_daily_vol / 100.0)
@@ -147,7 +103,7 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
             JSONB_BUILD_OBJECT(
               'sum',
               ROUND(
-                SUM(ROUND(excessive_delay_hrs::NUMERIC, 3))::NUMERIC,
+                SUM(excessive_delay_hrs)::NUMERIC,
                 3
               ),
 
@@ -172,7 +128,60 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
             )
           ) AS brkdwn
       FROM cte_delays_by_quarter_hour
-        LEFT OUTER JOIN cte_quarter_hour_summary_stats USING (tmc, quarter_hour_bin)
+        LEFT OUTER JOIN (
+            SELECT
+                tmc,
+                quarter_hour_bin,
+                JSONB_BUILD_OBJECT(
+                  'total_xdelay_hrs',
+                  ROUND(
+                    SUM(
+                      excessive_delay_hrs
+                      * (
+                        cte_tmc_info.aadt
+                        * (cte_hourly_volumes.pct_daily_vol / 100.0)
+                        / 4 /*15min*/
+                        / 2 /*aadt is bidir*/
+                      )
+                    )::NUMERIC,
+                    3
+                  ),
+
+                  'summary_stats',
+                  JSONB_BUILD_OBJECT(
+                    'sum',
+                    ROUND(
+                      SUM(excessive_delay_hrs)::NUMERIC,
+                      3
+                    ),
+
+                    'quartiles',
+                    PERCENTILE_DISC(array[0.0, 0.25, 0.50, 0.75, 1.0])
+                      WITHIN GROUP (ORDER BY excessive_delay_hrs)::REAL[5],
+
+                    'mean',
+                    AVG(excessive_delay_hrs)::REAL,
+
+                    'stddev',
+                    STDDEV_POP(excessive_delay_hrs)::REAL,
+
+                    '15_min_bin_ct',
+                    COUNT(1)::SMALLINT
+                  )
+                ) AS brkdwn
+            FROM cte_delays_by_quarter_hour
+              LEFT OUTER JOIN cte_tmc_info USING (tmc)
+              LEFT OUTER JOIN cte_hourly_volumes ON (
+                (
+                  FLOOR(cte_delays_by_quarter_hour.quarter_hour_bin / 4)::SMALLINT
+                    = cte_hourly_volumes.hour::SMALLINT
+                )
+                AND (cte_tmc_info.functional_class = cte_hourly_volumes.functional_class)
+                AND (cte_tmc_info.congestion_level = cte_hourly_volumes.congestion_level)
+                AND (cte_tmc_info.directionality = cte_hourly_volumes.directionality)
+              )
+            GROUP BY cte_delays_by_quarter_hour.tmc, quarter_hour_bin, aadt, pct_daily_vol
+          ) AS cte_quarter_hour_summary_stats USING (tmc, quarter_hour_bin)
         LEFT OUTER JOIN cte_tmc_info USING (tmc)
         LEFT OUTER JOIN cte_hourly_volumes ON (
           (
@@ -184,7 +193,17 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
           AND (cte_tmc_info.directionality = cte_hourly_volumes.directionality)
         )
       GROUP BY cte_delays_by_quarter_hour.tmc, FLOOR(quarter_hour_bin / 4), aadt, pct_daily_vol
-  ), cte_peak_period_bins_summary_stats AS (
+  )
+  SELECT
+      '__STATE__'::VARCHAR(2) AS state,
+      __YEAR__::SMALLINT AS year,
+      __MONTH__::SMALLINT AS month,
+      tmc::VARCHAR(9),
+      JSONB_OBJECT_AGG(
+        phed_peak_period,
+        brkdwn
+      ) AS excessive_delay_brkdwn
+    FROM (
       SELECT
           cte_delays_by_quarter_hour.tmc,
           'PHED_AM_PEAK'::phed_peak_period_type AS phed_peak_period,
@@ -192,7 +211,7 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
             'total_xdelay_hrs',
             ROUND(
               SUM(
-                ROUND(excessive_delay_hrs::NUMERIC, 3)
+                excessive_delay_hrs
                 * (
                   cte_tmc_info.aadt
                   * (cte_hourly_volumes.pct_daily_vol / 100.0)
@@ -207,7 +226,7 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
             JSONB_BUILD_OBJECT(
               'sum',
               ROUND(
-                SUM(ROUND(excessive_delay_hrs::NUMERIC, 3))::NUMERIC,
+                SUM(excessive_delay_hrs)::NUMERIC,
                 3
               ),
 
@@ -260,7 +279,7 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
             'total_xdelay_hrs',
             ROUND(
               SUM(
-                ROUND(excessive_delay_hrs::NUMERIC, 3)
+                excessive_delay_hrs
                 * (
                   cte_tmc_info.aadt
                   * (cte_hourly_volumes.pct_daily_vol / 100.0)
@@ -275,7 +294,7 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
             JSONB_BUILD_OBJECT(
               'sum',
               ROUND(
-                SUM(ROUND(excessive_delay_hrs::NUMERIC, 3))::NUMERIC,
+                SUM(excessive_delay_hrs)::NUMERIC,
                 3
               ),
 
@@ -328,7 +347,7 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
             'total_xdelay_hrs',
             ROUND(
               SUM(
-                ROUND(excessive_delay_hrs::NUMERIC, 3)
+                excessive_delay_hrs
                 * (
                   cte_tmc_info.aadt
                   * (cte_hourly_volumes.pct_daily_vol / 100.0)
@@ -343,7 +362,7 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
             JSONB_BUILD_OBJECT(
               'sum',
               ROUND(
-                SUM(ROUND(excessive_delay_hrs::NUMERIC, 3))::NUMERIC,
+                SUM(excessive_delay_hrs)::NUMERIC,
                 3
               ),
 
@@ -388,18 +407,8 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
           )
         WHERE (quarter_hour_bin BETWEEN (16*4) AND (20*4 -1))
         GROUP BY cte_delays_by_quarter_hour.tmc, FLOOR(quarter_hour_bin / 4), aadt
-  )
-  SELECT
-      '__STATE__'::VARCHAR(2) AS state,
-      __YEAR__::SMALLINT AS year,
-      __MONTH__::SMALLINT AS month,
-      tmc::VARCHAR(9),
-      JSONB_OBJECT_AGG(
-        phed_peak_period,
-        brkdwn
-      ) AS excessive_delay_brkdwn
-    FROM cte_peak_period_bins_summary_stats
-    GROUP BY state, year, month, tmc
+  ) AS cte_peak_period_bins_summary_stats
+  GROUP BY state, year, month, tmc
 ;
 
 ALTER TABLE "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__
