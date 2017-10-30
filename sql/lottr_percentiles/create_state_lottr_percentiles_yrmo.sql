@@ -2,6 +2,8 @@ BEGIN;
 
 --EXPLAIN ANALYZE 
 CREATE TABLE "__STATE__".lottr_percentiles_y__YEAR__m__MONTH__ AS
+
+
   SELECT '__STATE__'::VARCHAR(2) AS state,
          tmc::VARCHAR(9),
          __YEAR__::SMALLINT AS year,

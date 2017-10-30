@@ -11,7 +11,12 @@
 
 BEGIN;
 
-CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__ AS
+CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__ (
+  LIKE "__STATE__".excessive_delay_brkdwn EXCLUDING ALL
+) WITH (fillfactor = 100, autovacuum_enabled = false);
+
+
+INSERT INTO "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__ (state, year, month, tmc, excessive_delay_brkdwn)
   WITH cte_tmc_info AS (
     SELECT
         tmc,
@@ -67,13 +72,21 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
               FLOOR(epoch / 3)::SMALLINT AS quarter_hour_bin,
               (COUNT(1) / SUM(1/NULLIF(travel_time_all_vehicles, 0))) AS harmonic_mean_travel_time
             FROM "__STATE__".npmrds
-            WHERE ((date >= '__START_DATE__'::DATE) AND (date < '__END_DATE__'::DATE))
+            WHERE ((date >= '__START_DATE__'::DATE) AND (date < '__END_DATE__'::DATE)) 
               AND (
                 (epoch BETWEEN (6*12) AND (10*12 - 1))
                 OR
                 (epoch BETWEEN (15*12) AND (20*12 - 1))
               )
               AND (EXTRACT(DOW FROM date) BETWEEN 1 AND 5)
+              AND (
+                ('__START_TMC__' = '__START' || '_TMC__')
+                OR
+                (
+                  -- NOTE: '__END' > '999', so no need to replace on last partition
+                  (tmc >= '__START_TMC__') AND (tmc < '__END_TMC__') 
+                )
+              )
             GROUP BY
               tmc,
               date,
@@ -411,26 +424,4 @@ CREATE TABLE IF NOT EXISTS "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH_
   GROUP BY state, year, month, tmc
 ;
 
-ALTER TABLE "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__
-  ADD CONSTRAINT state_check 
-    CHECK (state = '__STATE__'),
-  ADD CONSTRAINT date_range 
-    CHECK ((year = __YEAR__) AND (month = __MONTH__)),
-  INHERIT "__STATE__".excessive_delay_brkdwn,
-  SET (fillfactor = 100, autovacuum_enabled=false);
-
-
-CREATE UNIQUE INDEX excessive_delay_brkdwn_y__YEAR__m__MONTH___idx
-  ON "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__ (tmc)
-  WITH (fillfactor = 100);
-
-ALTER TABLE "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__
-  ADD CONSTRAINT excessive_delay_brkdwn_y__YEAR__m__MONTH___pkey
-    PRIMARY KEY USING INDEX excessive_delay_brkdwn_y__YEAR__m__MONTH___idx;
-
-CLUSTER VERBOSE "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__
-  USING excessive_delay_brkdwn_y__YEAR__m__MONTH___pkey;
-
 COMMIT;
-
-ANALYZE VERBOSE "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__;

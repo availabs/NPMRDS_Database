@@ -816,29 +816,29 @@ db/create-geography-level-road-miles-breakdown-view: db/create-tmc-attributes
 
 
 
-db/drop-root-excessive_delay_brkdwn-table:
+db/drop-root-excessive-delay-brkdwn-table:
 	@if psql -c '\d public.excessive_delay_brkdwn' > /dev/null 2>&1; then\
 		psql -f './sql/excessive_delay_brkdwn/dropRootExcessiveDelayBrkdwwnTable.sql';\
 	fi
 
-db/create-root-excessive_delay_brkdwn-table:
+db/create-root-excessive-delay-brkdwn-table:
 	@if ! psql -c '\d public.excessive_delay_brkdwn' > /dev/null 2>&1; then\
 		psql -f './sql/excessive_delay_brkdwn/createRootExcessiveDelayBrkdwnTable.sql';\
 	fi
 
-db/drop-state-excessive_delay_brkdwn-table:
+db/drop-state-excessive-delay-brkdwn-table:
 	@:$(call check_defined,STATE)
 	@if psql -c '\d "${STATE}".excessive_delay_brkdwn' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/excessive_delay_brkdwn/dropStateExcessiveDelayBrkdwnTable.sql)";\
 	fi
 
-db/create-state-excessive_delay_brkdwn-table: db/create-root-excessive_delay_brkdwn-table
+db/create-state-excessive-delay-brkdwn-table: db/create-root-excessive-delay-brkdwn-table
 	@:$(call check_defined,STATE)
 	@if ! psql -c '\d "${STATE}".excessive_delay_brkdwn' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/excessive_delay_brkdwn/createStateExcessiveDelayBrkdwnTable.sql)";\
 	fi
 
-db/drop-state-excessive_delay_brkdwn-yrmo-table:
+db/drop-state-excessive-delay-brkdwn-yrmo-table:
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
@@ -852,7 +852,7 @@ db/drop-state-excessive_delay_brkdwn-yrmo-table:
 		)";\
 	fi
 
-db/create-state-excessive_delay_brkdwn-yrmo-table: \
+db/create-state-excessive-delay-brkdwn-yrmo-table: \
 	db/create-state-excessive_delay_brkdwn-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
@@ -872,7 +872,16 @@ db/create-state-excessive_delay_brkdwn-yrmo-table: \
 				s/__MONTH__/${MONTH}/g;\
 				s/__START_DATE__/$${START_DATE}/g;\
 				s/__END_DATE__/$${END_DATE}/g;\
-			" ./sql/excessive_delay_brkdwn/createStateExcessiveDelayBrkdwnYrMoTable.sql\
+			" ./sql/excessive_delay_brkdwn/createStateExcessiveDelayBrkdwnYrMoTable.part-1.sql\
+		)";\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+				s/__START_DATE__/$${START_DATE}/g;\
+				s/__END_DATE__/$${END_DATE}/g;\
+			" ./sql/excessive_delay_brkdwn/createStateExcessiveDelayBrkdwnYrMoTable.part-2.sql\
 		)";\
 	fi
 
