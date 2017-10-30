@@ -143,7 +143,13 @@ CREATE FUNCTION terse_bq_top_level_measures_fn (
                   year,
                   month,
                   functional_class,
-                  total_excessive_delay
+                  (
+                    am_peak_total_xdelay_hrs + 
+                    GREATEST(
+                      pm1_peak_total_xdelay_hrs,
+                      pm2_peak_total_xdelay_hrs
+                    )
+                  )
                 )
               )
               FROM top_level_total_excessive_delay

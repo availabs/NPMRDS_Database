@@ -183,16 +183,18 @@ CREATE FUNCTION verbose_bq_top_level_measures_fn (
                   year,
                   month,
                   functional_class,
+                  (
+                    am_peak_total_xdelay_hrs + 
+                    GREATEST(
+                      pm1_peak_total_xdelay_hrs,
+                      pm2_peak_total_xdelay_hrs
+                    )
+                  ),
                   included_mi,
                   excluded_mi,
                   included_tmcs_ct,
                   excluded_tmcs_ct,
-                  xdelay_quartiles,
-                  xdelay_mean,
-                  xdelay_stddev,
-                  xdelay_per_mile_quartiles,
-                  xdelay_per_mile_mean,
-                  xdelay_per_mile_stddev
+                  summary_stats_by_phed_period
                 )
               )
               FROM top_level_total_excessive_delay
