@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TABLE "__STATE__".top_level_excessive_delay_brkdwn_y__YEAR__m__MONTH__ AS
+CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
 
   -- State Level
   SELECT '__STATE__'::VARCHAR(2) AS state,
@@ -1909,7 +1909,7 @@ CREATE TABLE "__STATE__".top_level_excessive_delay_brkdwn_y__YEAR__m__MONTH__ AS
   ;
   
 
-ALTER TABLE "__STATE__".top_level_excessive_delay_brkdwn_y__YEAR__m__MONTH__
+ALTER TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__
   ADD CONSTRAINT state_check 
     CHECK (state = '__STATE__'),
   ADD CONSTRAINT date_range 
@@ -1918,19 +1918,19 @@ ALTER TABLE "__STATE__".top_level_excessive_delay_brkdwn_y__YEAR__m__MONTH__
   SET (fillfactor = 100);
 
 
-CREATE UNIQUE INDEX top_level_excessive_delay_brkdwn_y__YEAR__m__MONTH___idx
-  ON "__STATE__".top_level_excessive_delay_brkdwn_y__YEAR__m__MONTH__ 
+CREATE UNIQUE INDEX top_level_excessive_delay_y__YEAR__m__MONTH___idx
+  ON "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ 
     (geography_level, geography_name, functional_class)
   WITH (fillfactor = 100);
 
-ALTER TABLE "__STATE__".top_level_excessive_delay_brkdwn_y__YEAR__m__MONTH__
-  ADD CONSTRAINT top_level_excessive_delay_brkdwn_y__YEAR__m__MONTH___pkey
-    PRIMARY KEY USING INDEX top_level_excessive_delay_brkdwn_y__YEAR__m__MONTH___idx;
+ALTER TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__
+  ADD CONSTRAINT top_level_excessive_delay_y__YEAR__m__MONTH___pkey
+    PRIMARY KEY USING INDEX top_level_excessive_delay_y__YEAR__m__MONTH___idx;
 
 
-CLUSTER VERBOSE "__STATE__".top_level_excessive_delay_brkdwn_y__YEAR__m__MONTH__
-  USING top_level_excessive_delay_brkdwn_y__YEAR__m__MONTH___pkey;
+CLUSTER VERBOSE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__
+  USING top_level_excessive_delay_y__YEAR__m__MONTH___pkey;
 
 COMMIT;
 
-ANALYZE VERBOSE "__STATE__".top_level_excessive_delay_brkdwn_y__YEAR__m__MONTH__;
+ANALYZE VERBOSE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__;
