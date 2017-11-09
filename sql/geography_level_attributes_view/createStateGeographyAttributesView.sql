@@ -1,4 +1,4 @@
-CREATE VIEW geography_level_road_miles_breakdown_view
+CREATE OR REPLACE VIEW geography_level_attributes_view
   AS
     /* MPOs */
     SELECT
@@ -8,6 +8,7 @@ CREATE VIEW geography_level_road_miles_breakdown_view
         interstate_tmcs_ct, 
         noninterstate_miles,
         noninterstate_tmcs_ct,
+        bounding_box,
         state
       FROM (
           SELECT 
@@ -29,7 +30,15 @@ CREATE VIEW geography_level_road_miles_breakdown_view
             WHERE ((is_interstate = false) OR (is_interstate IS NULL))
               AND (mpo_acrony IS NOT NULL)
             GROUP BY mpo_acrony, state
-        ) AS T2
+        ) AS t2 NATURAL FULL OUTER JOIN (
+          SELECT
+              mpo_acrony AS geography_level_name,
+              ST_Extent(wkb_geometry) AS bounding_box,
+              tmc_attributes.state AS state
+            FROM inrix_shapefile
+              INNER JOIN tmc_attributes USING (tmc)
+            GROUP BY geography_level_name, tmc_attributes.state
+        ) AS t3
 
   UNION ALL
     /* Counties */
@@ -40,6 +49,7 @@ CREATE VIEW geography_level_road_miles_breakdown_view
         interstate_tmcs_ct, 
         noninterstate_miles,
         noninterstate_tmcs_ct,
+        bounding_box,
         state
       FROM (
           SELECT 
@@ -61,7 +71,15 @@ CREATE VIEW geography_level_road_miles_breakdown_view
             WHERE ((is_interstate = false) OR (is_interstate IS NULL))
               AND (county IS NOT NULL)
             GROUP BY county, state
-        ) AS T2
+        ) AS t2 NATURAL FULL OUTER JOIN (
+          SELECT
+              tmc_attributes.county AS geography_level_name,
+              ST_Extent(wkb_geometry) AS bounding_box,
+              tmc_attributes.state AS state
+            FROM inrix_shapefile
+              INNER JOIN tmc_attributes USING (tmc)
+            GROUP BY geography_level_name, tmc_attributes.state
+        ) AS t3
 
   /* Core Based Statistical Areas */
   UNION ALL
@@ -73,6 +91,7 @@ CREATE VIEW geography_level_road_miles_breakdown_view
         interstate_tmcs_ct, 
         noninterstate_miles,
         noninterstate_tmcs_ct,
+        bounding_box,
         state
       FROM (
           SELECT 
@@ -94,7 +113,15 @@ CREATE VIEW geography_level_road_miles_breakdown_view
             WHERE ((is_interstate = false) OR (is_interstate IS NULL))
               AND (cbsa_name IS NOT NULL)
             GROUP BY cbsa_name, state
-        ) AS T2
+        ) AS t2 NATURAL FULL OUTER JOIN (
+          SELECT
+              cbsa_name AS geography_level_name,
+              ST_Extent(wkb_geometry) AS bounding_box,
+              tmc_attributes.state AS state
+            FROM inrix_shapefile
+              INNER JOIN tmc_attributes USING (tmc)
+            GROUP BY geography_level_name, tmc_attributes.state
+        ) AS t3
 
   UNION ALL
     /* Urban Areas */
@@ -105,6 +132,7 @@ CREATE VIEW geography_level_road_miles_breakdown_view
         interstate_tmcs_ct, 
         noninterstate_miles,
         noninterstate_tmcs_ct,
+        bounding_box,
         state
       FROM (
           SELECT 
@@ -126,7 +154,15 @@ CREATE VIEW geography_level_road_miles_breakdown_view
             WHERE ((is_interstate = false) OR (is_interstate IS NULL))
               AND (ua_name IS NOT NULL)
             GROUP BY ua_name, state
-        ) AS T2
+        ) AS t2 NATURAL FULL OUTER JOIN (
+          SELECT
+              ua_name AS geography_level_name,
+              ST_Extent(wkb_geometry) AS bounding_box,
+              tmc_attributes.state AS state
+            FROM inrix_shapefile
+              INNER JOIN tmc_attributes USING (tmc)
+            GROUP BY geography_level_name, tmc_attributes.state
+        ) AS t3
 
   UNION ALL
     /* Regions */
@@ -137,6 +173,7 @@ CREATE VIEW geography_level_road_miles_breakdown_view
         interstate_tmcs_ct, 
         noninterstate_miles,
         noninterstate_tmcs_ct,
+        bounding_box,
         state
       FROM (
           SELECT 
@@ -158,7 +195,15 @@ CREATE VIEW geography_level_road_miles_breakdown_view
             WHERE ((is_interstate = false) OR (is_interstate IS NULL))
               AND (region_code IS NOT NULL)
             GROUP BY region_code, state
-        ) AS T2
+        ) AS t2 NATURAL FULL OUTER JOIN (
+          SELECT
+              region_code::VARCHAR AS geography_level_name,
+              ST_Extent(wkb_geometry) AS bounding_box,
+              tmc_attributes.state AS state
+            FROM inrix_shapefile
+              INNER JOIN tmc_attributes USING (tmc)
+            GROUP BY geography_level_name, tmc_attributes.state
+        ) AS t3
 
 
   UNION ALL 
@@ -170,6 +215,7 @@ CREATE VIEW geography_level_road_miles_breakdown_view
         interstate_tmcs_ct, 
         noninterstate_miles,
         noninterstate_tmcs_ct,
+        bounding_box,
         state
       FROM (
           SELECT 
@@ -191,6 +237,14 @@ CREATE VIEW geography_level_road_miles_breakdown_view
             WHERE ((is_interstate = false) OR (is_interstate IS NULL))
               AND (state IS NOT NULL)
             GROUP BY state
-        ) AS T2
+        ) AS t2 NATURAL FULL OUTER JOIN (
+          SELECT
+              tmc_attributes.state AS geography_level_name,
+              ST_Extent(wkb_geometry) AS bounding_box,
+              tmc_attributes.state AS state
+            FROM inrix_shapefile
+              INNER JOIN tmc_attributes USING (tmc)
+            GROUP BY geography_level_name, tmc_attributes.state
+        ) AS t3
 ;
 
