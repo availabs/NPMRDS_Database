@@ -15,7 +15,7 @@ PATH := $(PATH):node_modules/.bin
 STATE := $(shell echo ${STATE} | tr '[:upper:]' '[:lower:]')
 
 # zero-pad months: see https://stackoverflow.com/a/9671373/3970755
-MONTH:=$(shell if [ ${MONTH} ]; then printf '%02d' ${MONTH}; fi)
+MONTH:=$(shell if [ ${MONTH} ]; then printf '%02.f' "${MONTH}"; fi)
 
 
 _MKFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
