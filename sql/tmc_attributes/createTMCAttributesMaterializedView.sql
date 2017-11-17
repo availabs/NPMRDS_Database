@@ -317,7 +317,6 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
 
 REFRESH MATERIALIZED VIEW tmc_attributes;
 
-CREATE INDEX IF NOT EXISTS tmc_attributes_idx ON tmc_attributes (tmc);
 
 CLUSTER VERBOSE tmc_attributes USING tmc_attributes_idx;
 

@@ -603,6 +603,9 @@ db/create-tmc-attributes:
 		psql -f './sql/tmc_attributes/createTMCAttributesMaterializedView.sql';\
 	fi
 
+db/refresh-tmc-attributes: db/create-tmc-attributes
+	psql -f './sql/tmc_attributes/refreshTMCAttributesMaterializedView.sql';\
+
 db/drop-root-lottr-percentiles-table:
 	@if psql -c '\d public.lottr_percentiles' > /dev/null 2>&1; then\
 		psql -f './sql/lottr_percentiles/drop_root_lottr_percentiles.sql';\
