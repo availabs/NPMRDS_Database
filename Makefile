@@ -15,7 +15,7 @@ PATH := $(PATH):node_modules/.bin
 STATE := $(shell echo ${STATE} | tr '[:upper:]' '[:lower:]')
 
 # zero-pad months: see https://stackoverflow.com/a/9671373/3970755
-MONTH:=$(shell if [ ${MONTH} ]; then printf '%02d' ${MONTH}; fi)
+MONTH:=$(shell if [ ${MONTH} ]; then printf '%02.f' "${MONTH}"; fi)
 
 
 _MKFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -856,7 +856,7 @@ db/drop-state-excessive-delay-brkdwn-yrmo-table:
 	fi
 
 db/create-state-excessive-delay-brkdwn-yrmo-table: \
-	db/create-state-excessive_delay_brkdwn-table
+	db/create-state-excessive-delay-brkdwn-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
@@ -875,7 +875,7 @@ db/create-state-excessive-delay-brkdwn-yrmo-table: \
 				s/__MONTH__/${MONTH}/g;\
 				s/__START_DATE__/$${START_DATE}/g;\
 				s/__END_DATE__/$${END_DATE}/g;\
-			" ./sql/excessive_delay_brkdwn/createStateExcessiveDelayBrkdwnYrMoTable.part-1.sql\
+			" ./sql/excessive_delay_brkdwn/createStateExcessiveDelayBrkdwnYrMoTable.step-1.sql\
 		)";\
 		psql -c "$$(\
 			sed "\
@@ -884,7 +884,7 @@ db/create-state-excessive-delay-brkdwn-yrmo-table: \
 				s/__MONTH__/${MONTH}/g;\
 				s/__START_DATE__/$${START_DATE}/g;\
 				s/__END_DATE__/$${END_DATE}/g;\
-			" ./sql/excessive_delay_brkdwn/createStateExcessiveDelayBrkdwnYrMoTable.part-2.sql\
+			" ./sql/excessive_delay_brkdwn/createStateExcessiveDelayBrkdwnYrMoTable.step-2.sql\
 		)";\
 	fi
 
