@@ -35,7 +35,14 @@ _ETL_TRANSFORMED_DIR := ${_ETL_DIR}/transformed
 _MPO_BOUNDARIES_DIR := ${_DATA_DIR}/shapefiles/mpo_boundaries/us
 _MPO_ACRONYMS_CSV_PATH := ${_DATA_DIR}/csvs/mpo_abbreviations/mpo_abbreviations.csv
 
-_URBAN_AREAS_DIR := ${_DATA_DIR}/shapefiles/urban_area_boundaries/us
+_URBAN_AREAS_SHAPEFILE_DIR := ${_DATA_DIR}/shapefiles/urban_area_boundaries/us
+_URBAN_AREA_POPULATIONS_DIR := ${_DATA_DIR}/tsvs/urban_area_populations/us/2010/
+_URBAN_AREA_POPULATIONS_ZIP_PATH := ${_URBAN_AREA_POPULATIONS_DIR}/Gaz_ua.zip
+_URBAN_AREA_POPULATIONS_TSV_PATH := ${_URBAN_AREA_POPULATIONS_DIR}/Gaz_ua_national.txt
+
+_COUNTY_POPULATIONS_DIR := ${_DATA_DIR}/tsvs/county_populations/us/2010/
+_COUNTY_POPULATIONS_ZIP_PATH := ${_COUNTY_POPULATIONS_DIR}/Gaz_counties_national.zip
+_COUNTY_POPULATIONS_TSV_PATH := ${_COUNTY_POPULATIONS_DIR}/Gaz_counties_national.txt
 
 _CORE_BASED_STATISTICAL_AREAS_DIR := ${_DATA_DIR}/shapefiles/core_based_statistical_area_boundaries/us
 
@@ -360,8 +367,8 @@ db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
 
 db/upload-urban-area-boundaries-shapefile: db/create-database db/create-schema-us
 	@set -e;\
-	LATEST_VERSION=$$(ls ${_URBAN_AREAS_DIR} | sort | tail -1);\
-	SHP_DIR=${_URBAN_AREAS_DIR}/$${LATEST_VERSION};\
+	LATEST_VERSION=$$(ls ${_URBAN_AREAS_SHAPEFILE_DIR} | sort | tail -1);\
+	SHP_DIR=${_URBAN_AREAS_SHAPEFILE_DIR}/$${LATEST_VERSION};\
 	pushd $${SHP_DIR} && unzip -o "*.zip" && popd;\
 	OGR_OUTPUT=$$(\
 		ogr2ogr -t_srs EPSG:4326 -f \
@@ -946,45 +953,6 @@ db/create-npmrds-date-fn:
 db/create-timestamptoepoch-fn:
 	@psql -f './sql/timestamptoepoch_fn/create_timestamptoepoch_function.sql'
 
-		
-
-#####################################################
-
-#### External API
-
-${_SPEEDLIMITS_DATA_DIR}:
-	mkdir -p ${_SPEEDLIMITS_DATA_DIR}
-
-scraping/scrape-speedlimits: db/upload-inrix-shapefile-for-state
-	@:$(call check_defined,STATE)
-	@if [ ! -d "${_SCRAPED_SPEEDLIMITS_DIR}/${STATE}" ]; then\
-		echo 'Scraping speedlimits.';\
-		node ./src/speedlimitScraper/speedlimitsScraper.js --state=${STATE};\
-	fi
-	
-scraping/update-scraped-speedlimits-info: db/upload-inrix-shapefile-for-state
-	@:$(call check_defined,STATE)
-	node ./src/speedlimitScraper/speedlimitsScraper.js --state=${STATE};\
-
-scraping/download-urban-area-boundaries-shapefile:
-	${_BIN_DIR}/scrapeCensus.js --geographyType=urban_area
-	
-scraping/download-core-based-statistical-area-boundaries-shapefile:
-	${_BIN_DIR}/scrapeCensus.js --geographyType=core_based_statistical_area
-	
-
-preprocessing/create-speedlimits-csv: scraping/scrape-speedlimits
-	@:$(call check_defined,STATE)
-	@if [ ! -f "${_PARSED_SPEEDLIMITS_DIR}/${STATE}_avg_speedlimits.csv" ]; then\
-		node ./src/speedlimitScraper/createSpeedlimitsCSV.js --state=${STATE};\
-	fi
-
-data/move-speedlimits-csv-to-data-dir: ${_SPEEDLIMITS_DATA_DIR} preprocessing/create-speedlimits-csv
-	@:$(call check_defined,STATE)
-	@if [ ! -d "${_SPEEDLIMITS_DATA_DIR}/${STATE}_avg_speedlimits.csv" ]; then\
-		mv "${_PARSED_SPEEDLIMITS_DIR}/${STATE}_avg_speedlimits.csv" "${_SPEEDLIMITS_DATA_DIR}/${STATE}_avg_speedlimits.csv";\
-	fi
-	
 db/drop-root-average-speedlimits-table:
 	@if psql -c '\d public.avg_speedlimits' > /dev/null 2>&1; then\
 		psql -f './sql/avg_speedlimits/dropRootAverageSpeedLimitsTable.sql';\
@@ -1019,7 +987,101 @@ db/create-federal-holidays-table: db/create-database
 		psql -f './sql/federal_holidays/createFederalHolidaysTable.sql';\
 	fi
 
+db/drop-county-populations-table:
+	@if psql -c '\d public.county_populations' > /dev/null 2>&1; then\
+		psql -f './sql/county_populations_table/drop_county_populations_table.sql';\
+	fi
 
+db/create-county-populations-table: db/create-database
+	@if ! psql -c '\d public.county_populations' > /dev/null 2>&1; then\
+		psql -f './sql/county_populations_table/create_county_populations_table.sql';\
+	fi
+
+db/load-county-populations-table: db/create-county-populations-table
+	@set -e;\
+	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM public.county_populations;" | tr -d " \t\n\r";);\
+	if [ $${COUNT} -eq 0 ]; then\
+		if [ ! -d ${_COUNTY_POPULATIONS_TSV_PATH} ]; then\
+			pushd ${_COUNTY_POPULATIONS_DIR} && \
+				unzip -o ${_COUNTY_POPULATIONS_ZIP_PATH} && \
+				popd;\
+		fi;\
+		tail -n +2 '${_COUNTY_POPULATIONS_TSV_PATH}' | \
+			iconv -f iso-8859-1 -t utf-8 - |\
+			psql -c "$$(cat ./sql/county_populations_table/load_county_populations.sql)";\
+		psql -f ./sql/county_populations_table/finish_county_populations.sql;\
+	fi
+
+
+db/drop-urban-area-populations-table:
+	@if psql -c '\d public.urban_area_populations' > /dev/null 2>&1; then\
+		psql -f './sql/urban_area_populations_table/drop_urban_area_populations_table.sql';\
+	fi
+
+db/create-urban-area-populations-table: db/create-database
+	@if ! psql -c '\d public.urban_area_populations' > /dev/null 2>&1; then\
+		psql -f './sql/urban_area_populations_table/create_urban_area_populations_table.sql';\
+	fi
+
+db/load-urban-area-populations-table: db/create-urban-area-populations-table
+	@set -e;\
+	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM public.urban_area_populations;" | tr -d " \t\n\r";);\
+	if [ $${COUNT} -eq 0 ]; then\
+		if [ ! -d ${_URBAN_AREA_POPULATIONS_TSV_PATH} ]; then\
+			pushd ${_URBAN_AREA_POPULATIONS_DIR} && \
+				unzip -o ${_URBAN_AREA_POPULATIONS_ZIP_PATH} && \
+				popd;\
+		fi;\
+		tail -n +2 '${_URBAN_AREA_POPULATIONS_TSV_PATH}' | \
+			iconv -f iso-8859-1 -t utf-8 - |\
+			psql -c "$$(cat ./sql/urban_area_populations_table/load_urban_area_populations.sql)";\
+		psql -f ./sql/urban_area_populations_table/finish_urban_area_populations.sql;\
+	fi
+
+
+#####################################################
+
+#### External API
+
+${_SPEEDLIMITS_DATA_DIR}:
+	mkdir -p ${_SPEEDLIMITS_DATA_DIR}
+
+scraping/scrape-speedlimits: db/upload-inrix-shapefile-for-state
+	@:$(call check_defined,STATE)
+	@if [ ! -d "${_SCRAPED_SPEEDLIMITS_DIR}/${STATE}" ]; then\
+		echo 'Scraping speedlimits.';\
+		node ./src/speedlimitScraper/speedlimitsScraper.js --state=${STATE};\
+	fi
+	
+scraping/update-scraped-speedlimits-info: db/upload-inrix-shapefile-for-state
+	@:$(call check_defined,STATE)
+	node ./src/speedlimitScraper/speedlimitsScraper.js --state=${STATE};\
+
+scraping/download-urban-area-boundaries-shapefile:
+	${_BIN_DIR}/scrapeCensusShapefiles.js --geographyType=urban_area
+	
+scraping/download-core-based-statistical-area-boundaries-shapefile:
+	${_BIN_DIR}/scrapeCensusShapefiles.js --geographyType=core_based_statistical_area
+	
+scraping/download-county-populations-tsv:
+	${_BIN_DIR}/scrapeCensusGazetters.js --geographyType=county
+
+scraping/download-urban-area-populations-tsv:
+	${_BIN_DIR}/scrapeCensusGazetters.js --geographyType=urban_area
+
+
+preprocessing/create-speedlimits-csv: scraping/scrape-speedlimits
+	@:$(call check_defined,STATE)
+	@if [ ! -f "${_PARSED_SPEEDLIMITS_DIR}/${STATE}_avg_speedlimits.csv" ]; then\
+		node ./src/speedlimitScraper/createSpeedlimitsCSV.js --state=${STATE};\
+	fi
+
+data/move-speedlimits-csv-to-data-dir: ${_SPEEDLIMITS_DATA_DIR} preprocessing/create-speedlimits-csv
+	@:$(call check_defined,STATE)
+	@if [ ! -d "${_SPEEDLIMITS_DATA_DIR}/${STATE}_avg_speedlimits.csv" ]; then\
+		mv "${_PARSED_SPEEDLIMITS_DIR}/${STATE}_avg_speedlimits.csv" "${_SPEEDLIMITS_DATA_DIR}/${STATE}_avg_speedlimits.csv";\
+	fi
+	
 	
 
 preprocessing:
