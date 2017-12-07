@@ -1081,7 +1081,7 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
         ) AS summary_stats_by_phed_period
     FROM (
       SELECT
-          mpo_name AS geography_name,
+          mpo_acrony AS geography_name,
           is_interstate,
           SUM(miles) AS included_mi,
           COUNT(tmc) AS included_tmcs_ct,
@@ -1248,11 +1248,11 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
               OR
               (excessive_delay_brkdwn#>>'{PHED_PM_PEAK_2,total_xdelay_hrs}' IS NOT NULL)
             )
-          ) AND (mpo_name IS NOT NULL)
+          ) AND (mpo_acrony IS NOT NULL)
         GROUP BY geography_name, is_interstate
     ) AS included
     FULL OUTER JOIN (
-      SELECT mpo_name AS geography_name,
+      SELECT mpo_acrony AS geography_name,
              is_interstate,
              SUM(miles) AS excluded_mi,
              COUNT(tmc) AS excluded_tmcs_ct
@@ -1266,7 +1266,7 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
               AND
               (excessive_delay_brkdwn#>>'{PHED_PM_PEAK_2,total_xdelay_hrs}' IS NULL)
             )
-          ) AND (mpo_name IS NOT NULL)
+          ) AND (mpo_acrony IS NOT NULL)
         GROUP BY geography_name, is_interstate
     ) AS excluded
     USING (geography_name, is_interstate)

@@ -232,7 +232,7 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
        ROUND(tttr_stddev::NUMERIC, 3)::REAL AS tttr_stddev,
        ROUND((weighted_total / included_mi)::NUMERIC, 3)::REAL AS fr
   FROM (
-    SELECT mpo_name AS geography_name,
+    SELECT mpo_acrony AS geography_name,
            functional_class,
            SUM(tmp_tmc_data.miles * tttr_for_tmc)::REAL AS weighted_total,
            SUM(tmp_tmc_data.miles) AS included_mi,
@@ -249,11 +249,11 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
           (tmc_attrs.state = '__STATE__')
         ) 
       WHERE ((tttr_for_tmc IS NOT NULL) AND (tmp_tmc_data.miles IS NOT NULL))
-        AND (mpo_name IS NOT NULL)
+        AND (mpo_acrony IS NOT NULL)
       GROUP BY geography_name, functional_class
   ) AS measure_calculation
   FULL OUTER JOIN (
-    SELECT mpo_name AS geography_name,
+    SELECT mpo_acrony AS geography_name,
            functional_class,
            SUM(tmp_tmc_data.miles) AS excluded_mi,
            COUNT(tmp_tmc_data.tmc) AS excluded_tmcs_ct
@@ -265,7 +265,7 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
           (tmc_attrs.state = '__STATE__')
         ) 
       WHERE ((tttr_for_tmc IS NULL) OR  (tmp_tmc_data.miles IS NULL))
-        AND (mpo_name IS NOT NULL)
+        AND (mpo_acrony IS NOT NULL)
       GROUP BY geography_name, functional_class
   ) AS excluded
   USING (geography_name, functional_class)

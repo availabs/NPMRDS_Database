@@ -283,7 +283,7 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
        ROUND(lottr_stddev::NUMERIC, 3)::REAL AS lottr_stddev,
        ROUND((passing.weighted_sum / NULLIF(passing_and_failing.weighted_sum, 0))::NUMERIC, 3)::REAL AS ttr
   FROM (
-    SELECT mpo_name AS geography_name,
+    SELECT mpo_acrony AS geography_name,
            functional_class,
            SUM(tmp_tmc_data.miles * tmp_tmc_data. aadt)::REAL AS weighted_sum,
            SUM(tmp_tmc_data.miles) AS passing_mi
@@ -296,11 +296,11 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
         ) 
       WHERE (max_lottr < 1.5)
         AND ((tmp_tmc_data.miles IS NOT NULL) AND (tmp_tmc_data.aadt IS NOT NULL))
-        AND (mpo_name IS NOT NULL)
+        AND (mpo_acrony IS NOT NULL)
       GROUP BY geography_name, functional_class
   ) AS passing 
   FULL OUTER JOIN (
-    SELECT mpo_name AS geography_name,
+    SELECT mpo_acrony AS geography_name,
            functional_class,
            SUM(tmp_tmc_data.miles * tmp_tmc_data. aadt)::REAL AS weighted_sum,
            SUM(tmp_tmc_data.miles) AS included_mi,
@@ -317,12 +317,12 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
           (geo_partitions.state = '__STATE__')
         ) 
       WHERE ((tmp_tmc_data.miles IS NOT NULL) AND (tmp_tmc_data.aadt IS NOT NULL))
-        AND (mpo_name IS NOT NULL)
+        AND (mpo_acrony IS NOT NULL)
       GROUP BY geography_name, functional_class
   ) AS passing_and_failing
   USING (geography_name, functional_class)
   FULL OUTER JOIN (
-    SELECT mpo_name AS geography_name,
+    SELECT mpo_acrony AS geography_name,
            functional_class,
            SUM(tmp_tmc_data.miles) AS excluded_mi,
            COUNT(tmp_tmc_data.tmc) AS excluded_tmcs_ct
@@ -334,7 +334,7 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
           (geo_partitions.state = '__STATE__')
         ) 
       WHERE ((tmp_tmc_data.miles IS NULL) OR  (tmp_tmc_data.aadt IS NULL))
-        AND (mpo_name IS NOT NULL)
+        AND (mpo_acrony IS NOT NULL)
       GROUP BY geography_name, functional_class
   ) AS excluded
   USING (geography_name, functional_class)

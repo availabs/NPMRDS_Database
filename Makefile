@@ -127,11 +127,7 @@ endef
 # Read .env (squelching error messages if one doesn't exist) and pass each
 # environment pair to EXPAND\_EXPORTS to make it available to commands in
 # targets.
-# !!! NOTE: A comment in postgres.env will cause this Makefile to break !!!
-$(foreach a,$(shell cat ./config/postgres.env 2> /dev/null),$(eval $(call EXPAND_EXPORTS,$(a))))
-
-# load data_paths.env
-$(foreach a,$(shell cat ./config/data_paths.env 2> /dev/null),$(eval $(call EXPAND_EXPORTS,$(a))))
+$(foreach a,$(shell cat ./config/postgres.env | sed -e '/\s*#.*$$/d' -e '/^\s*$$/d' 2> /dev/null),$(eval $(call EXPAND_EXPORTS,$(a))))
 
 # https://stackoverflow.com/a/10858332/3970755
 # Check that given variables are set and all have non-empty values,
@@ -139,17 +135,18 @@ $(foreach a,$(shell cat ./config/data_paths.env 2> /dev/null),$(eval $(call EXPA
 # Params:
 #   1. Variable name(s) to test.
 #   2. (optional) Error message to print.
-check_defined = \
-    $(strip $(foreach 1,$1, \
-        $(call __check_defined,$1,$(strip $(value 2)))))
-__check_defined = \
-    $(if $(value $1),, \
-        $(error Undefined $1$(if $2, ($2))$(if $(value @), \
-                required by target `$@')))
+#
+check_defined = $(strip $(foreach 1,$1, $(call __check_defined,$1,$(strip $(value 2)))))
+
+__check_defined = $(if $(value $1),, $(error Undefined $1$(if $2, ($2))$(if $(value @), \ required by target `$@')))
+
 
 echo_conf:
 	# This is the default target because these variables should be verified first and foremost.
-	@cat ./config/postgres.env
+	@echo "PGDATABASE=${PGDATABASE}"
+	@echo "PGUSER=${PGUSER}"
+	@echo "PGHOST=${PGHOST}"
+	@echo "PGPORT=${PGPORT}"
 
 #####################################################
 
@@ -170,6 +167,7 @@ db/create-database:
 	@# Create the database if it does not exist.
 	@# https://stackoverflow.com/a/16783253/3970755
 	@psql -lqt | cut -d \| -f 1 | grep -qw "${PGDATABASE}" || createdb "${PGDATABASE}"
+
 
 db/clean-schema-%: db/drop-schema-% db/create-schema-%
 	@true
@@ -249,18 +247,13 @@ db/create-npmrds-state-yrmo-table: db/create-npmrds-state-table
 	fi
 
 
-db/upload-npmrds-state-yrmo: \
-	db/drop-npmrds-state-yrmo-table \
-	db/create-npmrds-state-yrmo-table
-
+db/upload-npmrds-state-yrmo: db/drop-npmrds-state-yrmo-table db/create-npmrds-state-yrmo-table
 	@# These should be integrated into this target/recipe
 	@#${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv \
 	@#./bin/projectNPMRDSTableColumns.sh < $<	| psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;'
-
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
-
 	@if [[ $$(psql -t -c 'SELECT * FROM "${STATE}".npmrds_y${YEAR}m${MONTH} LIMIT 1;' | tr -d " \t\n\r";) ]]; then\
 		./bin/projectNPMRDSTableColumns.sh < ${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv | psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;';\
 	fi
@@ -287,7 +280,6 @@ db/postprocess-npmrds-state-yrmo:
 		)";\
 	fi
 
-
 db/create-state-tmc-date-ranges-table: db/create-schema-${STATE} db/create-root-tmc-date-ranges-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@psql -c "$$(\
@@ -296,34 +288,54 @@ db/create-state-tmc-date-ranges-table: db/create-schema-${STATE} db/create-root-
 			" ./sql/tmc_date_ranges/createStateTMCDateRangeTable.sql\
 		)";
 
+db/drop-mpo-acronymns-table:
+	@if psql -c '\d us.mpo_acronymns' > /dev/null 2>&1; then\
+		psql -f ./sql/mpo_acronymns/drop_mpo_acronymns.sql;\
+	fi
 
-db/upload-mpo-boundaries: db/create-database db/create-schema-us
+db/create-mpo-acronymns-table: db/create-schema-us
+	@if ! psql -c '\d us.mpo_acronymns' > /dev/null 2>&1; then\
+		psql -f ./sql/mpo_acronymns/create_mpo_acronymns.sql;\
+	fi
+
+db/load-mpo-acronyms-table: db/create-mpo-acronymns-table
+	@set -e;\
+	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM us.mpo_acronymns;" | tr -d " \t\n\r";);\
+	if [ $${COUNT} -eq 0 ]; then\
+		cat '${_MPO_ACRONYMS_CSV_PATH}' | psql -c "$$(cat ./sql/mpo_acronymns/load_mpo_acronymns.sql)";\
+	fi
+
+db/upload-latest-mpo-boundaries: db/load-mpo-acronyms-table
 	@# TODO: compare version in DB to version in data dir.
 	@#       If a newer version available, upload. Otherwise, skip.
 	@set -e;\
-	LATEST_VERSION=$$(ls ${_MPO_BOUNDARIES_DIR} | sort | tail -1);\
-	SHP_DIR=${_MPO_BOUNDARIES_DIR}/$${LATEST_VERSION};\
-	pushd $${SHP_DIR} && unzip -o "*.zip" && popd;\
-	OGR_OUTPUT=$$(\
+	VER=$$(ls ${_MPO_BOUNDARIES_DIR} | sort | tail -1);\
+	LATEST_FILE_VERSION="mpo_boundaries_$${VER}";\
+	LATEST_PGDB_VERSION=$$(psql -t -c "SELECT table_name FROM information_schema.tables WHERE (table_schema='us') and (table_name LIKE 'mpo_boundaries_%') ORDER BY table_name DESC LIMIT 1;" | tr -d " \t\n\r";);\
+	if [ -z $${LATEST_PGDB_VERSION} ] || [[ $${LATEST_FILE_VERSION} > $${LATEST_PGDB_VERSION} ]]; then\
+		SHP_DIR=${_MPO_BOUNDARIES_DIR}/$${VER};\
+		pushd $${SHP_DIR} && unzip -o "*.zip" && popd;\
 		ogr2ogr -t_srs EPSG:4326 -f \
 			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-			"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=us -lco OVERWRITE=YES -nln "mpo_boundaries_$${LATEST_VERSION}" 2>&1;\
-	);\
-	if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
-		ogr2ogr -t_srs EPSG:4326 -f \
-			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-			"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "mpo_boundaries_$${LATEST_VERSION}";\
-	fi;\
-	if [ -f '${_MPO_ACRONYMS_CSV_PATH}' ]; then\
-		psql -c 'DROP TABLE IF EXISTS us.mpo_acronymns;';\
-		psql -c 'CREATE TABLE us.mpo_acronymns (mpo_id VARCHAR PRIMARY KEY, mpo_acrony VARCHAR);';\
-		cat '${_MPO_ACRONYMS_CSV_PATH}' | psql -c "COPY us.mpo_acronymns (mpo_id, mpo_acrony) FROM STDIN CSV HEADER;";\
-	fi;\
-	psql -c "DROP VIEW IF EXISTS public.mpo_boundaries;";\
-	psql -c "CREATE VIEW public.mpo_boundaries AS SELECT * FROM us.mpo_boundaries_$${LATEST_VERSION} LEFT OUTER JOIN us.mpo_acronymns USING (mpo_id);";\
-	find $${SHP_DIR} \
-		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
-		-type f -delete;
+			"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "$${LATEST_FILE_VERSION}";\
+		find $${SHP_DIR} \
+			\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
+			-type f -delete;\
+	fi
+
+db/drop-mpo-boundaries-view:
+	@if psql -c '\d public.mpo_boundaries' > /dev/null 2>&1; then\
+		psql -f './sql/mpo_boundaries_view/dropMPOBoundariesView.sql';\
+	fi
+
+db/create-mpo-boundaries-view: db/upload-latest-mpo-boundaries
+	@if ! psql -c '\d public.mpo_boundaries' > /dev/null 2>&1; then\
+		LATEST_PGDB_VERSION=$$(psql -t -c "SELECT table_name FROM information_schema.tables WHERE (table_schema='us') and (table_name LIKE 'mpo_boundaries_%') ORDER BY table_name DESC LIMIT 1;" | tr -d " \t\n\r";);\
+		if [ $${LATEST_PGDB_VERSION} ]; then\
+			VER=$$(echo $${LATEST_PGDB_VERSION} | sed 's/.*_//g');\
+			psql -c "$$(sed "s/__LATEST_VERSION__/$${VER}/g" ./sql/mpo_boundaries_view/createMPOBoundariesView.sql)";\
+		fi;\
+	fi
 
 db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
 	@:$(call check_defined,STATE)
@@ -337,16 +349,9 @@ db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
 			psql -c "DROP TABLE IF EXISTS \"${STATE}\".$${LATEST_PGDB_VERSION} CASCADE;";\
 		fi;\
 		SHP_DIR="${_INRIX_SHAPEFILES_DIR}/${STATE}/$${VER}/";\
-		OGR_OUTPUT=$$(\
-			ogr2ogr -t_srs EPSG:4326 -f \
-				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-				"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=${STATE} -lco GEOM_TYPE=geometry -lco OVERWRITE=YES -nln "$${LATEST_FILE_VERSION}" 2>&1;\
-		);\
-		if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
-			ogr2ogr -t_srs EPSG:4326 -f \
-				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-				"$${SHP_DIR}" -lco SCHEMA=${STATE} -lco GEOM_TYPE=geometry -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "$${LATEST_FILE_VERSION}";\
-		fi;\
+		ogr2ogr -t_srs EPSG:4326 -f \
+			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+			"$${SHP_DIR}" -lco SCHEMA=${STATE} -lco GEOM_TYPE=geometry -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "$${LATEST_FILE_VERSION}";\
 		psql -c "CREATE TABLE IF NOT EXISTS public.inrix_shapefile (LIKE \"${STATE}\".$${LATEST_FILE_VERSION} EXCLUDING ALL);";\
 		psql -c "ALTER TABLE \"${STATE}\".$${LATEST_FILE_VERSION} INHERIT public.inrix_shapefile;";\
 	else\
@@ -361,19 +366,8 @@ db/upload-urban-area-boundaries-shapefile: db/create-database db/create-schema-u
 	OGR_OUTPUT=$$(\
 		ogr2ogr -t_srs EPSG:4326 -f \
 			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-			"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=us -lco OVERWRITE=YES -nln "urban_area_boundaries_$${LATEST_VERSION}" 2>&1;\
+			"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "urban_area_boundaries_$${LATEST_VERSION}";\
 	);\
-	if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
-		OGR_OUTPUT=$$(\
-			ogr2ogr -t_srs EPSG:4326 -f \
-				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-				"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "urban_area_boundaries_$${LATEST_VERSION}";\
-		);\
-		if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
-			echo $${OGR_OUTPUT};\
-			exit 1;\
-		fi;\
-	fi;\
 	psql -c "DROP VIEW IF EXISTS public.urban_area_boundaries;";\
 	psql -c "CREATE VIEW public.urban_area_boundaries AS SELECT * FROM us.urban_area_boundaries_$${LATEST_VERSION};";\
 	find $${SHP_DIR} \
@@ -389,19 +383,8 @@ db/upload-core-based-staticstical-area-boundaries-shapefile: db/create-database 
 	OGR_OUTPUT=$$(\
 		ogr2ogr -t_srs EPSG:4326 -f \
 			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-			"$${SHP_DIR}" -t_srs EPSG:4326 -lco SCHEMA=us -lco OVERWRITE=YES -nln "core_based_statistical_area_boundaries_$${LATEST_VERSION}" 2>&1;\
+			"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "core_based_statistical_area_boundaries_$${LATEST_VERSION}";\
 	);\
-	if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
-		OGR_OUTPUT=$$(\
-			ogr2ogr -t_srs EPSG:4326 -f \
-				PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-				"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "core_based_statistical_area_boundaries_$${LATEST_VERSION}";\
-		);\
-		if [[ $${OGR_OUTPUT} =~ ERROR ]]; then\
-			echo $${OGR_OUTPUT};\
-			exit 1;\
-		fi;\
-	fi;\
 	psql -c "DROP VIEW IF EXISTS public.core_based_statistical_area_boundaries;";\
 	psql -c "CREATE VIEW public.core_based_statistical_area_boundaries AS SELECT * FROM us.core_based_statistical_area_boundaries_$${LATEST_VERSION};";\
 	find $${SHP_DIR} \
@@ -703,8 +686,7 @@ db/drop-state-tttr-percentiles-yrmo-table:
 		)";\
 	fi
 
-db/create-state-tttr-percentiles-yrmo-table: \
-	db/create-state-tttr-percentiles-table
+db/create-state-tttr-percentiles-yrmo-table: db/create-state-tttr-percentiles-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
@@ -855,8 +837,7 @@ db/drop-state-excessive-delay-brkdwn-yrmo-table:
 		)";\
 	fi
 
-db/create-state-excessive-delay-brkdwn-yrmo-table: \
-	db/create-state-excessive-delay-brkdwn-table
+db/create-state-excessive-delay-brkdwn-yrmo-table: db/create-state-excessive-delay-brkdwn-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
@@ -925,8 +906,7 @@ db/drop-state-top-level-total-excessive-delay-yrmo-table:
 		)";\
 	fi
 
-db/create-state-top-level-total-excessive-delay-yrmo-table: \
-	db/create-state-top-level-total-excessive-delay-table
+db/create-state-top-level-total-excessive-delay-yrmo-table: db/create-state-top-level-total-excessive-delay-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
