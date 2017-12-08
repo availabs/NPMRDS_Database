@@ -1,3 +1,6 @@
+# TODO: For tables with load scripts, add TRUNCATE make rules
+#       so that dependant tables are not DROPPED in the CASCADE.
+#
 # Based on the following Makefile 
 #   https://github.com/stamen/toner-carto/blob/master/Makefile
 # And its explanatory blog post found here:
@@ -295,21 +298,40 @@ db/create-state-tmc-date-ranges-table: db/create-schema-${STATE} db/create-root-
 			" ./sql/tmc_date_ranges/createStateTMCDateRangeTable.sql\
 		)";
 
-db/drop-mpo-acronymns-table:
-	@if psql -c '\d us.mpo_acronymns' > /dev/null 2>&1; then\
-		psql -f ./sql/mpo_acronymns/drop_mpo_acronymns.sql;\
+
+db/drop-mpo-acronyms-table:
+	@if psql -c '\d us.mpo_acronyms' > /dev/null 2>&1; then\
+		psql -f ./sql/mpo_acronyms/drop_mpo_acronyms.sql;\
 	fi
 
-db/create-mpo-acronymns-table: db/create-schema-us
-	@if ! psql -c '\d us.mpo_acronymns' > /dev/null 2>&1; then\
-		psql -f ./sql/mpo_acronymns/create_mpo_acronymns.sql;\
+db/create-mpo-acronyms-table: db/create-schema-us
+	@if ! psql -c '\d us.mpo_acronyms' > /dev/null 2>&1; then\
+		psql -f ./sql/mpo_acronyms/create_mpo_acronyms.sql;\
 	fi
 
-db/load-mpo-acronyms-table: db/create-mpo-acronymns-table
+db/load-mpo-acronyms-table: db/create-mpo-acronyms-table
 	@set -e;\
-	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM us.mpo_acronymns;" | tr -d " \t\n\r";);\
+	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM us.mpo_acronyms;" | tr -d " \t\n\r";);\
 	if [ $${COUNT} -eq 0 ]; then\
-		cat '${_MPO_ACRONYMS_CSV_PATH}' | psql -c "$$(cat ./sql/mpo_acronymns/load_mpo_acronymns.sql)";\
+		psql -f ./sql/mpo_acronyms/load_mpo_acronyms.sql;\
+	fi
+
+
+db/drop-mpo-populations-table:
+	@if psql -c '\d us.mpo_populations' > /dev/null 2>&1; then\
+		psql -f ./sql/mpo_populations/drop_mpo_populations.sql;\
+	fi
+
+db/create-mpo-populations-table: db/create-schema-us
+	@if ! psql -c '\d us.mpo_populations' > /dev/null 2>&1; then\
+		psql -f ./sql/mpo_populations/create_mpo_populations.sql;\
+	fi
+
+db/load-mpo-populations-table: db/create-mpo-populations-table
+	@set -e;\
+	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM us.mpo_populations;" | tr -d " \t\n\r";);\
+	if [ $${COUNT} -eq 0 ]; then\
+		psql -f ./sql/mpo_populations/load_mpo_populations.sql;\
 	fi
 
 db/upload-latest-mpo-boundaries: db/load-mpo-acronyms-table
@@ -989,12 +1011,12 @@ db/create-federal-holidays-table: db/create-database
 
 db/drop-county-populations-table:
 	@if psql -c '\d public.county_populations' > /dev/null 2>&1; then\
-		psql -f './sql/county_populations_table/drop_county_populations_table.sql';\
+		psql -f './sql/county_populations/drop_county_populations_table.sql';\
 	fi
 
 db/create-county-populations-table: db/create-database
 	@if ! psql -c '\d public.county_populations' > /dev/null 2>&1; then\
-		psql -f './sql/county_populations_table/create_county_populations_table.sql';\
+		psql -f './sql/county_populations/create_county_populations_table.sql';\
 	fi
 
 db/load-county-populations-table: db/create-county-populations-table
@@ -1008,19 +1030,19 @@ db/load-county-populations-table: db/create-county-populations-table
 		fi;\
 		tail -n +2 '${_COUNTY_POPULATIONS_TSV_PATH}' | \
 			iconv -f iso-8859-1 -t utf-8 - |\
-			psql -c "$$(cat ./sql/county_populations_table/load_county_populations.sql)";\
-		psql -f ./sql/county_populations_table/finish_county_populations.sql;\
+			psql -c "$$(cat ./sql/county_populations/load_county_populations.sql)";\
+		psql -f ./sql/county_populations/finish_county_populations.sql;\
 	fi
 
 
 db/drop-urban-area-populations-table:
 	@if psql -c '\d public.urban_area_populations' > /dev/null 2>&1; then\
-		psql -f './sql/urban_area_populations_table/drop_urban_area_populations_table.sql';\
+		psql -f './sql/urban_area_populations/drop_urban_area_populations_table.sql';\
 	fi
 
 db/create-urban-area-populations-table: db/create-database
 	@if ! psql -c '\d public.urban_area_populations' > /dev/null 2>&1; then\
-		psql -f './sql/urban_area_populations_table/create_urban_area_populations_table.sql';\
+		psql -f './sql/urban_area_populations/create_urban_area_populations_table.sql';\
 	fi
 
 db/load-urban-area-populations-table: db/create-urban-area-populations-table
@@ -1034,8 +1056,8 @@ db/load-urban-area-populations-table: db/create-urban-area-populations-table
 		fi;\
 		tail -n +2 '${_URBAN_AREA_POPULATIONS_TSV_PATH}' | \
 			iconv -f iso-8859-1 -t utf-8 - |\
-			psql -c "$$(cat ./sql/urban_area_populations_table/load_urban_area_populations.sql)";\
-		psql -f ./sql/urban_area_populations_table/finish_urban_area_populations.sql;\
+			psql -c "$$(cat ./sql/urban_area_populations/load_urban_area_populations.sql)";\
+		psql -f ./sql/urban_area_populations/finish_urban_area_populations.sql;\
 	fi
 
 
