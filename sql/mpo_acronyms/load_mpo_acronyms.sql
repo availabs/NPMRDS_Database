@@ -1,6 +1,6 @@
 INSERT INTO us.mpo_acronyms (mpo_id, mpo_acrony)
   VALUES 
-    ('36198204','A-GFTC'),
+    ('36198204','A/GFTC'),
     ('36197402','BMTS'),
     ('36197300','CDTC'),
     ('36197500','ECTC'),

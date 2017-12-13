@@ -36,16 +36,17 @@ _ETL_SORTED_DIR := ${_ETL_DIR}/sorted
 _ETL_TRANSFORMED_DIR := ${_ETL_DIR}/transformed
 
 _MPO_BOUNDARIES_DIR := ${_DATA_DIR}/shapefiles/mpo_boundaries/us
-_MPO_ACRONYMS_CSV_PATH := ${_DATA_DIR}/csvs/mpo_abbreviations/mpo_abbreviations.csv
 
 _URBAN_AREAS_SHAPEFILE_DIR := ${_DATA_DIR}/shapefiles/urban_area_boundaries/us
-_URBAN_AREA_POPULATIONS_DIR := ${_DATA_DIR}/tsvs/urban_area_populations/us/2010/
-_URBAN_AREA_POPULATIONS_ZIP_PATH := ${_URBAN_AREA_POPULATIONS_DIR}/Gaz_ua.zip
-_URBAN_AREA_POPULATIONS_TSV_PATH := ${_URBAN_AREA_POPULATIONS_DIR}/Gaz_ua_national.txt
 
-_COUNTY_POPULATIONS_DIR := ${_DATA_DIR}/tsvs/county_populations/us/2010/
-_COUNTY_POPULATIONS_ZIP_PATH := ${_COUNTY_POPULATIONS_DIR}/Gaz_counties_national.zip
-_COUNTY_POPULATIONS_TSV_PATH := ${_COUNTY_POPULATIONS_DIR}/Gaz_counties_national.txt
+_URBAN_AREA_POPULATIONS_DIR := ${_DATA_DIR}/csv/urban_area_populations/us/${YEAR}
+_URBAN_AREA_POPULATIONS_ZIP_PATH := ${_URBAN_AREA_POPULATIONS_DIR}/urban_area_populations.${YEAR}.us.gz
+
+_COUNTY_POPULATIONS_DIR :=  ${_DATA_DIR}/csv/county_populations/us/${YEAR}
+_COUNTY_POPULATIONS_ZIP_PATH := ${_COUNTY_POPULATIONS_DIR}/county_populations.${YEAR}.us.gz
+
+_STATE_POPULATIONS_DIR :=  ${_DATA_DIR}/csv/state_populations/us/${YEAR}
+_STATE_POPULATIONS_ZIP_PATH := ${_STATE_POPULATIONS_DIR}/state_populations.${YEAR}.us.gz
 
 _CORE_BASED_STATISTICAL_AREAS_DIR := ${_DATA_DIR}/shapefiles/core_based_statistical_area_boundaries/us
 
@@ -124,7 +125,6 @@ _SPEEDLIMITS_DATA_DIR := "${_DATA_DIR}/csv/speedlimits"
 	etl/sort-inrix-schema-datafile \
 	etl/transform-inrix-schema
 
-
 # Define a macro that expands (splits on =) and
 #   exports (makes available to sub-shells) key-value arguments,
 #   e.g. DATABASE\_URL=postgres:///db.
@@ -202,9 +202,9 @@ db/drop-root-npmrds-table:
 		psql -f './sql/npmrds/root/dropRootNPMRDSDataTable.sql';\
 	fi
 
-db/create-root-npmrds-table: db/create-database
+db/create-root-npmrds-table: db/create-database db/create-enum-types
 	@if ! psql -c '\d public.npmrds' > /dev/null 2>&1; then\
-		@psql -f './sql/npmrds/root/createRootNPMRDSDataTable.sql';\
+		psql -f './sql/npmrds/root/createRootNPMRDSDataTable.sql';\
 	fi
 
 db/create-root-tmc-date-ranges-table: db/create-database
@@ -287,6 +287,13 @@ db/postprocess-npmrds-state-yrmo:
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
 			" ./sql/npmrds/state/deleteEmptyRows.sql\
+		)";\
+		psql -c "$$(\
+			sed "\
+				s/__STATE__/${STATE}/g;\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/npmrds/state/clusterTable.sql\
 		)";\
 	fi
 
@@ -419,8 +426,6 @@ db/upload-core-based-staticstical-area-boundaries-shapefile: db/create-database 
 	find $${SHP_DIR} \
 		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
 		-type f -delete;
-
-
 
 
 db/create-state-abbreviations-table: db/create-database
@@ -609,10 +614,21 @@ db/drop-tmc-attributes:
 		psql -f './sql/tmc_attributes/dropTMCAttributesMaterializedView.sql';\
 	fi
 
-db/create-tmc-attributes:
+#db/upload-core-based-staticstical-area-boundaries-shapefile \
+#db/upload-latest-mpo-boundaries \
+#db/upload-urban-area-boundaries-shapefile \
+
+db/create-tmc-attributes: \
+	db/create-enum-types \
+	db/create-root-npmrds-table \
+	db/create-state-abbreviations-table \
+	db/create-root-occupancy-factor-table \
+	db/create-root-average-speedlimits-table \
+	db/create-root-region-to-county-table \
+	db/create-root-regions-table
 	# TODO: Handle dependencies
 	@if ! psql -c '\d "public".tmc_attributes' > /dev/null 2>&1; then\
-		psql -f './sql/tmc_attributes/createTMCAttributesMaterializedView.sql';\
+		time psql -f './sql/tmc_attributes/createTMCAttributesMaterializedView.sql';\
 	fi
 
 db/refresh-tmc-attributes: db/create-tmc-attributes
@@ -1009,57 +1025,134 @@ db/create-federal-holidays-table: db/create-database
 		psql -f './sql/federal_holidays/createFederalHolidaysTable.sql';\
 	fi
 
-db/drop-county-populations-table:
+
+
+db/drop-root-county-populations-table:
 	@if psql -c '\d public.county_populations' > /dev/null 2>&1; then\
-		psql -f './sql/county_populations/drop_county_populations_table.sql';\
+		psql -f './sql/county_populations/drop_root_county_populations_table.sql';\
 	fi
 
-db/create-county-populations-table: db/create-database
+db/drop-year-county-populations-table:
+	@:$(call check_defined,YEAR)
+	@if psql -c '\d us.county_populations_y${YEAR}' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/county_populations/drop_year_county_populations_table.sql')";\
+	fi
+
+db/create-root-county-populations-table: db/create-database
 	@if ! psql -c '\d public.county_populations' > /dev/null 2>&1; then\
-		psql -f './sql/county_populations/create_county_populations_table.sql';\
+		psql -f './sql/county_populations/create_root_county_populations_table.sql';\
 	fi
 
-db/load-county-populations-table: db/create-county-populations-table
+db/create-year-county-populations-table:
+	@:$(call check_defined,YEAR)
+	@if ! psql -c '\d us.county_populations_y${YEAR}' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/county_populations/create_year_county_populations_table.sql')";\
+	fi
+
+db/load-year-county-populations-table: db/create-year-county-populations-table
+	@:$(call check_defined,YEAR)
 	@set -e;\
-	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM public.county_populations;" | tr -d " \t\n\r";);\
+	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM us.county_populations_y${YEAR};" | tr -d " \t\n\r";);\
 	if [ $${COUNT} -eq 0 ]; then\
-		if [ ! -d ${_COUNTY_POPULATIONS_TSV_PATH} ]; then\
-			pushd ${_COUNTY_POPULATIONS_DIR} && \
-				unzip -o ${_COUNTY_POPULATIONS_ZIP_PATH} && \
-				popd;\
-		fi;\
-		tail -n +2 '${_COUNTY_POPULATIONS_TSV_PATH}' | \
-			iconv -f iso-8859-1 -t utf-8 - |\
-			psql -c "$$(cat ./sql/county_populations/load_county_populations.sql)";\
-		psql -f ./sql/county_populations/finish_county_populations.sql;\
+		gunzip -c '${_COUNTY_POPULATIONS_ZIP_PATH}' | \
+		tail -n +2 | \
+			psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/county_populations/load_year_county_populations.sql)";\
+		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/county_populations/finish_year_county_populations.sql)";\
 	fi
 
 
-db/drop-urban-area-populations-table:
+
+db/drop-root-urban-area-populations-table:
 	@if psql -c '\d public.urban_area_populations' > /dev/null 2>&1; then\
-		psql -f './sql/urban_area_populations/drop_urban_area_populations_table.sql';\
+		psql -f './sql/urban_area_populations/drop_root_urban_area_populations_table.sql';\
 	fi
 
-db/create-urban-area-populations-table: db/create-database
+db/drop-year-urban-area-populations-table:
+	@:$(call check_defined,YEAR)
+	@if psql -c '\d us.urban_area_populations_y${YEAR}' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/urban_area_populations/drop_year_urban_area_populations_table.sql')";\
+	fi
+
+db/create-root-urban-area-populations-table: db/create-database
 	@if ! psql -c '\d public.urban_area_populations' > /dev/null 2>&1; then\
-		psql -f './sql/urban_area_populations/create_urban_area_populations_table.sql';\
+		psql -f './sql/urban_area_populations/create_root_urban_area_populations_table.sql';\
 	fi
 
-db/load-urban-area-populations-table: db/create-urban-area-populations-table
+db/create-year-urban-area-populations-table:
+	@:$(call check_defined,YEAR)
+	@if ! psql -c '\d us.urban_area_populations_y${YEAR}' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/urban_area_populations/create_year_urban_area_populations_table.sql')";\
+	fi
+
+db/load-year-urban-area-populations-table: db/create-year-urban-area-populations-table
+	@:$(call check_defined,YEAR)
 	@set -e;\
-	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM public.urban_area_populations;" | tr -d " \t\n\r";);\
+	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM us.urban_area_populations_y${YEAR};" | tr -d " \t\n\r";);\
 	if [ $${COUNT} -eq 0 ]; then\
-		if [ ! -d ${_URBAN_AREA_POPULATIONS_TSV_PATH} ]; then\
-			pushd ${_URBAN_AREA_POPULATIONS_DIR} && \
-				unzip -o ${_URBAN_AREA_POPULATIONS_ZIP_PATH} && \
-				popd;\
-		fi;\
-		tail -n +2 '${_URBAN_AREA_POPULATIONS_TSV_PATH}' | \
-			iconv -f iso-8859-1 -t utf-8 - |\
-			psql -c "$$(cat ./sql/urban_area_populations/load_urban_area_populations.sql)";\
-		psql -f ./sql/urban_area_populations/finish_urban_area_populations.sql;\
+		gunzip -c '${_URBAN_AREA_POPULATIONS_ZIP_PATH}' | \
+		tail -n +2 | \
+			psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/urban_area_populations/load_year_urban_area_populations.sql)";\
+		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/urban_area_populations/finish_year_urban_area_populations.sql)";\
 	fi
 
+
+
+db/drop-root-state-populations-table:
+	@if psql -c '\d public.state_populations' > /dev/null 2>&1; then\
+		psql -f './sql/state_populations/drop_root_state_populations_table.sql';\
+	fi
+
+db/drop-year-state-populations-table:
+	@:$(call check_defined,YEAR)
+	@if psql -c '\d us.state_populations_y${YEAR}' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/state_populations/drop_year_state_populations_table.sql')";\
+	fi
+
+db/create-root-state-populations-table: db/create-database
+	@if ! psql -c '\d public.state_populations' > /dev/null 2>&1; then\
+		psql -f './sql/state_populations/create_root_state_populations_table.sql';\
+	fi
+
+db/create-year-state-populations-table:
+	@:$(call check_defined,YEAR)
+	@if ! psql -c '\d us.state_populations_y${YEAR}' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/state_populations/create_year_state_populations_table.sql')";\
+	fi
+
+db/load-year-state-populations-table: db/create-year-state-populations-table
+	@:$(call check_defined,YEAR)
+	@set -e;\
+	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM us.state_populations_y${YEAR};" | tr -d " \t\n\r";);\
+	if [ $${COUNT} -eq 0 ]; then\
+		gunzip -c '${_STATE_POPULATIONS_ZIP_PATH}' | \
+		tail -n +2 | \
+			psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/state_populations/load_year_state_populations.sql)";\
+		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/state_populations/finish_year_state_populations.sql)";\
+	fi
+
+
+
+db/drop-fip-codes-table:
+	@if psql -c '\d public.fip_codes' > /dev/null 2>&1; then\
+		psql -f './sql/fip_codes/drop_fip_codes_table.sql';\
+	fi
+
+db/create-fip-codes-table: db/create-database
+	@if ! psql -c '\d public.fip_codes' > /dev/null 2>&1; then\
+		psql -f './sql/fip_codes/create_fip_codes_table.sql';\
+	fi
+
+
+
+db/load-fip-codes-table: db/create-fip-codes-table
+	@set -e;\
+	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM public.fip_codes;" | tr -d " \t\n\r";);\
+	if [ $${COUNT} -eq 0 ]; then\
+		tail -n +2 '${_URBAN_AREA_POPULATIONS_CSV_PATH}' | \
+			iconv -f iso-8859-1 -t utf-8 - |\
+			psql -c "$$(cat ./sql/fip_codes/load_fip_codes.sql)";\
+		psql -f ./sql/fip_codes/finish_fip_codes.sql;\
+	fi
 
 #####################################################
 
@@ -1085,11 +1178,20 @@ scraping/download-urban-area-boundaries-shapefile:
 scraping/download-core-based-statistical-area-boundaries-shapefile:
 	${_BIN_DIR}/scrapeCensusShapefiles.js --geographyType=core_based_statistical_area
 	
-scraping/download-county-populations-tsv:
-	${_BIN_DIR}/scrapeCensusGazetters.js --geographyType=county
+scraping/download-county-populations-csv-for-year:
+	@:$(call check_defined,YEAR)
+	${_BIN_DIR}/scrapeCensusPopulations.js --year=${YEAR} --geographyType=county
 
-scraping/download-urban-area-populations-tsv:
-	${_BIN_DIR}/scrapeCensusGazetters.js --geographyType=urban_area
+scraping/download-urban-area-populations-csv-for-year:
+	@:$(call check_defined,YEAR)
+	${_BIN_DIR}/scrapeCensusPopulations.js --year=${YEAR} --geographyType=urban_area
+
+scraping/download-state-populations-csv-for-year:
+	@:$(call check_defined,YEAR)
+	${_BIN_DIR}/scrapeCensusPopulations.js --year=${YEAR} --geographyType=state
+
+scraping/download-fips-codes-csv:
+	${_BIN_DIR}/scrapeFipsCodesTable.sh
 
 
 preprocessing/create-speedlimits-csv: scraping/scrape-speedlimits
