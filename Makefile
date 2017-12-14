@@ -40,13 +40,13 @@ _MPO_BOUNDARIES_DIR := ${_DATA_DIR}/shapefiles/mpo_boundaries/us
 _URBAN_AREAS_SHAPEFILE_DIR := ${_DATA_DIR}/shapefiles/urban_area_boundaries/us
 
 _URBAN_AREA_POPULATIONS_DIR := ${_DATA_DIR}/csv/urban_area_populations/us/${YEAR}
-_URBAN_AREA_POPULATIONS_ZIP_PATH := ${_URBAN_AREA_POPULATIONS_DIR}/urban_area_populations.${YEAR}.us.gz
+_URBAN_AREA_POPULATIONS_ZIP_PATH := ${_URBAN_AREA_POPULATIONS_DIR}/urban_area_populations.5-year-estimate.${YEAR}.us.gz
 
 _COUNTY_POPULATIONS_DIR :=  ${_DATA_DIR}/csv/county_populations/us/${YEAR}
-_COUNTY_POPULATIONS_ZIP_PATH := ${_COUNTY_POPULATIONS_DIR}/county_populations.${YEAR}.us.gz
+_COUNTY_POPULATIONS_ZIP_PATH := ${_COUNTY_POPULATIONS_DIR}/county_populations.5-year-estimate.${YEAR}.us.gz
 
 _STATE_POPULATIONS_DIR :=  ${_DATA_DIR}/csv/state_populations/us/${YEAR}
-_STATE_POPULATIONS_ZIP_PATH := ${_STATE_POPULATIONS_DIR}/state_populations.${YEAR}.us.gz
+_STATE_POPULATIONS_ZIP_PATH := ${_STATE_POPULATIONS_DIR}/state_populations.5-year-estimate.${YEAR}.us.gz
 
 _CORE_BASED_STATISTICAL_AREAS_DIR := ${_DATA_DIR}/shapefiles/core_based_statistical_area_boundaries/us
 
@@ -323,23 +323,6 @@ db/load-mpo-acronyms-table: db/create-mpo-acronyms-table
 		psql -f ./sql/mpo_acronyms/load_mpo_acronyms.sql;\
 	fi
 
-
-db/drop-mpo-populations-table:
-	@if psql -c '\d us.mpo_populations' > /dev/null 2>&1; then\
-		psql -f ./sql/mpo_populations/drop_mpo_populations.sql;\
-	fi
-
-db/create-mpo-populations-table: db/create-schema-us
-	@if ! psql -c '\d us.mpo_populations' > /dev/null 2>&1; then\
-		psql -f ./sql/mpo_populations/create_mpo_populations.sql;\
-	fi
-
-db/load-mpo-populations-table: db/create-mpo-populations-table
-	@set -e;\
-	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM us.mpo_populations;" | tr -d " \t\n\r";);\
-	if [ $${COUNT} -eq 0 ]; then\
-		psql -f ./sql/mpo_populations/load_mpo_populations.sql;\
-	fi
 
 db/upload-latest-mpo-boundaries: db/load-mpo-acronyms-table
 	@# TODO: compare version in DB to version in data dir.
@@ -1043,7 +1026,7 @@ db/create-root-county-populations-table: db/create-database
 		psql -f './sql/county_populations/create_root_county_populations_table.sql';\
 	fi
 
-db/create-year-county-populations-table:
+db/create-year-county-populations-table: db/create-root-county-populations-table
 	@:$(call check_defined,YEAR)
 	@if ! psql -c '\d us.county_populations_y${YEAR}' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/county_populations/create_year_county_populations_table.sql')";\
@@ -1078,7 +1061,7 @@ db/create-root-urban-area-populations-table: db/create-database
 		psql -f './sql/urban_area_populations/create_root_urban_area_populations_table.sql';\
 	fi
 
-db/create-year-urban-area-populations-table:
+db/create-year-urban-area-populations-table: db/create-root-urban-area-populations-table
 	@:$(call check_defined,YEAR)
 	@if ! psql -c '\d us.urban_area_populations_y${YEAR}' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/urban_area_populations/create_year_urban_area_populations_table.sql')";\
@@ -1113,7 +1096,7 @@ db/create-root-state-populations-table: db/create-database
 		psql -f './sql/state_populations/create_root_state_populations_table.sql';\
 	fi
 
-db/create-year-state-populations-table:
+db/create-year-state-populations-table: db/create-root-state-populations-table
 	@:$(call check_defined,YEAR)
 	@if ! psql -c '\d us.state_populations_y${YEAR}' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/state_populations/create_year_state_populations_table.sql')";\
@@ -1129,7 +1112,6 @@ db/load-year-state-populations-table: db/create-year-state-populations-table
 			psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/state_populations/load_year_state_populations.sql)";\
 		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/state_populations/finish_year_state_populations.sql)";\
 	fi
-
 
 
 db/drop-fip-codes-table:

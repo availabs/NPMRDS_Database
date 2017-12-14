@@ -42,10 +42,11 @@ if (!year) {
   process.exit(1);
 }
 
+// https://www.census.gov/data/developers/data-sets/acs-5year.2016.html
 const csvURLs = {
-  county: `https://api.census.gov/data/${year}/acs/acs1?get=B01001_001E&for=county:*&in=state:*`,
-  urban_area: `https://api.census.gov/data/${year}/acs/acs1?get=B01001_001E&for=urban%20area:*`,
-  state: `https://api.census.gov/data/${year}/acs/acs1?get=B01001_001E&for=state:*`
+  county: `https://api.census.gov/data/${year}/acs/acs5?get=B01001_001E&for=county:*&in=state:*`,
+  urban_area: `https://api.census.gov/data/${year}/acs/acs5?get=B01001_001E&for=urban%20area:*`,
+  state: `https://api.census.gov/data/${year}/acs/acs5?get=B01001_001E&for=state:*`
 };
 
 geographyTypes = geographyTypes
@@ -66,7 +67,7 @@ if (!geographyTypes.every(g => csvURLs[g])) {
 
 geographyTypes.forEach(geoType => {
   const url = csvURLs[geoType];
-  const filename = `${geoType}_populations.${year}.us.gz`;
+  const filename = `${geoType}_populations.5-year-estimate.${year}.us.gz`;
 
   const downloadDir = join(
     dataDir,
