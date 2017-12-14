@@ -27,8 +27,6 @@ const minimistOptions = {
 // NOTE: Gazeteer versions after 2010 do not contain populations
 const dataDir = join(__dirname, '../data/csv/');
 
-const SCHEMA = 'us';
-
 const cliArgs = process.argv.slice(2);
 
 let { year, geographyTypes } = require('minimist')(cliArgs, minimistOptions);
@@ -45,6 +43,7 @@ if (!year) {
 // https://www.census.gov/data/developers/data-sets/acs-5year.2016.html
 const csvURLs = {
   county: `https://api.census.gov/data/${year}/acs/acs5?get=B01001_001E&for=county:*&in=state:*`,
+  county_subdivision: `https://api.census.gov/data/${year}/acs/acs5?get=NAME,B01001_001E&for=county%20subdivision:*&in=state:36`,
   urban_area: `https://api.census.gov/data/${year}/acs/acs5?get=B01001_001E&for=urban%20area:*`,
   state: `https://api.census.gov/data/${year}/acs/acs5?get=B01001_001E&for=state:*`
 };
@@ -67,12 +66,15 @@ if (!geographyTypes.every(g => csvURLs[g])) {
 
 geographyTypes.forEach(geoType => {
   const url = csvURLs[geoType];
-  const filename = `${geoType}_populations.5-year-estimate.${year}.us.gz`;
+
+  const schema = geoType === 'county_subdivision' ? 'ny' : 'us'; //FIXME
+
+  const filename = `${geoType}_populations.5-year-estimate.${year}.${schema}.gz`;
 
   const downloadDir = join(
     dataDir,
     `${geoType}_populations`,
-    SCHEMA,
+    schema,
     `${year}`
   );
 

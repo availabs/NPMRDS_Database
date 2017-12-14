@@ -2,7 +2,7 @@ CREATE OR REPLACE VIEW geography_level_attributes_view
   AS
     /* MPOs */
     SELECT
-        CAST('MPO' AS VARCHAR)::geography_level_type AS geography_level,
+        CAST('MPO' AS geography_level_type) geography_level,
         geography_level_name, 
         interstate_miles, 
         interstate_tmcs_ct, 
@@ -32,6 +32,7 @@ CREATE OR REPLACE VIEW geography_level_attributes_view
             GROUP BY mpo_acrony, state
         ) AS t2 NATURAL FULL OUTER JOIN (
           SELECT
+              mpo_ 
               mpo_acrony AS geography_level_name,
               ST_Extent(wkb_geometry) AS bounding_box,
               tmc_attributes.state AS state

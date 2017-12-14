@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS us.core_based_statistical_area_boundaries___LATEST_VERSION__;

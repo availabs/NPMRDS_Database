@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS us.mpo_boundaries___LATEST_VERSION__;
