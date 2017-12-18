@@ -35,6 +35,8 @@ _ETL_DIR := etl
 _ETL_SORTED_DIR := ${_ETL_DIR}/sorted
 _ETL_TRANSFORMED_DIR := ${_ETL_DIR}/transformed
 
+_FIPS_CODES_CSV_PATH := ${_DATA_DIR}/csv/fip_codes/us/fips_codes.us.csv.gz
+
 _MPOS_DIRS_SHAPEFILE_DIR := ${_DATA_DIR}/shapefiles/mpo_boundaries/us
 
 _COUNTY_SUBDIVISION_SHAPEFILE_DIR := ${_DATA_DIR}/shapefiles/county_subdivision_boundaries/${STATE}
@@ -273,6 +275,7 @@ db/upload-npmrds-state-yrmo: db/drop-npmrds-state-yrmo-table db/create-npmrds-st
 		./bin/projectNPMRDSTableColumns.sh < ${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv | psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;';\
 	fi
 
+
 # TODO: make this a dependency: db/upload-npmrds-state-yrmo
 db/postprocess-npmrds-state-yrmo:
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
@@ -356,13 +359,9 @@ db/drop-mpo-boundaries-view:
 		psql -f './sql/mpo_boundaries_view/dropMPOBoundariesView.sql';\
 	fi
 
-db/create-mpo-boundaries-view: db/upload-latest-mpo-boundaries
-	@if ! psql -c '\d public.mpo_boundaries' > /dev/null 2>&1; then\
-		LATEST_PGDB_VERSION=$$(psql -t -c "SELECT table_name FROM information_schema.tables WHERE (table_schema='us') and (table_name LIKE 'mpo_boundaries_%') ORDER BY table_name DESC LIMIT 1;" | tr -d " \t\n\r";);\
-		if [ $${LATEST_PGDB_VERSION} ]; then\
-			VER=$$(echo $${LATEST_PGDB_VERSION} | sed 's/.*_//g');\
-			psql -c "$$(sed "s/__LATEST_VERSION__/$${VER}/g" ./sql/mpo_boundaries_view/createMPOBoundariesView.sql)";\
-		fi;\
+db/create-mpo-boundaries-view:
+	@if ! psql -c '\d public.mpo_boundaries_view' > /dev/null 2>&1; then\
+		psql -f ./sql/mpo_boundaries_view/createMPOBoundariesView.sql;\
 	fi
 
 db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
@@ -1182,27 +1181,36 @@ db/load-year-state-populations-table: db/create-year-state-populations-table
 	fi
 
 
-db/drop-fip-codes-table:
+db/drop-fips-codes-table:
 	@if psql -c '\d public.fip_codes' > /dev/null 2>&1; then\
 		psql -f './sql/fip_codes/drop_fip_codes_table.sql';\
 	fi
 
-db/create-fip-codes-table: db/create-database
-	@if ! psql -c '\d public.fip_codes' > /dev/null 2>&1; then\
-		psql -f './sql/fip_codes/create_fip_codes_table.sql';\
+db/create-fips-codes-table: db/create-database
+	@if ! psql -c '\d public.fips_codes' > /dev/null 2>&1; then\
+		psql -f './sql/fips_codes/create_fips_codes_table.sql';\
 	fi
 
-
-
-db/load-fip-codes-table: db/create-fip-codes-table
+db/load-fips-codes-table: db/create-fips-codes-table
 	@set -e;\
-	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM public.fip_codes;" | tr -d " \t\n\r";);\
+	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM public.fips_codes;" | tr -d " \t\n\r";);\
 	if [ $${COUNT} -eq 0 ]; then\
-		tail -n +2 '${_URBAN_AREA_POPULATIONS_CSV_PATH}' | \
+		gunzip -c '${_FIPS_CODES_CSV_PATH}' | \
 			iconv -f iso-8859-1 -t utf-8 - |\
-			psql -c "$$(cat ./sql/fip_codes/load_fip_codes.sql)";\
-		psql -f ./sql/fip_codes/finish_fip_codes.sql;\
+			psql -c "$$(cat ./sql/fips_codes/load_fips_codes_table.sql)";\
+		psql -f ./sql/fips_codes/finish_fips_codes_table.sql;\
 	fi
+
+db/drop-state-codes-view:
+	@if psql -c '\d public.state_codes' > /dev/null 2>&1; then\
+		psql -f './sql/state_codes/drop_state_codes_view.sql';\
+	fi
+
+db/create-state-codes-view: db/create-fips-codes-table
+	@if ! psql -c '\d public.state_codes' > /dev/null 2>&1; then\
+		psql -f './sql/state_codes/create_state_codes_view.sql';\
+	fi
+
 
 #####################################################
 

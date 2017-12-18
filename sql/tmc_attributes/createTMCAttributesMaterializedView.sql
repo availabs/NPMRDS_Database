@@ -3,6 +3,203 @@ BEGIN;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
   WITH (fillfactor = 100) AS 
+    WITH cte_tmc_cbsa_intersections AS (
+      SELECT
+          tmc,
+          geoid AS cbsa_code,
+          name AS cbsa_name,
+          ST_Length(
+            ST_Intersection(
+              tmc_shp.wkb_geometry,
+              cbsa_shp.wkb_geometry
+            )
+          ) AS intersection_len
+        FROM inrix_shapefile AS tmc_shp
+          INNER JOIN core_based_statistical_area_boundaries AS cbsa_shp
+          ON (
+            ST_Intersects(
+              tmc_shp.wkb_geometry,
+              cbsa_shp.wkb_geometry
+            )
+          )
+    ), cte_tmc_to_cbsa AS (
+      SELECT
+          tmc,
+          cbsa_code,
+          cbsa_name
+        FROM cte_tmc_cbsa_intersections
+        WHERE (tmc, intersection_len) IN (
+          SELECT
+              tmc,
+              MAX(intersection_len)
+            FROM cte_tmc_cbsa_intersections
+            GROUP BY tmc
+        )
+    ), cte_tmc_mpo_intersections AS (
+      SELECT
+          tmc,
+          mpo_id AS mpo_code,
+          mpo_acrony,
+          mpo_name,
+          ST_Length(
+            ST_Intersection(
+              tmc_shp.wkb_geometry,
+              mpo_shp.wkb_geometry
+            )
+          ) AS intersection_len
+        FROM inrix_shapefile AS tmc_shp
+          INNER JOIN mpo_boundaries_view AS mpo_shp
+          ON (
+            ST_Intersects(
+              tmc_shp.wkb_geometry,
+              mpo_shp.wkb_geometry
+            )
+          )
+    ), cte_tmc_to_mpo AS (
+      SELECT
+          tmc,
+          mpo_code,
+          mpo_acrony,
+          mpo_name
+        FROM cte_tmc_mpo_intersections
+        WHERE (tmc, intersection_len) IN (
+          SELECT
+              tmc,
+              MAX(intersection_len)
+            FROM cte_tmc_mpo_intersections
+            GROUP BY tmc
+        )
+    ), cte_tmc_ua_intersections AS (
+      SELECT
+          tmc,
+          geoid10 AS ua_code,
+          name10 AS ua_name,
+          ST_Length(
+            ST_Intersection(
+              tmc_shp.wkb_geometry,
+              ua_shp.wkb_geometry
+            )
+          ) AS intersection_len
+        FROM inrix_shapefile AS tmc_shp
+          INNER JOIN urban_area_boundaries AS ua_shp
+          ON (
+            ST_Intersects(
+              tmc_shp.wkb_geometry,
+              ua_shp.wkb_geometry
+            )
+          )
+    ), cte_tmc_to_ua AS (
+      SELECT
+          tmc,
+          ua_code,
+          ua_name
+        FROM cte_tmc_ua_intersections
+        WHERE (tmc, intersection_len) IN (
+          SELECT
+              tmc,
+              MAX(intersection_len)
+            FROM cte_tmc_ua_intersections
+            GROUP BY tmc
+        )
+    ), cte_speed_reduction_factor AS (
+      SELECT
+          tmc,
+
+          avg_free_flow_travel_time,
+          avg_peak_period_travel_time,
+          (avg_free_flow_travel_time / avg_peak_period_travel_time)::REAL AS speed_reduction_factor,
+
+          CASE 
+            WHEN ((f_system = 0) OR (f_system = 1)) THEN 'FREEWAY'::traffic_dist_functional_class_type
+            ELSE 'NONFREEWAY'::traffic_dist_functional_class_type
+          END AS functional_class,
+
+          (miles / (avg_free_flow_travel_time / (60 * 60)))::REAL AS avg_free_flow_speed_mph,
+          (miles / (avg_peak_period_travel_time / (60 * 60)))::REAL AS avg_peak_period_speed_mph
+
+        FROM (
+            SELECT 
+                tmc,
+                AVG(travel_time_all_vehicles)::REAL AS avg_peak_period_travel_time
+              FROM npmrds
+              WHERE (
+                     (epoch BETWEEN (12 * 6) AND ((12 * 10) - 1)) /* 6am til 10am */
+                  OR (epoch BETWEEN (12 * (3+12)) AND ((12 * (7+12)) - 1)) /* 3am til 7pm */
+                ) AND (travel_time_all_vehicles > 0)
+           GROUP BY tmc
+          ) AS peak NATURAL FULL OUTER JOIN (
+            SELECT 
+                tmc,
+                AVG(travel_time_all_vehicles)::REAL AS avg_free_flow_travel_time
+              FROM npmrds
+              WHERE (
+                     (epoch BETWEEN (12 * 0) AND ((12 * 5) - 1)) /* midnight til 5am */
+                  OR (epoch BETWEEN (12 * (10+12)) AND ((12 * (12+12)) - 1)) /* 10pm til midnight */
+                )
+                AND (travel_time_all_vehicles > 0)
+              GROUP BY tmc
+          ) AS free_flow FULL OUTER JOIN inrix_shapefile USING (tmc)
+    ), cte_directionality_factors AS (
+      SELECT
+          tmc,
+          avg_am_peak_travel_time, 
+          avg_pm_peak_travel_time,
+          (miles / ((avg_am_peak_travel_time / (60*60))))::REAL AS avg_am_peak_speed_mph, 
+          (miles / ((avg_pm_peak_travel_time / (60*60))))::REAL AS avg_pm_peak_speed_mph
+        FROM (
+            SELECT 
+                tmc,
+                AVG(travel_time_all_vehicles)::REAL AS avg_am_peak_travel_time
+              FROM npmrds
+              WHERE (epoch BETWEEN (12 * 6) AND ((12 * 10) - 1))
+                AND (travel_time_all_vehicles > 0)
+              GROUP BY tmc
+          ) AS am_peak NATURAL FULL OUTER JOIN (
+            SELECT 
+                tmc,
+                AVG(travel_time_all_vehicles)::REAL AS avg_pm_peak_travel_time
+              FROM npmrds
+              WHERE (epoch BETWEEN (12 * (3+12)) AND ((12 * (7+12)) - 1))
+                AND (travel_time_all_vehicles > 0)
+              GROUP BY tmc
+          ) AS pm_peak FULL OUTER JOIN inrix_shapefile USING (tmc)
+    ), cte_traffic_distribution_factors AS (
+      SELECT 
+          tmc,
+          CASE functional_class
+            WHEN 'FREEWAY' THEN
+              CASE
+                WHEN (speed_reduction_factor IS NULL)
+                  THEN NULL::traffic_dist_congestion_level_type
+                WHEN (speed_reduction_factor < 0.75)
+                  THEN 'SEVERE_CONGESTION'::traffic_dist_congestion_level_type
+                WHEN (speed_reduction_factor < 0.9) 
+                  THEN 'MODERATE_CONGESTION'::traffic_dist_congestion_level_type
+                ELSE 'NO2LOW_CONGESTION'::traffic_dist_congestion_level_type
+              END
+            ELSE
+              CASE
+                WHEN (speed_reduction_factor IS NULL)
+                  THEN NULL::traffic_dist_congestion_level_type
+                WHEN (speed_reduction_factor < 0.65)
+                  THEN 'SEVERE_CONGESTION'::traffic_dist_congestion_level_type
+                WHEN (speed_reduction_factor < 0.8) 
+                  THEN 'MODERATE_CONGESTION'::traffic_dist_congestion_level_type
+                ELSE 'NO2LOW_CONGESTION'::traffic_dist_congestion_level_type
+              END
+          END AS congestion_level,
+          CASE
+            WHEN ((avg_am_peak_speed_mph IS NULL) OR (avg_pm_peak_speed_mph IS NULL))
+              THEN NULL::traffic_dist_directionality_type
+            WHEN (avg_am_peak_speed_mph - avg_pm_peak_speed_mph) > 6
+              THEN 'PM_PEAK'::traffic_dist_directionality_type
+            WHEN (avg_pm_peak_speed_mph - avg_am_peak_speed_mph) > 6
+              THEN 'AM_PEAK'::traffic_dist_directionality_type
+            ELSE 'EVEN_DIST'::traffic_dist_directionality_type
+          END AS directionality
+        FROM cte_speed_reduction_factor
+          NATURAL FULL OUTER JOIN cte_directionality_factors
+    ) 
     SELECT
         inrix_shapefile.tmc,
         inrix_shapefile.tmctype,
@@ -72,15 +269,15 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
 
         avg_speedlimit,
 
-        sq_tmc_to_cbsa.cbsa_code,
-        sq_tmc_to_cbsa.cbsa_name,
+        cte_tmc_to_cbsa.cbsa_code,
+        cte_tmc_to_cbsa.cbsa_name,
 
-        sq_tmc_to_mpo.mpo_code,
-        sq_tmc_to_mpo.mpo_acrony,
-        sq_tmc_to_mpo.mpo_name,
+        cte_tmc_to_mpo.mpo_code,
+        cte_tmc_to_mpo.mpo_acrony,
+        cte_tmc_to_mpo.mpo_name,
 
-        sq_tmc_to_ua.ua_code,
-        sq_tmc_to_ua.ua_name,
+        cte_tmc_to_ua.ua_code,
+        cte_tmc_to_ua.ua_name,
 
         regions.id AS region_code,
         regions.name AS region_name,
@@ -99,73 +296,12 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
         )
       LEFT OUTER JOIN avg_speedlimits
         USING (tmc)
-      LEFT OUTER JOIN (
-        SELECT
-            tmc,
-            geoid AS cbsa_code,
-            name AS cbsa_name
-          FROM inrix_shapefile AS tmc_shp
-            INNER JOIN core_based_statistical_area_boundaries AS cbsa_shp
-            ON (
-              ST_Intersects(
-                tmc_shp.wkb_geometry,
-                cbsa_shp.wkb_geometry
-              )
-            )
-          ORDER BY 
-            ST_Length(
-              ST_Intersection(
-                tmc_shp.wkb_geometry,
-                cbsa_shp.wkb_geometry
-              )
-            ) DESC
-          LIMIT 1
-      ) AS sq_tmc_to_cbsa USING (tmc)
-      LEFT OUTER JOIN (
-        SELECT
-            tmc,
-            mpo_id AS mpo_code,
-            mpo_acrony,
-            mpo_name
-          FROM inrix_shapefile AS tmc_shp
-            INNER JOIN mpo_boundaries AS mpo_shp
-            ON (
-              ST_Intersects(
-                tmc_shp.wkb_geometry,
-                mpo_shp.wkb_geometry
-              )
-            )
-          ORDER BY
-            ST_Length(
-              ST_Intersection(
-                tmc_shp.wkb_geometry,
-                mpo_shp.wkb_geometry
-              )
-            ) DESC
-          LIMIT 1
-      ) AS sq_tmc_to_mpo USING (tmc)
-      LEFT OUTER JOIN (
-        SELECT
-            tmc,
-            geoid10 AS ua_code,
-            name10 AS ua_name
-          FROM inrix_shapefile AS tmc_shp
-            INNER JOIN urban_area_boundaries AS ua_shp
-            ON (
-              ST_Intersects(
-                tmc_shp.wkb_geometry,
-                ua_shp.wkb_geometry
-              )
-            )
-          ORDER BY
-            ST_Length(
-              ST_Intersection(
-                tmc_shp.wkb_geometry,
-                ua_shp.wkb_geometry
-              )
-            ) DESC
-          LIMIT 1
-      ) AS sq_tmc_to_ua USING (tmc)
+      LEFT OUTER JOIN cte_tmc_to_cbsa
+        USING (tmc)
+      LEFT OUTER JOIN cte_tmc_to_mpo
+        USING (tmc)
+      LEFT OUTER JOIN cte_tmc_to_ua AS cte_tmc_to_ua
+        USING (tmc)
       LEFT OUTER JOIN region_to_county AS r_to_c
         ON (
           (inrix_shapefile.county = r_to_c.county)
@@ -174,104 +310,9 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
         )
       LEFT OUTER JOIN regions
         ON (r_to_c.region_id = regions.id)
-      LEFT OUTER JOIN (
-          SELECT 
-              tmc,
-              CASE functional_class
-                WHEN 'FREEWAY' THEN
-                  CASE
-                    WHEN (speed_reduction_factor IS NULL)
-                      THEN NULL::traffic_dist_congestion_level_type
-                    WHEN (speed_reduction_factor < 0.75)
-                      THEN 'SEVERE_CONGESTION'::traffic_dist_congestion_level_type
-                    WHEN (speed_reduction_factor < 0.9) 
-                      THEN 'MODERATE_CONGESTION'::traffic_dist_congestion_level_type
-                    ELSE 'NO2LOW_CONGESTION'::traffic_dist_congestion_level_type
-                  END
-                ELSE
-                  CASE
-                    WHEN (speed_reduction_factor IS NULL)
-                      THEN NULL::traffic_dist_congestion_level_type
-                    WHEN (speed_reduction_factor < 0.65)
-                      THEN 'SEVERE_CONGESTION'::traffic_dist_congestion_level_type
-                    WHEN (speed_reduction_factor < 0.8) 
-                      THEN 'MODERATE_CONGESTION'::traffic_dist_congestion_level_type
-                    ELSE 'NO2LOW_CONGESTION'::traffic_dist_congestion_level_type
-                  END
-              END AS congestion_level,
-              CASE
-                WHEN ((avg_am_peak_speed_mph IS NULL) OR (avg_pm_peak_speed_mph IS NULL))
-                  THEN NULL::traffic_dist_directionality_type
-                WHEN (avg_am_peak_speed_mph - avg_pm_peak_speed_mph) > 6
-                  THEN 'PM_PEAK'::traffic_dist_directionality_type
-                WHEN (avg_pm_peak_speed_mph - avg_am_peak_speed_mph) > 6
-                  THEN 'AM_PEAK'::traffic_dist_directionality_type
-                ELSE 'EVEN_DIST'::traffic_dist_directionality_type
-              END AS directionality
-            FROM (
-              SELECT
-                  tmc,
+      LEFT OUTER JOIN cte_traffic_distribution_factors AS traffic_dist_factors
+        ON (inrix_shapefile.tmc = traffic_dist_factors.tmc)
 
-                  avg_free_flow_travel_time,
-                  avg_peak_period_travel_time,
-                  (avg_free_flow_travel_time / avg_peak_period_travel_time)::REAL AS speed_reduction_factor,
-
-                  CASE 
-                    WHEN ((f_system = 0) OR (f_system = 1)) THEN 'FREEWAY'::traffic_dist_functional_class_type
-                    ELSE 'NONFREEWAY'::traffic_dist_functional_class_type
-                  END AS functional_class,
-
-                  (miles / (avg_free_flow_travel_time / (60 * 60)))::REAL AS avg_free_flow_speed_mph,
-                  (miles / (avg_peak_period_travel_time / (60 * 60)))::REAL AS avg_peak_period_speed_mph
-
-                FROM (
-                    SELECT 
-                        tmc,
-                        AVG(travel_time_all_vehicles)::REAL AS avg_peak_period_travel_time
-                      FROM npmrds
-                      WHERE (
-                             (epoch BETWEEN (12 * 6) AND ((12 * 10) - 1)) /* 6am til 10am */
-                          OR (epoch BETWEEN (12 * (3+12)) AND ((12 * (7+12)) - 1)) /* 3am til 7pm */
-                        ) AND (travel_time_all_vehicles > 0)
-                   GROUP BY tmc
-                  ) AS peak NATURAL FULL OUTER JOIN (
-                    SELECT 
-                        tmc,
-                        AVG(travel_time_all_vehicles)::REAL AS avg_free_flow_travel_time
-                      FROM npmrds
-                      WHERE (
-                             (epoch BETWEEN (12 * 0) AND ((12 * 5) - 1)) /* midnight til 5am */
-                          OR (epoch BETWEEN (12 * (10+12)) AND ((12 * (12+12)) - 1)) /* 10pm til midnight */
-                        )
-                        AND (travel_time_all_vehicles > 0)
-                      GROUP BY tmc
-                  ) AS free_flow FULL OUTER JOIN inrix_shapefile USING (tmc)
-              ) AS sq_speed_reduction_factor NATURAL FULL OUTER JOIN (
-                SELECT
-                    tmc,
-                    avg_am_peak_travel_time, 
-                    avg_pm_peak_travel_time,
-                    (miles / ((avg_am_peak_travel_time / (60*60))))::REAL AS avg_am_peak_speed_mph, 
-                    (miles / ((avg_pm_peak_travel_time / (60*60))))::REAL AS avg_pm_peak_speed_mph
-                  FROM (
-                      SELECT 
-                          tmc,
-                          AVG(travel_time_all_vehicles)::REAL AS avg_am_peak_travel_time
-                        FROM npmrds
-                        WHERE (epoch BETWEEN (12 * 6) AND ((12 * 10) - 1))
-                          AND (travel_time_all_vehicles > 0)
-                        GROUP BY tmc
-                    ) AS am_peak NATURAL FULL OUTER JOIN (
-                      SELECT 
-                          tmc,
-                          AVG(travel_time_all_vehicles)::REAL AS avg_pm_peak_travel_time
-                        FROM npmrds
-                        WHERE (epoch BETWEEN (12 * (3+12)) AND ((12 * (7+12)) - 1))
-                          AND (travel_time_all_vehicles > 0)
-                        GROUP BY tmc
-                    ) AS pm_peak FULL OUTER JOIN inrix_shapefile USING (tmc)
-              ) AS sq_directionality_factors
-        ) AS traffic_dist_factors ON (inrix_shapefile.tmc = traffic_dist_factors.tmc)
     WITH NO DATA
 ;
 

@@ -1,6 +1,6 @@
-	CREATE VIEW public.mpo_boundaries AS
+	CREATE VIEW public.mpo_boundaries_view AS
     SELECT *
-      FROM us.mpo_boundaries___LATEST_VERSION__
+      FROM mpo_boundaries
         LEFT OUTER JOIN us.mpo_acronyms
         USING (mpo_id)
 ;

@@ -56,15 +56,24 @@ INSERT INTO "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__ (state, year,
     SELECT
         travel_times.tmc::VARCHAR AS tmc,
         quarter_hour_bin::SMALLINT,
-        ROUND(
-          (
-            GREATEST(
-              LEAST(harmonic_mean_travel_time - excessive_delay_threshold_time_s, 900),
-              0
-            ) / 3600
-          )::NUMERIC,
-          3
-        ) AS excessive_delay_hrs
+        CASE 
+          WHEN ( -- LEAST ignores NULLs.
+            (excessive_delay_threshold_time_s IS NOT NULL)
+            AND
+            (harmonic_mean_travel_time IS NOT NULL)
+          )
+          THEN 
+            ROUND(
+              (
+                GREATEST(
+                  LEAST(harmonic_mean_travel_time - excessive_delay_threshold_time_s, 900),
+                  0
+                ) / 3600
+              )::NUMERIC,
+              3
+            )
+          ELSE NULL
+        END AS excessive_delay_hrs
       FROM (
           SELECT
               tmc,

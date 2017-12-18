@@ -1,1 +1,1 @@
-DROP VIEW IF EXISTS geography_level_attributes_view;
+DROP MATERIALIZED VIEW IF EXISTS geography_level_attributes_view;
