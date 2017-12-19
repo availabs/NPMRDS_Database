@@ -310,6 +310,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
         ) AS t3 FULL OUTER JOIN (
           SELECT
               region_id::VARCHAR AS geography_level_name,
+              state,
               jsonb_object_agg(
                 year,
                 jsonb_build_array(
@@ -322,15 +323,16 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
             FROM (
               SELECT
                   region_id,
+                  state,
                   year,
                   SUM(population) AS population
                 FROM region_to_county
                   INNER JOIN cte_county_populations
                   USING (state, county)
-                GROUP BY (region_id, year)
+                GROUP BY (region_id, state, year)
             ) AS sub_region_populations
-            GROUP BY geography_level_name
-        ) AS t4 USING (geography_level_name)
+            GROUP BY geography_level_name, state
+        ) AS t4 USING (geography_level_name, state)
 
   UNION ALL 
     /* States */
