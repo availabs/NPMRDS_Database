@@ -96,7 +96,8 @@ CREATE FUNCTION verbose_bq_top_level_measures_fn (
                 JSON_BUILD_OBJECT('name', 'total_excessive_delay_stddev'),
                 JSON_BUILD_OBJECT('name', 'total_excessive_delay_per_mile_quartiles'),
                 JSON_BUILD_OBJECT('name', 'total_excessive_delay_per_mile_mean'),
-                JSON_BUILD_OBJECT('name', 'total_excessive_delay_per_mile_stddev')
+                JSON_BUILD_OBJECT('name', 'total_excessive_delay_per_mile_stddev'),
+                JSON_BUILD_OBJECT('name', 'population_info')
               )
             )
           ) -- end root fields array
@@ -194,7 +195,8 @@ CREATE FUNCTION verbose_bq_top_level_measures_fn (
                   excluded_mi,
                   included_tmcs_ct,
                   excluded_tmcs_ct,
-                  summary_stats_by_phed_period
+                  summary_stats_by_phed_period,
+                  population_info
                 )
               )
               FROM top_level_total_excessive_delay

@@ -12,6 +12,7 @@ CREATE TABLE top_level_total_excessive_delay (
   excluded_mi                  REAL,
   included_tmcs_ct             INTEGER,
   excluded_tmcs_ct             INTEGER,
-  summary_stats_by_phed_period JSONB
+  summary_stats_by_phed_period JSONB,
+  population_info              JSONB
 );
 

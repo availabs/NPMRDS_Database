@@ -71,7 +71,8 @@ CREATE FUNCTION terse_bq_top_level_measures_fn (
                 JSON_BUILD_OBJECT('name', 'year'),
                 JSON_BUILD_OBJECT('name', 'month'),
                 JSON_BUILD_OBJECT('name', 'functional_class'),
-                JSON_BUILD_OBJECT('name', 'total_excessive_delay')
+                JSON_BUILD_OBJECT('name', 'total_excessive_delay'),
+                JSON_BUILD_OBJECT('name', 'population_info')
               )
             )
           ) -- end root fields array
@@ -149,7 +150,8 @@ CREATE FUNCTION terse_bq_top_level_measures_fn (
                       pm1_peak_total_xdelay_hrs,
                       pm2_peak_total_xdelay_hrs
                     )
-                  )
+                  ),
+                  population_info
                 )
               )
               FROM top_level_total_excessive_delay
