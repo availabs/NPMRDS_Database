@@ -153,6 +153,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
         ) AS t3 NATURAL FULL OUTER JOIN (
           SELECT
               county AS geography_level_name,
+              state,
               jsonb_object_agg(
                 year,
                 jsonb_build_array(
@@ -163,7 +164,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
                 ) 
               ) AS population_info
             FROM cte_county_populations
-            GROUP BY county
+            GROUP BY county, state
         ) AS t4
 
   /* Core Based Statistical Areas */
