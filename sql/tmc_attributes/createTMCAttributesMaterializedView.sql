@@ -199,7 +199,14 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
           END AS directionality
         FROM cte_speed_reduction_factor
           NATURAL FULL OUTER JOIN cte_directionality_factors
-    ) 
+    ), cte_bounding_boxes AS (
+      SELECT
+          tmc,
+          ST_Extent(inrix_shapefile.wkb_geometry) AS bounding_box
+        FROM inrix_shapefile
+        GROUP BY tmc
+    )
+
     SELECT
         inrix_shapefile.tmc,
         inrix_shapefile.tmctype,
@@ -283,7 +290,9 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
         regions.name AS region_name,
 
         traffic_dist_factors.congestion_level,
-        traffic_dist_factors.directionality
+        traffic_dist_factors.directionality,
+
+        cte_bounding_boxes.bounding_box AS bounding_box
 
     FROM inrix_shapefile
       LEFT OUTER JOIN state_abbreviations
@@ -312,6 +321,8 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS tmc_attributes
         ON (r_to_c.region_id = regions.id)
       LEFT OUTER JOIN cte_traffic_distribution_factors AS traffic_dist_factors
         ON (inrix_shapefile.tmc = traffic_dist_factors.tmc)
+      LEFT OUTER JOIN cte_bounding_boxes
+        ON (inrix_shapefile.tmc = cte_bounding_boxes.tmc)
 
     WITH NO DATA
 ;
