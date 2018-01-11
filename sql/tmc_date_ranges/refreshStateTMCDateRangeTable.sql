@@ -1,6 +1,6 @@
 BEGIN;
 
-TRUNCATE "__STATE__".tmc_date_ranges;
+DELETE FROM "__STATE__".tmc_date_ranges;
 
 INSERT INTO "__STATE__".tmc_date_ranges (tmc, first_date, last_date, state)
   SELECT

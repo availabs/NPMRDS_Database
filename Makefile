@@ -265,13 +265,10 @@ db/create-npmrds-state-yrmo-table: db/create-npmrds-state-table
 
 
 db/upload-npmrds-state-yrmo: db/drop-npmrds-state-yrmo-table db/create-npmrds-state-yrmo-table
-	@# These should be integrated into this target/recipe
-	@#${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv \
-	@#./bin/projectNPMRDSTableColumns.sh < $<	| psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;'
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
-	@if [[ $$(psql -t -c 'SELECT * FROM "${STATE}".npmrds_y${YEAR}m${MONTH} LIMIT 1;' | tr -d " \t\n\r";) ]]; then\
+	@if [[ ! $$(psql -t -c 'SELECT * FROM "${STATE}".npmrds_y${YEAR}m${MONTH} LIMIT 1;' | tr -d " \t\n\r";) ]]; then\
 		./bin/projectNPMRDSTableColumns.sh < ${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv | psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;';\
 	fi
 
@@ -307,26 +304,29 @@ db/postprocess-npmrds-state-yrmo:
 
 db/create-state-tmc-date-ranges-table: db/create-schema-${STATE} db/create-root-tmc-date-ranges-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
-	@psql -c "$$(\
-			sed "\
-				s/__STATE__/${STATE}/g;\
-			" ./sql/tmc_date_ranges/createStateTMCDateRangeTable.sql\
-		)";
+	@if ! psql -c '\d "${STATE}".tmc_date_ranges' > /dev/null 2>&1; then\
+		psql -c "$$(\
+				sed "\
+					s/__STATE__/${STATE}/g;\
+				" ./sql/tmc_date_ranges/createStateTMCDateRangeTable.sql\
+			)";\
+	fi
 
 db/refresh-state-tmc-date-ranges-table:
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@psql -c "$$(\
 			sed "\
 				s/__STATE__/${STATE}/g;\
-			" ./sql/tmc_date_ranges/refreshStateTMCDateRangeTable.sql\
+			" ./sql/tmc_date_ranges/refreshStateTMCDateRangeTable.sql;\
 		)";
+
 
 db/drop-mpo-acronyms-table:
 	@if psql -c '\d us.mpo_acronyms' > /dev/null 2>&1; then\
 		psql -f ./sql/mpo_acronyms/drop_mpo_acronyms.sql;\
 	fi
 
-db/create-mpo-acronyms-table:
+db/create-mpo-acronyms-table: db/create-schema-us
 	@if ! psql -c '\d us.mpo_acronyms' > /dev/null 2>&1; then\
 		psql -f ./sql/mpo_acronyms/create_mpo_acronyms.sql;\
 	fi
@@ -392,6 +392,25 @@ db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
 		echo "INRIX Shapefile in the database is the latest.";\
 	fi;
 
+# db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
+	# @:$(call check_defined,STATE)
+	# @cd ${_INRIX_SHAPEFILES_DIR} && unzip -o ${STATE}_*.zip;\
+	# VER=$$(ls ${_INRIX_SHAPEFILES_DIR}/${STATE} | sort | tail -1);\
+	# LATEST_FILE_VERSION="inrix_shapefile_$${VER}";\
+	# psql -c "DROP TABLE IF EXISTS \"${STATE}\".$${LATEST_FILE_VERSION};";\
+	# LATEST_PGDB_VERSION=$$(psql -t -c "SELECT table_name FROM information_schema.tables WHERE (table_schema='${STATE}') and (table_name LIKE 'inrix_shapefile_%') ORDER BY table_name DESC LIMIT 1;" | tr -d " \t\n\r";);\
+	# echo "== lpgv: $${LATEST_PGDB_VERSION}";\
+	# if [ -z $${LATEST_PGDB_VERSION} ] || [[ $${LATEST_FILE_VERSION} > $${LATEST_PGDB_VERSION} ]]; then\
+		# psql -c "CREATE TABLE IF NOT EXISTS \"${STATE}\".$${LATEST_FILE_VERSION} (LIKE public.inrix_shapefile);";\
+		# SHP_DIR="${_INRIX_SHAPEFILES_DIR}/${STATE}/$${VER}/";\
+		# ogr2ogr -update -append -t_srs EPSG:4326 -f \
+			# PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+			# "$${SHP_DIR}"  -lco OVERWRITE=YES -lco SCHEMA=${STATE} -lco GEOM_TYPE=geometry -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "$${LATEST_FILE_VERSION}";\
+		# psql -c "ALTER TABLE \"${STATE}\".$${LATEST_FILE_VERSION} INHERIT public.inrix_shapefile;";\
+	# else\
+		# echo "INRIX Shapefile in the database is the latest.";\
+	# fi;
+
 db/upload-county-subdivision-boundaries-shapefile: db/create-database db/create-schema-${STATE}
 	@:$(call check_defined,STATE)
 	@set -e;\
@@ -451,6 +470,11 @@ db/upload-core-based-staticstical-area-boundaries-shapefile: db/create-database 
 		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
 		-type f -delete;
 
+
+db/drop-state-abbreviations-table:
+	@if psql -c '\d public.state_abbreviations' > /dev/null 2>&1; then\
+		psql -f 'sql/state_abbreviations/dropStateAbbreviationsTable.sql';\
+	fi
 
 db/create-state-abbreviations-table: db/create-database
 	@if ! psql -c '\d public.state_abbreviations' > /dev/null 2>&1; then\
@@ -632,13 +656,12 @@ db/create-state-occupancy-factor-table: db/create-state-abbreviations-table db/c
 	fi
 
 
-db/drop-tmc-attributes:
-	# TODO: Handle dependencies
+db/drop-root-tmc-attributes:
 	@if psql -c '\d "public".tmc_attributes' > /dev/null 2>&1; then\
-		psql -f './sql/tmc_attributes/dropTMCAttributesMaterializedView.sql';\
+		psql -f './sql/tmc_attributes/root/dropRootTMCAttributesTable.sql';\
 	fi
 
-db/create-tmc-attributes: \
+db/create-root-tmc-attributes: \
 	db/create-enum-types \
 	db/create-root-npmrds-table \
 	db/create-state-abbreviations-table \
@@ -646,13 +669,28 @@ db/create-tmc-attributes: \
 	db/create-root-average-speedlimits-table \
 	db/create-root-region-to-county-table \
 	db/create-root-regions-table
-	# TODO: Handle dependencies
 	@if ! psql -c '\d "public".tmc_attributes' > /dev/null 2>&1; then\
-		time psql -f './sql/tmc_attributes/createTMCAttributesMaterializedView.sql';\
+		time psql -f './sql/tmc_attributes/root/createRootTMCAttributesTable.sql';\
 	fi
 
-db/refresh-tmc-attributes: db/create-tmc-attributes
-	psql -f './sql/tmc_attributes/refreshTMCAttributesMaterializedView.sql';\
+db/drop-state-tmc-attributes:
+	@:$(call check_defined,STATE)
+	@if psql -c '\d "${STATE}".tmc_attributes' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tmc_attributes/state/dropStateTMCAttributesTable.sql)";\
+	fi
+
+db/create-state-tmc-attributes: db/create-root-tmc-attributes
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".tmc_attributes' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tmc_attributes/state/createStateTMCAttributesTable.sql)";\
+	fi
+
+db/load-state-tmc-attributes: \
+	db/create-state-tmc-attributes \
+	db/create-state-tmc-date-ranges-table
+
+	@:$(call check_defined,STATE)
+	@ psql -c '\timing' -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tmc_attributes/state/loadStateTMCAttributesTable.sql)";\
 
 db/drop-root-lottr-percentiles-table:
 	@if psql -c '\d public.lottr_percentiles' > /dev/null 2>&1; then\
@@ -859,7 +897,7 @@ db/drop-geography-level-attributes-view:
 		psql -f './sql/geography_level_attributes_view/dropStateGeographyLevelAttributesView.sql';\
 	fi
 
-db/create-geography-level-attributes-view: db/create-tmc-attributes
+db/create-geography-level-attributes-view: db/create-root-tmc-attributes
 	@if ! psql -c '\d public.geography_level_attributes_view' > /dev/null 2>&1; then\
 		psql -f './sql/geography_level_attributes_view/createStateGeographyAttributesView.sql';\
 	fi
