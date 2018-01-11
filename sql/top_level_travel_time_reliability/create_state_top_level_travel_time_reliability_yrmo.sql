@@ -60,8 +60,7 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
        ]::REAL[5] AS lottr_quartiles,
        ROUND(lottr_mean::NUMERIC, 3)::REAL AS lottr_mean,
        ROUND(lottr_stddev::NUMERIC, 3)::REAL AS lottr_stddev,
-       ROUND((passing.weighted_sum / NULLIF(passing_and_failing.weighted_sum, 0))::NUMERIC, 3)::REAL AS ttr,
-       population_info
+       ROUND((passing.weighted_sum / NULLIF(passing_and_failing.weighted_sum, 0))::NUMERIC, 3)::REAL AS ttr
   FROM (
     SELECT functional_class,
            SUM(tmp_tmc_data.miles * tmp_tmc_data. aadt)::REAL AS weighted_sum,
@@ -93,26 +92,6 @@ SELECT '__STATE__'::VARCHAR(2) AS state,
       WHERE ((tmp_tmc_data.miles IS NULL) OR (tmp_tmc_data.aadt IS NULL))
       GROUP BY functional_class
   ) AS excluded USING (functional_class)
-    -- select i, max(x) from (select i, jsonb_object_keys(d) as x from foo ) AS t group by i;
-    -- select * from json_each('{"a":"foo", "b":"bar"}')
-  LEFT OUTER JOIN (
-    SELECT
-        state,
-        CAST((pop_info).key AS INT) AS year,
-        CAST((pop_info).value AS JSONB) AS pop_info
-      FROM (
-        SELECT
-            state,
-            json_each(population_info) AS pop_info,
-            RANK() OVER (PARTITION BY state ORDER BY ABS(__YEAR__ - year) ASC, year DESC)
-          FROM geography_level_attributes_view
-          WHERE (
-            (geography_level = 'STATE')
-            AND
-            (rank = 1)
-          )
-      ) AS t
-    ) AS sub_pop_info
 
 
 UNION ALL -- Region Level
