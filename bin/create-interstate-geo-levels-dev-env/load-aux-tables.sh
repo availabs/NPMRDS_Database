@@ -19,5 +19,8 @@ make db/load-fips-codes-table
 make db/drop-state-codes-view
 make db/create-state-codes-view
 
+make db/drop-geography-level-to-states
+make db/create-geography-level-to-states
+
 STATE=nj make db/upload-inrix-shapefile-for-state
 STATE=ny make db/upload-inrix-shapefile-for-state

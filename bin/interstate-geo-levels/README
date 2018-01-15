@@ -20,27 +20,24 @@
 
     [x] Loader for Urban Area Populations CSVs
 
-    [ ] Fix dependents of urban_area_population
+    [x] Fix dependents of urban_area_population
       [ ] Find
-        [ ] in database
+        [x] in database
           sql/geography_level_attributes_view/createStateGeographyAttributesView.sql
-        [ ] in api server
-      [ ] Fix
-        [ ] in database
-        [ ] in api server
+        [x] in api server
+          NONE
+      [x] Fix
+        [x] in database
+        [x] in api server
 
-  [ ] Alter geography_level_attributes_view
-    [ ] Alter view definition
-      [ ] states column
-        [ ] rename to states
-        [ ] change type to array
-      [ ] provide geography level attributes broken down by
-        [ ] individual state
-        [ ] interstate
-      [ ] 
-
-      [ ] PROBLEMS:
-        [ ] No population for MPO
+  [x] Alter geography_level_attributes_view
+    [x] Alter view definition
+      [x] states column
+        [x] rename to states
+        [x] change type to array
+      [x] provide geography level attributes broken down by
+        [x] individual state
+        [x] interstate
           
 
     [ ] Fix dependents of geography_level_attributes_view
@@ -51,7 +48,7 @@
           * DAOs/MetadataDAO/geographyLevelAttributes.js
       [ ] Fix
         [ ] in database
-        [ ] in api server
+        [x] in api server
 
   [ ] Load inrix_shapefile for ALL states
     [ ] More accurate geography_level_attributes_view

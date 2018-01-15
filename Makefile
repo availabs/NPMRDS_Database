@@ -892,6 +892,17 @@ db/create-traffic-distributions-table:
 		psql -f ./sql/traffic_distributions/createTrafficDistributionsTable.sql;\
 	fi
 
+db/drop-geography-level-to-states:
+	@if psql -c '\d public.geography_level_to_states' > /dev/null 2>&1; then\
+		psql -f './sql/geography_level_to_states/drop_geography_level_to_states.sql';\
+	fi
+
+db/create-geography-level-to-states:
+	@if ! psql -c '\d public.geography_level_to_states' > /dev/null 2>&1; then\
+		psql -f './sql/geography_level_to_states/create_geography_level_to_states.sql';\
+	fi
+
+
 db/drop-geography-level-attributes-view:
 	@if psql -c '\d public.geography_level_attributes_view' > /dev/null 2>&1; then\
 		psql -f './sql/geography_level_attributes_view/dropStateGeographyLevelAttributesView.sql';\

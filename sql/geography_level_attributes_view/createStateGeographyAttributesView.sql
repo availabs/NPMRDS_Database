@@ -39,6 +39,23 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
         year
       FROM county_populations
         NATURAL JOIN fips_codes
+  ), cte_urban_area_state_subsets AS (
+      SELECT
+          geography_level_name AS ua_name,
+          states
+        FROM geography_level_to_states
+        WHERE (geography_level = 'UA')
+      UNION
+      SELECT
+          geography_level_name AS ua_name,
+          ARRAY[state]::VARCHAR(2)[] AS states
+        FROM (
+          SELECT
+              geography_level_name,
+              UNNEST(states) AS state
+            FROM geography_level_to_states
+            WHERE (geography_level = 'UA')
+        ) AS sub0
   )
 
     /* MPOs */
@@ -51,7 +68,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
         noninterstate_tmcs_ct,
         bounding_box,
         population_info,
-        ARRAY[state] AS states
+        ARRAY[state]::VARCHAR(2)[] AS states
       FROM (
           SELECT 
               mpo_acrony AS geography_level_name,
@@ -121,7 +138,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
         noninterstate_tmcs_ct,
         bounding_box,
         population_info,
-        ARRAY[state]
+        ARRAY[state]::VARCHAR(2)[]
       FROM (
           SELECT 
               county AS geography_level_name,
@@ -178,38 +195,50 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
         noninterstate_tmcs_ct,
         bounding_box,
         population_info,
-        states
+        states::VARCHAR(2)[]
       FROM (
           SELECT 
               ua_name AS geography_level_name,
               SUM(miles) AS interstate_miles,
               COUNT(tmc) AS interstate_tmcs_ct,
-              state
+              states
             FROM tmc_attributes
-            WHERE (is_interstate = true)
+              INNER JOIN cte_urban_area_state_subsets USING (ua_name)
+            WHERE (
+              (is_interstate = true)
               AND (ua_name IS NOT NULL)
-            GROUP BY ua_name, state
+              AND (tmc_attributes.state = ANY(cte_urban_area_state_subsets.states))
+            )
+            GROUP BY ua_name, states
         ) AS t1 NATURAL FULL OUTER JOIN (
           SELECT
               ua_name AS geography_level_name,
               SUM(miles) AS noninterstate_miles,
               COUNT(tmc) AS noninterstate_tmcs_ct,
-              state
+              states
             FROM tmc_attributes
-            WHERE ((is_interstate = false) OR (is_interstate IS NULL))
+              INNER JOIN cte_urban_area_state_subsets USING (ua_name)
+            WHERE (
+              ((is_interstate = false) OR (is_interstate IS NULL))
               AND (ua_name IS NOT NULL)
-            GROUP BY ua_name, state
+              AND (tmc_attributes.state = ANY(cte_urban_area_state_subsets.states))
+            )
+            GROUP BY ua_name, states
         ) AS t2 NATURAL LEFT OUTER JOIN (
           SELECT
               ua_code,
               ua_name AS geography_level_name,
               ST_Extent(wkb_geometry) AS bounding_box,
-              tmc_attributes.state AS state
+              states
             FROM inrix_shapefile
               INNER JOIN tmc_attributes USING (tmc)
-            WHERE (ua_name IS NOT NULL)
-            GROUP BY ua_code, geography_level_name, tmc_attributes.state
-        ) AS t3 LEFT OUTER JOIN (
+              INNER JOIN cte_urban_area_state_subsets USING (ua_name)
+            WHERE (
+              (ua_name IS NOT NULL)
+              AND (tmc_attributes.state = ANY(cte_urban_area_state_subsets.states))
+            )
+            GROUP BY ua_code, geography_level_name, states
+        ) AS t3 NATURAL LEFT OUTER JOIN (
           SELECT
               ua_code,
               states,
@@ -224,11 +253,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
               ) AS population_info
             FROM urban_area_populations
             GROUP BY ua_code, states
-        ) AS t4 ON (
-          (t3.ua_code = t4.ua_code)
-          AND
-          (t3.state = ANY(t4.states)) --state subsets for UAs
-        )
+        ) AS t4
 
   UNION ALL
     /* Regions */
@@ -241,7 +266,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
         noninterstate_tmcs_ct,
         bounding_box,
         population_info,
-        ARRAY[state]
+        ARRAY[state]::VARCHAR(2)[]
       FROM (
           SELECT 
               region_code::VARCHAR AS geography_level_name,
@@ -308,7 +333,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
         noninterstate_tmcs_ct,
         bounding_box,
         population_info,
-        ARRAY[state]
+        ARRAY[state]::VARCHAR(2)[]
       FROM (
           SELECT 
               state AS geography_level_name,
