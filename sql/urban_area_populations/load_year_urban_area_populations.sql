@@ -1,9 +1,10 @@
 BEGIN;
 
 COPY us.urban_area_populations_y__YEAR__ (
+  ua_code,
   population,
-  ua_code
-) FROM STDIN CSV;
+  states
+) FROM STDIN CSV HEADER;
 
 CLUSTER us.urban_area_populations_y__YEAR__ USING urban_area_populations_y__YEAR___pkey;
 

@@ -1,0 +1,70 @@
+[ ] Create Interstate Geography Levels
+
+  
+  [x] Table definitions state -> states
+    Alter schema & update fields
+
+    [x] top_level_travel_time_reliability
+    [x] top_level_freight_reliability
+    [x] top_level_total_excessive_delay
+    [x] urban_area_populations
+
+    see: ./top_level_total_excessive_delay-StateColumnToStatesArray.sh
+
+  [x] Urban Area Populations
+    [x] Interstate Census UA scraper
+      [x] States column as postgres array
+
+    [x] Alter urban_area_populations table
+      [x] Add states column
+
+    [x] Loader for Urban Area Populations CSVs
+
+    [ ] Fix dependents of urban_area_population
+      [ ] Find
+        [ ] in database
+          sql/geography_level_attributes_view/createStateGeographyAttributesView.sql
+        [ ] in api server
+      [ ] Fix
+        [ ] in database
+        [ ] in api server
+
+  [ ] Alter geography_level_attributes_view
+    [ ] Alter view definition
+      [ ] states column
+        [ ] rename to states
+        [ ] change type to array
+      [ ] provide geography level attributes broken down by
+        [ ] individual state
+        [ ] interstate
+      [ ] 
+
+      [ ] PROBLEMS:
+        [ ] No population for MPO
+          
+
+    [ ] Fix dependents of geography_level_attributes_view
+      [x] Find
+        [x] in database
+          * create_state_top_level_total_excessive_delay_yrmo.sql
+        [x] in api server
+          * DAOs/MetadataDAO/geographyLevelAttributes.js
+      [ ] Fix
+        [ ] in database
+        [ ] in api server
+
+  [ ] Load inrix_shapefile for ALL states
+    [ ] More accurate geography_level_attributes_view
+
+NOTES:
+  urban_area_populations dependents:
+    npmrds_local=# drop table urban_area_populations ;
+    ERROR:  cannot drop table urban_area_populations because other objects depend on it
+    DETAIL:  materialized view geography_level_attributes_view depends on table urban_area_populations
+    table us.urban_area_populations_y2015 depends on table urban_area_populations
+    table us.urban_area_populations_y2016 depends on table urban_area_populations
+    HINT:  Use DROP ... CASCADE to drop the dependent objects too.
+
+SCRIPTS ORDER:
+  1. top_level_total_excessive_delay-StateColumnToStatesArray.sh
+  2. update-urban-areas-table-def.sh

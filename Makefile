@@ -1185,7 +1185,6 @@ db/load-year-urban-area-populations-table: db/create-year-urban-area-populations
 	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM us.urban_area_populations_y${YEAR};" | tr -d " \t\n\r";);\
 	if [ $${COUNT} -eq 0 ]; then\
 		gunzip -c '${_URBAN_AREA_POPULATIONS_ZIP_PATH}' | \
-		tail -n +2 | \
 			psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/urban_area_populations/load_year_urban_area_populations.sql)";\
 		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/urban_area_populations/finish_year_urban_area_populations.sql)";\
 	fi

@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE TABLE us.urban_area_populations_y__YEAR__ (
-  CONSTRAINT urban_area_populations_y__YEAR___pkey PRIMARY KEY(ua_code)
+  CONSTRAINT urban_area_populations_y__YEAR___pkey PRIMARY KEY(ua_code, states)
   ) INHERITS (public.urban_area_populations)
   WITH (fillfactor=100, autovacuum_enabled=false)
 ;
