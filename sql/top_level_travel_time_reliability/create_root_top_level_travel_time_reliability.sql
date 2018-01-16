@@ -1,5 +1,5 @@
 CREATE TABLE top_level_travel_time_reliability (
-  state             VARCHAR(2),
+  states            VARCHAR(2)[],
   year              SMALLINT,
   month             SMALLINT,
   geography_level   geography_level_type,
@@ -13,7 +13,6 @@ CREATE TABLE top_level_travel_time_reliability (
   lottr_quartiles   REAL[5],
   lottr_mean        REAL,
   lottr_stddev      REAL,
-  ttr               REAL,
-  population_info   JSOB
+  ttr               REAL
 );
 

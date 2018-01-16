@@ -371,6 +371,12 @@ db/create-mpo-boundaries-view:
 		psql -f ./sql/mpo_boundaries_view/createMPOBoundariesView.sql;\
 	fi
 
+db/drop-inrix-shapefile:
+	@if psql -c '\d public.inrix_shapefile' > /dev/null 2>&1; then\
+		psql -f ./sql/inrix_shapefile/dropInrixShapefileTable.sql;\
+	fi
+
+
 db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
 	@:$(call check_defined,STATE)
 	@cd ${_INRIX_SHAPEFILES_DIR} && unzip -o ${STATE}_*.zip;\
@@ -431,6 +437,13 @@ db/upload-county-subdivision-boundaries-shapefile: db/create-database db/create-
 	find $${SHP_DIR} \
 		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
 		-type f -delete;
+
+db/drop-urban-area-boundaries-table:
+	@if psql -c '\d public.urban_area_boundaries' > /dev/null 2>&1; then\
+		psql -f ./sql/urban_area_boundaries/drop_root_urban_area_boundaries_table.sql;\
+	fi
+
+
 
 db/upload-urban-area-boundaries-shapefile: db/create-database db/create-schema-us
 	@set -e;\
@@ -829,7 +842,7 @@ db/drop-state-top-level-travel-time-reliability-table:
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/top_level_travel_time_reliability/drop_state_top_level_travel_time_reliability.sql)";\
 	fi
 
-db/create-state-top-level-travel-time-reliability-table: db/create-root-top-level-travel-time-reliability-table
+db/create-state-top-level-travel-time-reliability-table: db/create-root-top-level-travel-time-reliability-table db/create-schema-${STATE}
 	@:$(call check_defined,STATE)
 	@if ! psql -c '\d "${STATE}".top_level_travel_time_reliability' > /dev/null 2>&1; then\
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/top_level_travel_time_reliability/create_state_top_level_travel_time_reliability.sql)";\
