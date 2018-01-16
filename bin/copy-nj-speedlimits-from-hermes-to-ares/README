@@ -1,0 +1,24 @@
+PROBLEM:
+  No API access for HERE 
+    https://route.cit.api.here.com/routing/7.2/getlinkinfo.json
+
+  This was how we had gotten the TMC speedlimits.
+
+TEMP SOLUTION:
+  Use the old avg_speedlimits in the hermes database.
+
+  [x] Dump the nj speedlimts as a csv:
+      see ./dump-avg_speedlimits-as-csv.sh
+    
+  [x] Load speedlimits CSV into ares
+    [x] create nj.avg_speedlimits table
+    [x] copy CSV into table
+    [x] use regex tmc code matching to backfill
+				nj.avg_speedlimts with INRIX tmc codes.
+		[x] update nj.tmc_attributes with speedlimits
+
+    see ./load-avg_speedlimits-from-csv.sh
+
+LONG TERM SOLUTION:
+	[ ] figure out a way to get NJ speedlimts
+

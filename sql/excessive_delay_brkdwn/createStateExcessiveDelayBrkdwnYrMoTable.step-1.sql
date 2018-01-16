@@ -21,14 +21,10 @@ INSERT INTO "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__ (state, year,
     SELECT
         tmc,
         aadt,
-        CASE WHEN NULLIF(avg_speedlimit, 0) IS NOT NULL
-          THEN (
-            -- miles to nearest thousandth per measure rule
-            -- MAX(60% of speedlimit or 20 mph)
-            -- nearest whole second
-            ROUND(ROUND(miles::NUMERIC, 3) / GREATEST(avg_speedlimit * 0.6, 20) * 3600)::SMALLINT
-          ) ELSE NULL
-        END AS excessive_delay_threshold_time_s,
+        -- miles to nearest thousandth per measure rule
+        -- MAX(60% of speedlimit or 20 mph)
+        -- nearest whole second
+        ROUND(ROUND(miles::NUMERIC, 3) / GREATEST(avg_speedlimit * 0.6, 20) * 3600)::SMALLINT AS excessive_delay_threshold_time_s,
         congestion_level,
         directionality,
         CASE WHEN (f_system < 3)
@@ -36,6 +32,7 @@ INSERT INTO "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__ (state, year,
           ELSE 'NONFREEWAY'::traffic_dist_functional_class_type
         END AS functional_class
       FROM tmc_attributes
+      WHERE (NULLIF(avg_speedlimit, 0) IS NOT NULL)
   ), cte_hourly_volumes AS (
     SELECT 
         day_type,
@@ -56,24 +53,15 @@ INSERT INTO "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__ (state, year,
     SELECT
         travel_times.tmc::VARCHAR AS tmc,
         quarter_hour_bin::SMALLINT,
-        CASE 
-          WHEN ( -- LEAST ignores NULLs.
-            (excessive_delay_threshold_time_s IS NOT NULL)
-            AND
-            (harmonic_mean_travel_time IS NOT NULL)
-          )
-          THEN 
-            ROUND(
-              (
-                GREATEST(
-                  LEAST(harmonic_mean_travel_time - excessive_delay_threshold_time_s, 900),
-                  0
-                ) / 3600
-              )::NUMERIC,
-              3
-            )
-          ELSE NULL
-        END AS excessive_delay_hrs
+        ROUND(
+          (
+            GREATEST(
+              LEAST(harmonic_mean_travel_time - excessive_delay_threshold_time_s, 900),
+              0
+            ) / 3600
+          )::NUMERIC,
+          3
+        ) AS excessive_delay_hrs
       FROM (
           SELECT
               tmc,
@@ -102,6 +90,11 @@ INSERT INTO "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__ (state, year,
               quarter_hour_bin
         ) travel_times
           LEFT OUTER JOIN cte_tmc_info USING (tmc)
+      WHERE (
+        (excessive_delay_threshold_time_s IS NOT NULL)
+        AND
+        (harmonic_mean_travel_time IS NOT NULL)
+      )
   ), cte_hourly_summary_stats AS (
       SELECT
           tmc,
