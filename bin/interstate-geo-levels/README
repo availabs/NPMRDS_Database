@@ -39,19 +39,49 @@
         [x] individual state
         [x] interstate
           
-
     [ ] Fix dependents of geography_level_attributes_view
       [x] Find
         [x] in database
-          * create_state_top_level_total_excessive_delay_yrmo.sql
+          * create_state_top_level_travel_time_reliability_yrmo.sql
         [x] in api server
           * DAOs/MetadataDAO/geographyLevelAttributes.js
       [ ] Fix
         [ ] in database
         [x] in api server
 
-  [ ] Load inrix_shapefile for ALL states
-    [ ] More accurate geography_level_attributes_view
+    [ ] top_level measure tables state -> states
+      [ ] top_level_travel_time_reliability
+        [x] transform scripts
+        [ ] table definition
+      [ ] top_level_freight_reliability
+      [ ] top_level_total_excessive_delay 
+
+LATER:
+
+  [ ] Load PA
+    [ ] shapefile
+    [ ] data
+
+  [ ] Look into optimizing top_level measure builds
+    Doesn't seem to be using constraint.
+
+			npmrds_local=# \d ny.lottr_percentiles
+				 Table "ny.lottr_percentiles"
+			 Column |         Type         | Modifiers
+			--------+----------------------+-----------
+			 state  | character varying(2) |
+			 tmc    | character varying(9) |
+			 year   | smallint             |
+			 month  | smallint             |
+			 data   | jsonb                |
+			Check constraints:
+					"state_check" CHECK (state::text = 'ny'::text)
+			Inherits: lottr_percentiles
+			Number of child tables: 37 (Use \d+ to list them.)
+
+		Would changing the type of state in the check from text to VARCHAR(2) help?
+ 
+
 
 NOTES:
   urban_area_populations dependents:

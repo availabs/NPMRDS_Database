@@ -1,4 +1,6 @@
 /*
+  NOTE: __STATE__ replaced with 2 character state abbreviation for intrastate,
+          a string not matching any state abbreviation for interstate. 
   LOTTR
   Time binning the NPMRDS data
     WITH framing for 15min averages

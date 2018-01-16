@@ -1167,6 +1167,23 @@ INHERITS (public.excessive_delay_brkdwn);
 
 
 --
+-- Name: excessive_delay_brkdwn_y2017m00; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE excessive_delay_brkdwn_y2017m00 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    tmc character varying(9) NOT NULL,
+    excessive_delay_brkdwn jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 0))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (excessive_delay_brkdwn)
+WITH (fillfactor='100', autovacuum_enabled='false');
+
+
+--
 -- Name: excessive_delay_brkdwn_y2017m02; Type: TABLE; Schema: nj; Owner: -
 --
 
@@ -1296,6 +1313,40 @@ CREATE TABLE excessive_delay_brkdwn_y2017m09 (
     tmc character varying(9) NOT NULL,
     excessive_delay_brkdwn jsonb,
     CONSTRAINT date_range CHECK (((year = 2017) AND (month = 9))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (excessive_delay_brkdwn)
+WITH (fillfactor='100', autovacuum_enabled='false');
+
+
+--
+-- Name: excessive_delay_brkdwn_y2017m10; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE excessive_delay_brkdwn_y2017m10 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    tmc character varying(9) NOT NULL,
+    excessive_delay_brkdwn jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 10))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (excessive_delay_brkdwn)
+WITH (fillfactor='100', autovacuum_enabled='false');
+
+
+--
+-- Name: excessive_delay_brkdwn_y2017m11; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE excessive_delay_brkdwn_y2017m11 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    tmc character varying(9) NOT NULL,
+    excessive_delay_brkdwn jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 11))),
     CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
 )
 INHERITS (excessive_delay_brkdwn)
@@ -2304,6 +2355,340 @@ CREATE TABLE top_level_freight_reliability_y2017m11 (
     CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
 )
 INHERITS (top_level_freight_reliability)
+WITH (fillfactor='100');
+
+
+SET search_path = public, pg_catalog;
+
+--
+-- Name: top_level_total_excessive_delay; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE top_level_total_excessive_delay (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    geography_level geography_level_type,
+    geography_name character varying,
+    functional_class functional_class_type,
+    am_peak_total_xdelay_hrs double precision,
+    pm1_peak_total_xdelay_hrs double precision,
+    pm2_peak_total_xdelay_hrs double precision,
+    included_mi real,
+    excluded_mi real,
+    included_tmcs_ct integer,
+    excluded_tmcs_ct integer,
+    summary_stats_by_phed_period jsonb,
+    population_info jsonb
+);
+
+
+SET search_path = nj, pg_catalog;
+
+--
+-- Name: top_level_total_excessive_delay; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE top_level_total_excessive_delay (
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (public.top_level_total_excessive_delay);
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m00; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE top_level_total_excessive_delay_y2017m00 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    geography_level public.geography_level_type NOT NULL,
+    geography_name character varying NOT NULL,
+    functional_class public.functional_class_type NOT NULL,
+    am_peak_total_xdelay_hrs double precision,
+    pm1_peak_total_xdelay_hrs double precision,
+    pm2_peak_total_xdelay_hrs double precision,
+    included_mi real,
+    excluded_mi real,
+    included_tmcs_ct integer,
+    excluded_tmcs_ct integer,
+    summary_stats_by_phed_period jsonb,
+    population_info jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 0))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (top_level_total_excessive_delay)
+WITH (fillfactor='100');
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m02; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE top_level_total_excessive_delay_y2017m02 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    geography_level public.geography_level_type NOT NULL,
+    geography_name character varying NOT NULL,
+    functional_class public.functional_class_type NOT NULL,
+    am_peak_total_xdelay_hrs double precision,
+    pm1_peak_total_xdelay_hrs double precision,
+    pm2_peak_total_xdelay_hrs double precision,
+    included_mi real,
+    excluded_mi real,
+    included_tmcs_ct integer,
+    excluded_tmcs_ct integer,
+    summary_stats_by_phed_period jsonb,
+    population_info jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 2))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (top_level_total_excessive_delay)
+WITH (fillfactor='100');
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m03; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE top_level_total_excessive_delay_y2017m03 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    geography_level public.geography_level_type NOT NULL,
+    geography_name character varying NOT NULL,
+    functional_class public.functional_class_type NOT NULL,
+    am_peak_total_xdelay_hrs double precision,
+    pm1_peak_total_xdelay_hrs double precision,
+    pm2_peak_total_xdelay_hrs double precision,
+    included_mi real,
+    excluded_mi real,
+    included_tmcs_ct integer,
+    excluded_tmcs_ct integer,
+    summary_stats_by_phed_period jsonb,
+    population_info jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 3))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (top_level_total_excessive_delay)
+WITH (fillfactor='100');
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m04; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE top_level_total_excessive_delay_y2017m04 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    geography_level public.geography_level_type NOT NULL,
+    geography_name character varying NOT NULL,
+    functional_class public.functional_class_type NOT NULL,
+    am_peak_total_xdelay_hrs double precision,
+    pm1_peak_total_xdelay_hrs double precision,
+    pm2_peak_total_xdelay_hrs double precision,
+    included_mi real,
+    excluded_mi real,
+    included_tmcs_ct integer,
+    excluded_tmcs_ct integer,
+    summary_stats_by_phed_period jsonb,
+    population_info jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 4))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (top_level_total_excessive_delay)
+WITH (fillfactor='100');
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m05; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE top_level_total_excessive_delay_y2017m05 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    geography_level public.geography_level_type NOT NULL,
+    geography_name character varying NOT NULL,
+    functional_class public.functional_class_type NOT NULL,
+    am_peak_total_xdelay_hrs double precision,
+    pm1_peak_total_xdelay_hrs double precision,
+    pm2_peak_total_xdelay_hrs double precision,
+    included_mi real,
+    excluded_mi real,
+    included_tmcs_ct integer,
+    excluded_tmcs_ct integer,
+    summary_stats_by_phed_period jsonb,
+    population_info jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 5))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (top_level_total_excessive_delay)
+WITH (fillfactor='100');
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m06; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE top_level_total_excessive_delay_y2017m06 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    geography_level public.geography_level_type NOT NULL,
+    geography_name character varying NOT NULL,
+    functional_class public.functional_class_type NOT NULL,
+    am_peak_total_xdelay_hrs double precision,
+    pm1_peak_total_xdelay_hrs double precision,
+    pm2_peak_total_xdelay_hrs double precision,
+    included_mi real,
+    excluded_mi real,
+    included_tmcs_ct integer,
+    excluded_tmcs_ct integer,
+    summary_stats_by_phed_period jsonb,
+    population_info jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 6))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (top_level_total_excessive_delay)
+WITH (fillfactor='100');
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m07; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE top_level_total_excessive_delay_y2017m07 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    geography_level public.geography_level_type NOT NULL,
+    geography_name character varying NOT NULL,
+    functional_class public.functional_class_type NOT NULL,
+    am_peak_total_xdelay_hrs double precision,
+    pm1_peak_total_xdelay_hrs double precision,
+    pm2_peak_total_xdelay_hrs double precision,
+    included_mi real,
+    excluded_mi real,
+    included_tmcs_ct integer,
+    excluded_tmcs_ct integer,
+    summary_stats_by_phed_period jsonb,
+    population_info jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 7))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (top_level_total_excessive_delay)
+WITH (fillfactor='100');
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m08; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE top_level_total_excessive_delay_y2017m08 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    geography_level public.geography_level_type NOT NULL,
+    geography_name character varying NOT NULL,
+    functional_class public.functional_class_type NOT NULL,
+    am_peak_total_xdelay_hrs double precision,
+    pm1_peak_total_xdelay_hrs double precision,
+    pm2_peak_total_xdelay_hrs double precision,
+    included_mi real,
+    excluded_mi real,
+    included_tmcs_ct integer,
+    excluded_tmcs_ct integer,
+    summary_stats_by_phed_period jsonb,
+    population_info jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 8))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (top_level_total_excessive_delay)
+WITH (fillfactor='100');
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m09; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE top_level_total_excessive_delay_y2017m09 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    geography_level public.geography_level_type NOT NULL,
+    geography_name character varying NOT NULL,
+    functional_class public.functional_class_type NOT NULL,
+    am_peak_total_xdelay_hrs double precision,
+    pm1_peak_total_xdelay_hrs double precision,
+    pm2_peak_total_xdelay_hrs double precision,
+    included_mi real,
+    excluded_mi real,
+    included_tmcs_ct integer,
+    excluded_tmcs_ct integer,
+    summary_stats_by_phed_period jsonb,
+    population_info jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 9))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (top_level_total_excessive_delay)
+WITH (fillfactor='100');
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m10; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE top_level_total_excessive_delay_y2017m10 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    geography_level public.geography_level_type NOT NULL,
+    geography_name character varying NOT NULL,
+    functional_class public.functional_class_type NOT NULL,
+    am_peak_total_xdelay_hrs double precision,
+    pm1_peak_total_xdelay_hrs double precision,
+    pm2_peak_total_xdelay_hrs double precision,
+    included_mi real,
+    excluded_mi real,
+    included_tmcs_ct integer,
+    excluded_tmcs_ct integer,
+    summary_stats_by_phed_period jsonb,
+    population_info jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 10))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (top_level_total_excessive_delay)
+WITH (fillfactor='100');
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m11; Type: TABLE; Schema: nj; Owner: -
+--
+
+CREATE TABLE top_level_total_excessive_delay_y2017m11 (
+    state character varying(2),
+    year smallint,
+    month smallint,
+    geography_level public.geography_level_type NOT NULL,
+    geography_name character varying NOT NULL,
+    functional_class public.functional_class_type NOT NULL,
+    am_peak_total_xdelay_hrs double precision,
+    pm1_peak_total_xdelay_hrs double precision,
+    pm2_peak_total_xdelay_hrs double precision,
+    included_mi real,
+    excluded_mi real,
+    included_tmcs_ct integer,
+    excluded_tmcs_ct integer,
+    summary_stats_by_phed_period jsonb,
+    population_info jsonb,
+    CONSTRAINT date_range CHECK (((year = 2017) AND (month = 11))),
+    CONSTRAINT state_check CHECK (((state)::text = 'nj'::text))
+)
+INHERITS (top_level_total_excessive_delay)
 WITH (fillfactor='100');
 
 
@@ -6020,33 +6405,6 @@ CREATE TABLE top_level_freight_reliability_y2017m10 (
 INHERITS (top_level_freight_reliability)
 WITH (fillfactor='100');
 
-
-SET search_path = public, pg_catalog;
-
---
--- Name: top_level_total_excessive_delay; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE top_level_total_excessive_delay (
-    state character varying(2),
-    year smallint,
-    month smallint,
-    geography_level geography_level_type,
-    geography_name character varying,
-    functional_class functional_class_type,
-    am_peak_total_xdelay_hrs double precision,
-    pm1_peak_total_xdelay_hrs double precision,
-    pm2_peak_total_xdelay_hrs double precision,
-    included_mi real,
-    excluded_mi real,
-    included_tmcs_ct integer,
-    excluded_tmcs_ct integer,
-    summary_stats_by_phed_period jsonb,
-    population_info jsonb
-);
-
-
-SET search_path = ny, pg_catalog;
 
 --
 -- Name: top_level_total_excessive_delay; Type: TABLE; Schema: ny; Owner: -
@@ -10642,6 +11000,16 @@ ALTER TABLE avg_speedlimits CLUSTER ON avg_speedlimits_pkey;
 
 
 --
+-- Name: excessive_delay_brkdwn_y2017m00 excessive_delay_brkdwn_y2017m00_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY excessive_delay_brkdwn_y2017m00
+    ADD CONSTRAINT excessive_delay_brkdwn_y2017m00_pkey PRIMARY KEY (tmc) WITH (fillfactor='100');
+
+ALTER TABLE excessive_delay_brkdwn_y2017m00 CLUSTER ON excessive_delay_brkdwn_y2017m00_pkey;
+
+
+--
 -- Name: excessive_delay_brkdwn_y2017m02 excessive_delay_brkdwn_y2017m02_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
 --
 
@@ -10719,6 +11087,26 @@ ALTER TABLE ONLY excessive_delay_brkdwn_y2017m09
     ADD CONSTRAINT excessive_delay_brkdwn_y2017m09_pkey PRIMARY KEY (tmc) WITH (fillfactor='100');
 
 ALTER TABLE excessive_delay_brkdwn_y2017m09 CLUSTER ON excessive_delay_brkdwn_y2017m09_pkey;
+
+
+--
+-- Name: excessive_delay_brkdwn_y2017m10 excessive_delay_brkdwn_y2017m10_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY excessive_delay_brkdwn_y2017m10
+    ADD CONSTRAINT excessive_delay_brkdwn_y2017m10_pkey PRIMARY KEY (tmc) WITH (fillfactor='100');
+
+ALTER TABLE excessive_delay_brkdwn_y2017m10 CLUSTER ON excessive_delay_brkdwn_y2017m10_pkey;
+
+
+--
+-- Name: excessive_delay_brkdwn_y2017m11 excessive_delay_brkdwn_y2017m11_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY excessive_delay_brkdwn_y2017m11
+    ADD CONSTRAINT excessive_delay_brkdwn_y2017m11_pkey PRIMARY KEY (tmc) WITH (fillfactor='100');
+
+ALTER TABLE excessive_delay_brkdwn_y2017m11 CLUSTER ON excessive_delay_brkdwn_y2017m11_pkey;
 
 
 --
@@ -10937,6 +11325,116 @@ ALTER TABLE ONLY tmc_date_ranges
     ADD CONSTRAINT tmc_date_ranges_pkey PRIMARY KEY (tmc) WITH (fillfactor='100');
 
 ALTER TABLE tmc_date_ranges CLUSTER ON tmc_date_ranges_pkey;
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m00 top_level_excessive_delay_y2017m00_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY top_level_total_excessive_delay_y2017m00
+    ADD CONSTRAINT top_level_excessive_delay_y2017m00_pkey PRIMARY KEY (geography_level, geography_name, functional_class) WITH (fillfactor='100');
+
+ALTER TABLE top_level_total_excessive_delay_y2017m00 CLUSTER ON top_level_excessive_delay_y2017m00_pkey;
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m02 top_level_excessive_delay_y2017m02_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY top_level_total_excessive_delay_y2017m02
+    ADD CONSTRAINT top_level_excessive_delay_y2017m02_pkey PRIMARY KEY (geography_level, geography_name, functional_class) WITH (fillfactor='100');
+
+ALTER TABLE top_level_total_excessive_delay_y2017m02 CLUSTER ON top_level_excessive_delay_y2017m02_pkey;
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m03 top_level_excessive_delay_y2017m03_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY top_level_total_excessive_delay_y2017m03
+    ADD CONSTRAINT top_level_excessive_delay_y2017m03_pkey PRIMARY KEY (geography_level, geography_name, functional_class) WITH (fillfactor='100');
+
+ALTER TABLE top_level_total_excessive_delay_y2017m03 CLUSTER ON top_level_excessive_delay_y2017m03_pkey;
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m04 top_level_excessive_delay_y2017m04_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY top_level_total_excessive_delay_y2017m04
+    ADD CONSTRAINT top_level_excessive_delay_y2017m04_pkey PRIMARY KEY (geography_level, geography_name, functional_class) WITH (fillfactor='100');
+
+ALTER TABLE top_level_total_excessive_delay_y2017m04 CLUSTER ON top_level_excessive_delay_y2017m04_pkey;
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m05 top_level_excessive_delay_y2017m05_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY top_level_total_excessive_delay_y2017m05
+    ADD CONSTRAINT top_level_excessive_delay_y2017m05_pkey PRIMARY KEY (geography_level, geography_name, functional_class) WITH (fillfactor='100');
+
+ALTER TABLE top_level_total_excessive_delay_y2017m05 CLUSTER ON top_level_excessive_delay_y2017m05_pkey;
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m06 top_level_excessive_delay_y2017m06_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY top_level_total_excessive_delay_y2017m06
+    ADD CONSTRAINT top_level_excessive_delay_y2017m06_pkey PRIMARY KEY (geography_level, geography_name, functional_class) WITH (fillfactor='100');
+
+ALTER TABLE top_level_total_excessive_delay_y2017m06 CLUSTER ON top_level_excessive_delay_y2017m06_pkey;
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m07 top_level_excessive_delay_y2017m07_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY top_level_total_excessive_delay_y2017m07
+    ADD CONSTRAINT top_level_excessive_delay_y2017m07_pkey PRIMARY KEY (geography_level, geography_name, functional_class) WITH (fillfactor='100');
+
+ALTER TABLE top_level_total_excessive_delay_y2017m07 CLUSTER ON top_level_excessive_delay_y2017m07_pkey;
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m08 top_level_excessive_delay_y2017m08_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY top_level_total_excessive_delay_y2017m08
+    ADD CONSTRAINT top_level_excessive_delay_y2017m08_pkey PRIMARY KEY (geography_level, geography_name, functional_class) WITH (fillfactor='100');
+
+ALTER TABLE top_level_total_excessive_delay_y2017m08 CLUSTER ON top_level_excessive_delay_y2017m08_pkey;
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m09 top_level_excessive_delay_y2017m09_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY top_level_total_excessive_delay_y2017m09
+    ADD CONSTRAINT top_level_excessive_delay_y2017m09_pkey PRIMARY KEY (geography_level, geography_name, functional_class) WITH (fillfactor='100');
+
+ALTER TABLE top_level_total_excessive_delay_y2017m09 CLUSTER ON top_level_excessive_delay_y2017m09_pkey;
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m10 top_level_excessive_delay_y2017m10_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY top_level_total_excessive_delay_y2017m10
+    ADD CONSTRAINT top_level_excessive_delay_y2017m10_pkey PRIMARY KEY (geography_level, geography_name, functional_class) WITH (fillfactor='100');
+
+ALTER TABLE top_level_total_excessive_delay_y2017m10 CLUSTER ON top_level_excessive_delay_y2017m10_pkey;
+
+
+--
+-- Name: top_level_total_excessive_delay_y2017m11 top_level_excessive_delay_y2017m11_pkey; Type: CONSTRAINT; Schema: nj; Owner: -
+--
+
+ALTER TABLE ONLY top_level_total_excessive_delay_y2017m11
+    ADD CONSTRAINT top_level_excessive_delay_y2017m11_pkey PRIMARY KEY (geography_level, geography_name, functional_class) WITH (fillfactor='100');
+
+ALTER TABLE top_level_total_excessive_delay_y2017m11 CLUSTER ON top_level_excessive_delay_y2017m11_pkey;
 
 
 --

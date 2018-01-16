@@ -1,5 +1,5 @@
 CREATE TABLE top_level_total_excessive_delay (
-  state                        VARCHAR(2),
+  states                       VARCHAR(2)[],
   year                         SMALLINT,
   month                        SMALLINT,
   geography_level              geography_level_type,

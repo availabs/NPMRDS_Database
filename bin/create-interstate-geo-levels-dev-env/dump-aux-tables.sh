@@ -24,6 +24,12 @@ SQL="
         (tablename LIKE '%state_populations%')
         OR
         (tablename LIKE '%state_codes%')
+        OR
+        (tablename LIKE '%lottr_percentiles_y2017%')
+        OR
+        (tablename LIKE '%tttr_percentiles_y2017%')
+        OR
+        (tablename LIKE '%excessive_delay_brkdwn_y2017%')
       )
       AND
       (schemaname <> 'public')

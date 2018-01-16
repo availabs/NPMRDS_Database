@@ -10,8 +10,8 @@ export PGPASSWORD
 export PGHOST
 export PGPORT
 
-
-ROOT_RELATIONS=( top_level_travel_time_reliability top_level_freight_reliability top_level_total_excessive_delay urban_area_populations )
+# ROOT_RELATIONS=( top_level_travel_time_reliability top_level_freight_reliability top_level_total_excessive_delay urban_area_populations )
+ROOT_RELATIONS=( top_level_travel_time_reliability top_level_freight_reliability top_level_total_excessive_delay)
 
 for rel in "${ROOT_RELATIONS[@]}"
 do
