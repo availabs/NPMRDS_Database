@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# https://stackoverflow.com/a/14782402/3970755
+
 set -e
 
 source ../../config/postgres.env

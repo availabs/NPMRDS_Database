@@ -2,7 +2,7 @@
 
 set -e
 
-source ../../config/postgres.env
+source ../../config/postgres.env.ares
 
 export PGDATABASE
 export PGUSER
@@ -30,6 +30,10 @@ SQL="
         (tablename LIKE '%tttr_percentiles_y2017%')
         OR
         (tablename LIKE '%excessive_delay_brkdwn_y2017%')
+        OR
+        (tablename LIKE '%npmrds_y2017m02%')
+        OR
+        (tablename LIKE '%tmc_date_ranges%')
       )
       AND
       (schemaname <> 'public')

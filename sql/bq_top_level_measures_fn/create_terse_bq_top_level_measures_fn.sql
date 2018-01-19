@@ -186,10 +186,40 @@ CREATE FUNCTION terse_bq_top_level_measures_fn (
                   AND
                   (d.geography_name = a.geography_level_name)
                   AND
-                  (d.states <@ a.states) -- topLevelMeasure states is a subset of geoLevelAttr states
+                -- MPOs are single states, states from d are multi-state
+                  (d.states && a.states) -- topLevelMeasure states is a subset of geoLevelAttr states
                 )
+                NATURAL LEFT OUTER JOIN LATERAL (
+                  SELECT
+                      mpo_code AS geography_level_code,
+                      states AS mpo_relevant_states
+                    FROM mpo_to_ua
+                      INNER JOIN geography_level_attributes_view ON (
+                        (geography_level_code = ua_code)
+                      )
+                    WHERE (a.geography_level = 'MPO')
+                    ORDER BY array_length(states, 1) DESC
+                    LIMIT 1
+                ) AS sub_mpo_interstate
+                NATURAL LEFT OUTER JOIN LATERAL (
+                  SELECT
+                      geography_level_code,
+                      states AS ua_relevant_states
+                    FROM geography_level_attributes_view
+                    WHERE (a.geography_level = 'UA')
+                    ORDER BY array_length(states, 1) DESC
+                    LIMIT 1
+                ) AS sub_ua_relevant_states
               WHERE (
-                (a.states && $1::VARCHAR(2)[])
+                -- Omitting NJ specific MPO when requested state is NY.
+                --   Only returning for NJ's MPO across interstate UA.
+                (
+                  (a.states && $1::VARCHAR(2)[])
+                  OR
+                  (sub_mpo_interstate.mpo_relevant_states && $1::VARCHAR(2)[])
+                  OR
+                  (sub_ua_relevant_states.ua_relevant_states && $1::VARCHAR(2)[])
+                )
                 AND
                 (
                   ($2::geography_level_type[] IS NULL)

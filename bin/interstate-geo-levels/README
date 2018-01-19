@@ -21,7 +21,7 @@
     [x] Loader for Urban Area Populations CSVs
 
     [x] Fix dependents of urban_area_population
-      [ ] Find
+      [x] Find
         [x] in database
           sql/geography_level_attributes_view/createStateGeographyAttributesView.sql
         [x] in api server
@@ -39,22 +39,55 @@
         [x] individual state
         [x] interstate
           
-    [ ] Fix dependents of geography_level_attributes_view
+    [x] Fix dependents of geography_level_attributes_view
       [x] Find
         [x] in database
           * create_state_top_level_travel_time_reliability_yrmo.sql
         [x] in api server
           * DAOs/MetadataDAO/geographyLevelAttributes.js
-      [ ] Fix
-        [ ] in database
+      [x] Fix
+        [x] in database
         [x] in api server
 
-    [ ] top_level measure tables state -> states
-      [ ] top_level_travel_time_reliability
+    [x] top_level measure tables state -> states
+      [x] top_level_travel_time_reliability
         [x] transform scripts
-        [ ] table definition
-      [ ] top_level_freight_reliability
-      [ ] top_level_total_excessive_delay 
+        [x] table definition
+      [x] top_level_freight_reliability
+        [x] transform scripts
+        [x] table definition
+      [x] top_level_total_excessive_delay 
+        [x] transform scripts
+        [x] table definition
+
+    [x] bq_top_level_measures_fns
+      [x] create_terse_bq_top_level_measures_fn.sql
+      [x] create_verbose_bq_top_level_measures_fn.sql
+
+    [ ] Make TMC states consistent when doing spatial joins for tmc_attributes
+      Currently nj has NYMTC as an MPO.
+        Assumption is that this is because ST_Intersects is being used to map tmc to MPO
+          when creating tmc_attributes
+      [/] fix
+        Adding filter for the __STATE__ should work.
+				Need to verify
+
+      See:
+        localhost:12222/final-rule-top-level-measures/nj/geography-levels/mpo?key=SubterraneanHomesickAvailian
+
+		[ ] MPOs in top_level_total_excessive_delay
+			[ ] verify populations agree with the states column
+
+    [ ]
+			npmrds_local=# select mpo_name, count(1) from tmc_attributes where state = 'nj' group by mpo_name;
+													 mpo_name                      | count
+			---------------------------------------------------+-------
+			 South Jersey Transportation Planning Organization |   740
+			 New York Metropolitan Transportation Council      |     6
+			 North Jersey Transportation Planning Authority    |  7313
+			 Delaware Valley Regional Planning Commission      |  2466
+			(4 rows)
+
 
 LATER:
 

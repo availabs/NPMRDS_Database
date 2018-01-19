@@ -4,48 +4,6 @@ BEGIN;
 DELETE FROM "__STATE__".tmc_attributes;
 
 
--- Time: 150482.927 ms
-CREATE TEMPORARY TABLE tmp_tmc_to_cbsa
-  ON COMMIT DROP
-  AS
-    SELECT
-        tmc,
-        cbsa_code,
-        cbsa_name
-      FROM (
-        SELECT
-            ROW_NUMBER() OVER (PARTITION BY tmc ORDER BY intersection_len DESC, cbsa_code) AS row_num,
-            sub_tmc_cbsa_intersections.*
-          FROM (
-            SELECT
-                tmc,
-                geoid AS cbsa_code,
-                name AS cbsa_name,
-                ST_Length(
-                  ST_Intersection(
-                    sub_tmc_shp.wkb_geometry,
-                    cbsa_shp.wkb_geometry
-                  )
-                ) AS intersection_len
-              FROM inrix_shapefile AS sub_tmc_shp
-                INNER JOIN state_abbreviations
-                  ON (sub_tmc_shp.state = state_abbreviations.state_name)
-                INNER JOIN core_based_statistical_area_boundaries AS cbsa_shp
-                ON (
-                  ST_Intersects(
-                    sub_tmc_shp.wkb_geometry,
-                    cbsa_shp.wkb_geometry
-                  )
-                )
-              WHERE (state_abbreviations.abbreviation = '__STATE__')
-            ) AS sub_tmc_cbsa_intersections
-        ) AS sub_ranked_tmc_to_cbsa
-      WHERE sub_ranked_tmc_to_cbsa.row_num = 1
-;
-
-ALTER TABLE tmp_tmc_to_cbsa ADD PRIMARY KEY (tmc);
-
-
 CREATE TEMPORARY TABLE tmp_tmc_to_mpo
   ON COMMIT DROP
   AS
@@ -69,21 +27,25 @@ CREATE TEMPORARY TABLE tmp_tmc_to_mpo
                     sub_tmc_shp.wkb_geometry,
                     sub_mpo_shp.wkb_geometry
                   )
-                ) AS intersection_len
+                ) AS intersection_len,
+                state_abbreviations.abbreviation AS state
               FROM inrix_shapefile AS sub_tmc_shp
                 INNER JOIN state_abbreviations
                   ON (sub_tmc_shp.state = state_abbreviations.state_name)
                 INNER JOIN mpo_boundaries_view AS sub_mpo_shp
                 ON (
                   ST_Intersects(
-                    sub_tmc_shp.wkb_geometry,
-                    sub_mpo_shp.wkb_geometry
+                    sub_mpo_shp.wkb_geometry,
+                    sub_tmc_shp.wkb_geometry
                   )
                 )
-              WHERE (state_abbreviations.abbreviation = '__STATE__')
             ) AS sub_tmc_mpo_intersections
         ) AS sub_ranked_tmc_to_mpo
-      WHERE sub_ranked_tmc_to_mpo.row_num = 1
+      WHERE (
+        (sub_ranked_tmc_to_mpo.row_num = 1)
+        AND
+        (sub_ranked_tmc_to_mpo.state = '__STATE__')
+      )
 ;
 
 ALTER TABLE tmp_tmc_to_mpo ADD PRIMARY KEY (tmc);
@@ -112,16 +74,20 @@ CREATE TEMPORARY TABLE tmp_tmc_to_ua
                     sub_tmc_shp.wkb_geometry,
                     ua_shp.wkb_geometry
                   )
-                ) AS intersection_len
+                ) AS intersection_len,
+                state_abbreviations.abbreviation AS state
               FROM inrix_shapefile AS sub_tmc_shp
                 INNER JOIN state_abbreviations
                   ON (sub_tmc_shp.state = state_abbreviations.state_name)
                 INNER JOIN urban_area_boundaries AS ua_shp
                   ON (sub_tmc_shp.wkb_geometry && ua_shp.wkb_geometry)
-              WHERE (state_abbreviations.abbreviation = '__STATE__')
             ) AS sub_tmc_ua_intersections
         ) AS sub_ranked_tmc_to_ua
-      WHERE sub_ranked_tmc_to_ua.row_num = 1
+      WHERE (
+        (sub_ranked_tmc_to_ua.row_num = 1)
+        AND
+        (sub_ranked_tmc_to_ua.state = '__STATE__')
+      )
 ;
 
 ALTER TABLE tmp_tmc_to_ua ADD PRIMARY KEY (tmc);
@@ -330,8 +296,6 @@ INSERT INTO "__STATE__".tmc_attributes (
     is_interstate,
     is_controlled_access,
     avg_speedlimit,
-    cbsa_code,
-    cbsa_name,
     mpo_code,
     mpo_acrony,
     mpo_name,
@@ -412,9 +376,6 @@ INSERT INTO "__STATE__".tmc_attributes (
 
       avg_speedlimit,
 
-      tmp_tmc_to_cbsa.cbsa_code,
-      tmp_tmc_to_cbsa.cbsa_name,
-
       tmp_tmc_to_mpo.mpo_code,
       tmp_tmc_to_mpo.mpo_acrony,
       tmp_tmc_to_mpo.mpo_name,
@@ -440,8 +401,6 @@ INSERT INTO "__STATE__".tmc_attributes (
         AND (occupancy_factor.geography_level = 'COUNTY')
       )
     LEFT OUTER JOIN avg_speedlimits
-      USING (tmc)
-    LEFT OUTER JOIN tmp_tmc_to_cbsa
       USING (tmc)
     LEFT OUTER JOIN tmp_tmc_to_mpo
       USING (tmc)

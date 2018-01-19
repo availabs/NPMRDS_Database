@@ -331,6 +331,20 @@ db/create-mpo-acronyms-table: db/create-schema-us
 		psql -f ./sql/mpo_acronyms/create_mpo_acronyms.sql;\
 	fi
 
+
+db/drop-mpo-to-ua-table:
+	@if psql -c '\d public.mpo_to_ua' > /dev/null 2>&1; then\
+		psql -f ./sql/mpo_to_ua/drop-mpo_to_ua-table.sql;\
+	fi
+
+db/create-mpo-to-ua-table: db/create-schema-us
+	@if ! psql -c '\d public.mpo_to_ua' > /dev/null 2>&1; then\
+		psql -f ./sql/mpo_to_ua/create-mpo_to_ua-table.sql;\
+	fi
+
+db/load-mpo-to-ua-table: db/create-mpo-to-ua-table
+	@time psql -f ./sql/mpo_to_ua/load-mpo_to_ua-table.sql;\
+
 db/load-mpo-acronyms-table: db/create-mpo-acronyms-table
 	@set -e;\
 	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM us.mpo_acronyms;" | tr -d " \t\n\r";);\

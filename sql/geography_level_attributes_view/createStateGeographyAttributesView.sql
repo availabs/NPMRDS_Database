@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE MATERIALIZED VIEW geography_level_attributes_view AS
-  WITH cte_mpo_2_ua AS (
+  WITH mpo_to_ua AS (
     SELECT
         mpo_id,
         ua_id,
@@ -61,6 +61,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
     /* MPOs */
     SELECT
         CAST('MPO' AS geography_level_type) geography_level,
+        geography_level_code, 
         geography_level_name, 
         interstate_miles, 
         interstate_tmcs_ct, 
@@ -71,43 +72,45 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
         ARRAY[state]::VARCHAR(2)[] AS states
       FROM (
           SELECT 
-              mpo_acrony AS geography_level_name,
+              mpo_code AS geography_level_code, -- for join with mpo_to_ua
+              COALESCE(mpo_acrony, mpo_name) AS geography_level_name,
               SUM(miles) AS interstate_miles,
               COUNT(tmc) AS interstate_tmcs_ct,
               state
             FROM tmc_attributes
             WHERE (is_interstate = true)
-              AND (mpo_acrony IS NOT NULL)
-            GROUP BY mpo_acrony, state
+              AND (mpo_code IS NOT NULL)
+            GROUP BY geography_level_code, geography_level_name, state
         ) AS t1 NATURAL FULL OUTER JOIN (
           SELECT
-              mpo_acrony AS geography_level_name,
+              mpo_code AS geography_level_code, -- for join with mpo_to_ua
+              COALESCE(mpo_acrony, mpo_name) AS geography_level_name,
               SUM(miles) AS noninterstate_miles,
               COUNT(tmc) AS noninterstate_tmcs_ct,
               state
             FROM tmc_attributes
             WHERE ((is_interstate = false) OR (is_interstate IS NULL))
-              AND (mpo_acrony IS NOT NULL)
-            GROUP BY mpo_acrony, state
+              AND (mpo_code IS NOT NULL)
+            GROUP BY geography_level_code, geography_level_name, state
         ) AS t2 NATURAL LEFT OUTER JOIN (
           SELECT
-              mpo_code, -- for join with cte_mpo_2_ua
-              mpo_acrony AS geography_level_name,
+              mpo_code AS geography_level_code, -- for join with mpo_to_ua
               ST_Extent(wkb_geometry) AS bounding_box,
               tmc_attributes.state AS state
             FROM inrix_shapefile
               INNER JOIN tmc_attributes USING (tmc)
-            GROUP BY mpo_code, geography_level_name, tmc_attributes.state
+            WHERE (mpo_code IS NOT NULL)
+            GROUP BY geography_level_code, tmc_attributes.state
         ) AS t3 NATURAL LEFT OUTER JOIN (
           SELECT
-              mpo_id AS mpo_code,
+              mpo_id AS geography_level_code,
             -- select i, max(x) from (select i, jsonb_object_keys(d) as x from foo ) AS t group by i;
               jsonb_object_agg(
                 year,
                 jsonb_build_array(
                   jsonb_build_object(
                     'geography_level',
-                    'URBAN_AREA',
+                    'UA',
 
                     'geography_name',
                     ua_name,
@@ -117,12 +120,12 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
                   )
                 ) 
               ) AS population_info
-            FROM cte_mpo_2_ua
-              INNER JOIN urban_area_populations
-              ON (
-                (cte_mpo_2_ua.ua_id = urban_area_populations.ua_code)
+            FROM mpo_to_ua
+              INNER JOIN mpo_boundaries USING (mpo_id)
+              INNER JOIN urban_area_populations ON (
+                (mpo_to_ua.ua_id = urban_area_populations.ua_code)
                 AND
-                (cte_mpo_2_ua.state = ANY(urban_area_populations.states))
+                (ARRAY[LOWER(mpo_boundaries.state)]::VARCHAR(2)[] = urban_area_populations.states) -- The MPO state's part of the UA
               )
             GROUP BY mpo_id, ua_name
         ) AS t4
@@ -131,6 +134,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
     /* Counties */
     SELECT
         CAST('COUNTY' AS geography_level_type) AS geography_level,
+        geography_level_code, 
         geography_level_name, 
         interstate_miles, 
         interstate_tmcs_ct, 
@@ -182,12 +186,20 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
               ) AS population_info
             FROM cte_county_populations
             GROUP BY county, state
-        ) AS t4
+        ) AS t4 NATURAL LEFT OUTER JOIN (
+          SELECT
+              state,
+              county AS geography_level_name,
+              county_code AS geography_level_code
+            FROM fips_codes
+        ) AS t5
+
 
   UNION ALL
     /* Urban Areas */
     SELECT
         CAST('UA' AS geography_level_type) AS geography_level,
+        geography_level_code, 
         geography_level_name, 
         interstate_miles, 
         interstate_tmcs_ct, 
@@ -198,6 +210,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
         states::VARCHAR(2)[]
       FROM (
           SELECT 
+              ua_code AS geography_level_code,
               ua_name AS geography_level_name,
               SUM(miles) AS interstate_miles,
               COUNT(tmc) AS interstate_tmcs_ct,
@@ -206,12 +219,13 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
               INNER JOIN cte_urban_area_state_subsets USING (ua_name)
             WHERE (
               (is_interstate = true)
-              AND (ua_name IS NOT NULL)
+              AND (ua_code IS NOT NULL)
               AND (tmc_attributes.state = ANY(cte_urban_area_state_subsets.states))
             )
-            GROUP BY ua_name, states
+            GROUP BY geography_level_code, geography_level_name, states
         ) AS t1 NATURAL FULL OUTER JOIN (
           SELECT
+              ua_code AS geography_level_code,
               ua_name AS geography_level_name,
               SUM(miles) AS noninterstate_miles,
               COUNT(tmc) AS noninterstate_tmcs_ct,
@@ -220,27 +234,26 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
               INNER JOIN cte_urban_area_state_subsets USING (ua_name)
             WHERE (
               ((is_interstate = false) OR (is_interstate IS NULL))
-              AND (ua_name IS NOT NULL)
+              AND (ua_code IS NOT NULL)
               AND (tmc_attributes.state = ANY(cte_urban_area_state_subsets.states))
             )
-            GROUP BY ua_name, states
+            GROUP BY geography_level_code, geography_level_name, states
         ) AS t2 NATURAL LEFT OUTER JOIN (
           SELECT
-              ua_code,
-              ua_name AS geography_level_name,
+              ua_code AS geography_level_code,
               ST_Extent(wkb_geometry) AS bounding_box,
               states
             FROM inrix_shapefile
               INNER JOIN tmc_attributes USING (tmc)
               INNER JOIN cte_urban_area_state_subsets USING (ua_name)
             WHERE (
-              (ua_name IS NOT NULL)
+              (ua_code IS NOT NULL)
               AND (tmc_attributes.state = ANY(cte_urban_area_state_subsets.states))
             )
-            GROUP BY ua_code, geography_level_name, states
+            GROUP BY ua_code, states
         ) AS t3 NATURAL LEFT OUTER JOIN (
           SELECT
-              ua_code,
+              ua_code AS geography_level_code,
               states,
               jsonb_object_agg(
                 year,
@@ -251,14 +264,16 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
                   )
                 ) 
               ) AS population_info
+-- ??? What is the purpose of this JOIN ???
             FROM urban_area_populations
-            GROUP BY ua_code, states
+            GROUP BY geography_level_code, states
         ) AS t4
 
   UNION ALL
     /* Regions */
     SELECT
         CAST('REGION' AS geography_level_type) AS geography_level,
+        geography_level_code, 
         geography_level_name, 
         interstate_miles, 
         interstate_tmcs_ct, 
@@ -269,6 +284,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
         ARRAY[state]::VARCHAR(2)[]
       FROM (
           SELECT 
+              region_code::VARCHAR AS geography_level_code,
               region_code::VARCHAR AS geography_level_name,
               SUM(miles) AS interstate_miles,
               COUNT(tmc) AS interstate_tmcs_ct,
@@ -326,6 +342,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
     /* States */
     SELECT
         CAST('STATE' AS geography_level_type) AS geography_level,
+        geography_level_code, 
         geography_level_name, 
         interstate_miles, 
         interstate_tmcs_ct, 
@@ -365,6 +382,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
         ) AS t3 NATURAL LEFT OUTER JOIN (
           SELECT
               state AS geography_level_name,
+              state_code AS geography_level_code,
               jsonb_object_agg(
                 year,
                 jsonb_build_array(
@@ -376,7 +394,7 @@ CREATE MATERIALIZED VIEW geography_level_attributes_view AS
               ) AS population_info
             FROM state_populations
               NATURAL INNER JOIN state_codes
-            GROUP BY state
+            GROUP BY state, state_code
         ) AS t4
 ;
 
