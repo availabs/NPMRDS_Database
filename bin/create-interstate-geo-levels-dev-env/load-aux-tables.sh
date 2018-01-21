@@ -24,6 +24,7 @@ make db/drop-geography-level-to-states
 make db/create-geography-level-to-states
 
 make db/drop-inrix-shapefile
+
 STATE=nj make db/upload-inrix-shapefile-for-state
 STATE=ny make db/upload-inrix-shapefile-for-state
 
@@ -32,3 +33,10 @@ make db/create-mpo-boundaries-view
 
 make db/drop-state-abbreviations-table
 make db/create-state-abbreviations-table
+
+STATE=nj make db/drop-state-occupancy-factor-table
+STATE=nj make db/create-state-occupancy-factor-table
+
+STATE=ny make db/drop-state-occupancy-factor-table
+STATE=ny make db/create-state-occupancy-factor-table
+

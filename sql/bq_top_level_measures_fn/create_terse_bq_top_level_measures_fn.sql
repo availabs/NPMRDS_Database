@@ -189,18 +189,22 @@ CREATE FUNCTION terse_bq_top_level_measures_fn (
                 -- MPOs are single states, states from d are multi-state
                   (d.states && a.states) -- topLevelMeasure states is a subset of geoLevelAttr states
                 )
-                NATURAL LEFT OUTER JOIN LATERAL (
+                LEFT OUTER JOIN LATERAL (
                   SELECT
                       mpo_code AS geography_level_code,
                       states AS mpo_relevant_states
-                    FROM mpo_to_ua
-                      INNER JOIN geography_level_attributes_view ON (
-                        (geography_level_code = ua_code)
+                    FROM mpo_to_ua x
+                      INNER JOIN geography_level_attributes_view y ON (
+                        (x.ua_code = y.geography_level_code)
                       )
-                    WHERE (a.geography_level = 'MPO')
-                    ORDER BY array_length(states, 1) DESC
+                    WHERE (
+                      (a.geography_level = 'MPO')
+                      AND
+                      (a.geography_level_code = x.mpo_code)
+                    )
+                    ORDER BY array_length(states, 1) DESC NULLS LAST
                     LIMIT 1
-                ) AS sub_mpo_interstate
+                ) AS sub_mpo_interstate USING (geography_level_code)
                 NATURAL LEFT OUTER JOIN LATERAL (
                   SELECT
                       geography_level_code,

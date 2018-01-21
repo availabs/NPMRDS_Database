@@ -8,15 +8,19 @@ CREATE TEMPORARY TABLE tmp_relevant_states
     SELECT
         states::VARCHAR(2)[]
       FROM geography_level_attributes_view
-      WHERE (ARRAY['__STATE__']::VARCHAR(2)[] = states) -- intrastate schema
+      WHERE (
+        ('__STATE__' IN (SELECT state FROM state_codes)) -- intrastate schema
+        AND
+        (ARRAY['__STATE__']::VARCHAR(2)[] = states)
+      )
     UNION
     SELECT
         states
       FROM geography_level_attributes_view
       WHERE (
-        ('__STATE__' NOT IN (SELECT state FROM state_codes))
+        ('__STATE__' NOT IN (SELECT state FROM state_codes)) -- interstate schema
         AND
-        (array_length(states, 1) > 1) -- interstate schema
+        (array_length(states, 1) > 1)
       )
 ;
 
@@ -338,7 +342,7 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                 AND
                 (month = '__MONTH__')
               )
-              AND ('__STATE__' IN (SELECT DISTINCT UNNEST(states) FROM tmp_relevant_states)) -- filter
+              AND (tmc_attributes.state = '__STATE__') -- filter
             )
             GROUP BY is_interstate
         ) AS included
@@ -363,7 +367,7 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                 AND
                 (month = '__MONTH__')
               )
-              AND ('__STATE__' IN (SELECT DISTINCT UNNEST(states) FROM tmp_relevant_states)) -- filter
+              AND (tmc_attributes.state = '__STATE__') -- filter
             )
             GROUP BY is_interstate
         ) AS excluded
@@ -672,7 +676,7 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                 AND
                 (month = '__MONTH__')
               )
-              AND ('__STATE__' IN (SELECT DISTINCT UNNEST(states) FROM tmp_relevant_states)) -- filter
+              AND (tmc_attributes.state = '__STATE__') -- filter
             )
             GROUP BY geography_name, is_interstate
         ) AS included
@@ -699,7 +703,7 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                 AND
                 (month = '__MONTH__')
               )
-              AND ('__STATE__' IN (SELECT DISTINCT UNNEST(states) FROM tmp_relevant_states)) -- filter
+              AND (tmc_attributes.state = '__STATE__') -- filter
             )
             GROUP BY geography_name, is_interstate
         ) AS excluded
@@ -1008,7 +1012,7 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                 AND
                 (month = '__MONTH__')
               )
-              AND ('__STATE__' IN (SELECT DISTINCT UNNEST(states) FROM tmp_relevant_states)) -- filter
+              AND (tmc_attributes.state = '__STATE__') -- filter
             )
             GROUP BY geography_name, is_interstate
         ) AS included
@@ -1035,7 +1039,7 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                 AND
                 (month = '__MONTH__')
               )
-              AND ('__STATE__' IN (SELECT DISTINCT UNNEST(states) FROM tmp_relevant_states)) -- filter
+              AND (tmc_attributes.state = '__STATE__') -- filter
             )
             GROUP BY geography_name, is_interstate
         ) AS excluded
@@ -1326,7 +1330,7 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                 ) / miles
               ) AS pm2_xdelay_per_mile_stddev,
 
-              tmp_relevant_states.states
+              geography_level_attributes_view.states
 
             FROM excessive_delay_brkdwn
               INNER JOIN tmc_attributes USING (tmc)
@@ -1353,14 +1357,14 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                 (month = '__MONTH__')
               )
             )
-            GROUP BY geography_name, is_interstate, tmp_relevant_states.states
+            GROUP BY geography_name, is_interstate, geography_level_attributes_view.states
         ) AS included
         FULL OUTER JOIN (
           SELECT ua_name AS geography_name,
                  is_interstate,
                  SUM(miles) AS excluded_mi,
                  COUNT(tmc) AS excluded_tmcs_ct,
-                 tmp_relevant_states.states
+                 geography_level_attributes_view.states
             FROM excessive_delay_brkdwn
               INNER JOIN tmc_attributes USING(tmc)
               INNER JOIN tmp_relevant_states ON (tmc_attributes.state = ANY(tmp_relevant_states.states))
@@ -1386,7 +1390,7 @@ CREATE TABLE "__STATE__".top_level_total_excessive_delay_y__YEAR__m__MONTH__ AS
                 (month = '__MONTH__')
               )
             )
-            GROUP BY geography_name, is_interstate, tmp_relevant_states.states
+            GROUP BY geography_name, is_interstate, geography_level_attributes_view.states
         ) AS excluded
         USING (geography_name, is_interstate, states)
     ) AS sub_xdelay_brkdwn_data

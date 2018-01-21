@@ -48,6 +48,12 @@ SQL="
 
 OUTPUT=$(psql --tuples-only -c "${SQL}")
 
+make db/drop-root-top-level-travel-time-reliability-table
+
+make db/drop-root-top-level-freight-reliability-table
+
+make db/drop-root-top-level-total-excessive-delay-table
+
 echo "${OUTPUT}" |\
 while read -r line ; do
 

@@ -1,6 +1,5 @@
 [ ] Create Interstate Geography Levels
 
-  
   [x] Table definitions state -> states
     Alter schema & update fields
 
@@ -89,6 +88,7 @@
 			(4 rows)
 
 
+  
 LATER:
 
   [ ] Load PA
