@@ -88,6 +88,13 @@
 			(4 rows)
 
 
+  [ ] QA
+    [ ] top_level measure tables
+      [ ] Dump CSVs for top_level measure tables
+      [ ] Using Panda & Jupyter Notebook
+        [ ] Expected Sameness (intrastate geographies)
+        [ ] Expected Sums (interstate geographies)
+
   
 LATER:
 
@@ -126,5 +133,9 @@ NOTES:
     HINT:  Use DROP ... CASCADE to drop the dependent objects too.
 
 SCRIPTS ORDER:
-  1. top_level_total_excessive_delay-StateColumnToStatesArray.sh
-  2. update-urban-areas-table-def.sh
+  1. update-urban-areas-table-def.sh
+  2. rebuild-tmc-attrs.sh
+  3. rebuild-geo-level-attrs.sh
+  4. rebuild-pm_bottlenecks_summary.sh
+  5. compute-top-level-measures.sh
+  6. update-bq-top-level-measures-fns.sh

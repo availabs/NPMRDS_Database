@@ -1,0 +1,22 @@
+[x] Interstate Geographies
+
+  [x] Get main charts to render
+  [ ] Get yearAgg charts to render
+
+[ ] Ares
+
+  [x] Load 201711
+
+  [x] For 201711 and 201700
+    [x] Create derived data tables
+    [x] Create top_level_* tables
+
+  [ ] Cold backup
+    [x] shutdown API Server on mars
+    [x] shutdown postres container
+    [/] cp -rp pgdata dir
+    [ ] restart postgres container
+    [ ] restart API Server on mars
+
+  [ ] Ares transform recipe
+    [ ] DAG of scripts

@@ -51,8 +51,6 @@ CREATE TABLE public.tmc_attributes (
    is_interstate         BOOLEAN,
    is_controlled_access  BOOLEAN,
    avg_speedlimit        REAL,
-   cbsa_code             CHARACTER VARYING,
-   cbsa_name             CHARACTER VARYING,
    mpo_code              CHARACTER VARYING,
    mpo_acrony            CHARACTER VARYING,
    mpo_name              CHARACTER VARYING,

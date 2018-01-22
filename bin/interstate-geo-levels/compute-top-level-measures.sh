@@ -5,6 +5,7 @@ set -e
 cd ../../
 
 source ./config/postgres.env.local
+# source ./config/postgres.env.ares
 
 export PGDATABASE
 export PGUSER
@@ -49,9 +50,7 @@ SQL="
 OUTPUT=$(psql --tuples-only -c "${SQL}")
 
 make db/drop-root-top-level-travel-time-reliability-table
-
 make db/drop-root-top-level-freight-reliability-table
-
 make db/drop-root-top-level-total-excessive-delay-table
 
 echo "${OUTPUT}" |\
