@@ -4,7 +4,7 @@ set -e
 
 cd ../../
 
-source ./config/postgres.env.local
+source ./config/postgres.env
 # source ./config/postgres.env.ares
 
 export PGDATABASE
