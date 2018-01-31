@@ -2,7 +2,7 @@
 
 set -e
 
-source ../../config/postgres.env
+source ../../config/postgres.env.local
 
 export PGDATABASE
 export PGUSER
