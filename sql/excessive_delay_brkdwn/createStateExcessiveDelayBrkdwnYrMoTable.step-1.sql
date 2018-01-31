@@ -67,7 +67,15 @@ INSERT INTO "__STATE__".excessive_delay_brkdwn_y__YEAR__m__MONTH__ (state, year,
               tmc,
               date,
               FLOOR(epoch / 3)::SMALLINT AS quarter_hour_bin,
-              (COUNT(1) / SUM(1/NULLIF(travel_time_all_vehicles, 0))) AS harmonic_mean_travel_time
+              (
+                COUNT(
+                  NULLIF(travel_time_all_vehicles, 0)
+                )
+                / SUM(
+                  1
+                  / NULLIF(travel_time_all_vehicles, 0)
+                )
+              ) AS harmonic_mean_travel_time
             FROM "__STATE__".npmrds
             WHERE ((date >= '__START_DATE__'::DATE) AND (date < '__END_DATE__'::DATE)) 
               AND (
