@@ -828,6 +828,14 @@ db/load-lottr-percentiles-rankings-yrmo-table: db/create-lottr-percentiles-ranki
 	)";
 
 
+db/drop-lottr-percentiles-rankings-fn:
+	@psql -f './sql/lottr_percentiles_rankings_fn/drop_lottr_percentiles_rankings_fn.sql'
+
+db/create-lottr-percentiles-rankings-fn:
+	@psql -f './sql/lottr_percentiles_rankings_fn/create_lottr_percentiles_rankings_fn.sql'
+
+
+
 
 db/drop-root-tttr-percentiles-table:
 	@if psql -c '\d public.tttr_percentiles' > /dev/null 2>&1; then\
@@ -934,6 +942,12 @@ db/load-tttr-percentiles-rankings-yrmo-table: db/create-tttr-percentiles-ranking
 	)";
 
 
+
+db/drop-tttr-percentiles-rankings-fn:
+	@psql -f './sql/tttr_percentiles_rankings_fn/drop_tttr_percentiles_rankings_fn.sql'
+
+db/create-tttr-percentiles-rankings-fn:
+	@psql -f './sql/tttr_percentiles_rankings_fn/create_tttr_percentiles_rankings_fn.sql'
 
 
 
@@ -1154,6 +1168,13 @@ db/load-excessive-delay-rankings-yrmo-table: db/create-excessive-delay-rankings-
 			s/__MONTH__/${MONTH}/g;\
 		" ./sql/excessive_delay_rankings/load_excessive_delay_rankings_yrmo.sql\
 	)";
+
+db/drop-excessive-delay-rankings-fn:
+	@psql -f './sql/excessive_delay_rankings_fn/drop_excessive_delay_rankings_fn.sql'
+
+db/create-excessive-delay-rankings-fn:
+	@psql -f './sql/excessive_delay_rankings_fn/create_excessive_delay_rankings_fn.sql'
+		
 
 
 db/drop-root-top-level-total-excessive-delay-table:
