@@ -13,4 +13,4 @@ export PGPASSWORD
 export PGHOST
 export PGPORT
 
-psql -f ./dump/excessive_delay_brkdwn.dump.sql
+psql -f ./dump/lottr_percentiles.dump.sql

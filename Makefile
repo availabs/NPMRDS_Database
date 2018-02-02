@@ -1156,10 +1156,6 @@ db/load-excessive-delay-rankings-yrmo-table: db/create-excessive-delay-rankings-
 	)";
 
 
-
-
-
-
 db/drop-root-top-level-total-excessive-delay-table:
 	@if psql -c '\d public.top_level_total_excessive_delay' > /dev/null 2>&1; then\
 		psql -f './sql/top_level_total_excessive_delay/drop_root_top_level_total_excessive_delay.sql';\
