@@ -1110,6 +1110,56 @@ db/create-state-excessive-delay-brkdwn-yrmo-table: db/create-state-excessive-del
 	fi
 
 
+
+db/drop-excessive-delay-rankings-table:
+	@if psql -c '\d public.excessive_delay_rankings' > /dev/null 2>&1; then\
+		psql -f './sql/excessive_delay_rankings/drop_excessive_delay_rankings.sql';\
+	fi
+
+db/create-excessive-delay-rankings-table:
+	@if ! psql -c '\d public.excessive_delay_rankings' > /dev/null 2>&1; then\
+		psql -f './sql/excessive_delay_rankings/create_excessive_delay_rankings.sql';\
+	fi
+
+db/drop-excessive-delay-rankings-yrmo-table:
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if psql -c '\d interstate.excessive_delay_rankings_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/excessive_delay_rankings/drop_excessive_delay_rankings_yrmo.sql\
+		)";\
+	fi
+
+db/create-excessive-delay-rankings-yrmo-table: db/create-excessive-delay-rankings-table
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if ! psql -c '\d interstate.excessive_delay_rankings_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/excessive_delay_rankings/create_excessive_delay_rankings_yrmo.sql\
+		)";\
+	fi
+
+db/load-excessive-delay-rankings-yrmo-table: db/create-excessive-delay-rankings-yrmo-table
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	psql -c "$$(\
+		sed "\
+			s/__YEAR__/${YEAR}/g;\
+			s/__MONTH__/${MONTH}/g;\
+		" ./sql/excessive_delay_rankings/load_excessive_delay_rankings_yrmo.sql\
+	)";
+
+
+
+
+
+
 db/drop-root-top-level-total-excessive-delay-table:
 	@if psql -c '\d public.top_level_total_excessive_delay' > /dev/null 2>&1; then\
 		psql -f './sql/top_level_total_excessive_delay/drop_root_top_level_total_excessive_delay.sql';\

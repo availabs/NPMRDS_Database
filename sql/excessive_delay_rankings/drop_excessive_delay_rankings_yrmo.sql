@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS interstate.excessive_delay_rankings_y__YEAR__m__MONTH__ CASCADE;
