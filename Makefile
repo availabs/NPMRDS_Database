@@ -889,6 +889,56 @@ db/create-state-tttr-percentiles-yrmo-table: db/create-state-tttr-percentiles-ta
 	fi
 
 
+db/drop-tttr-percentiles-rankings-table:
+	@if psql -c '\d public.tttr_percentiles_rankings' > /dev/null 2>&1; then\
+		psql -f './sql/tttr_percentiles_rankings/drop_tttr_percentiles_rankings.sql';\
+	fi
+
+db/create-tttr-percentiles-rankings-table:
+	@if ! psql -c '\d public.tttr_percentiles_rankings' > /dev/null 2>&1; then\
+		psql -f './sql/tttr_percentiles_rankings/create_tttr_percentiles_rankings.sql';\
+	fi
+
+db/drop-tttr-percentiles-rankings-yrmo-table:
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if psql -c '\d interstate.tttr_percentiles_rankings_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/tttr_percentiles_rankings/drop_tttr_percentiles_rankings_yrmo.sql\
+		)";\
+	fi
+
+db/create-tttr-percentiles-rankings-yrmo-table: db/create-tttr-percentiles-rankings-table
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if ! psql -c '\d interstate.tttr_percentiles_rankings_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/tttr_percentiles_rankings/create_tttr_percentiles_rankings_yrmo.sql\
+		)";\
+	fi
+
+db/load-tttr-percentiles-rankings-yrmo-table: db/create-tttr-percentiles-rankings-yrmo-table
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	psql -c "$$(\
+		sed "\
+			s/__YEAR__/${YEAR}/g;\
+			s/__MONTH__/${MONTH}/g;\
+		" ./sql/tttr_percentiles_rankings/load_tttr_percentiles_rankings_yrmo.sql\
+	)";
+
+
+
+
+
+
+
 db/drop-root-top-level-travel-time-reliability-table:
 	@if psql -c '\d public.top_level_travel_time_reliability' > /dev/null 2>&1; then\
 		psql -f './sql/top_level_travel_time_reliability/drop_root_top_level_travel_time_reliability.sql';\
