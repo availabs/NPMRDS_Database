@@ -719,6 +719,8 @@ db/load-state-tmc-attributes: \
 	@:$(call check_defined,STATE)
 	@ psql -c '\timing' -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tmc_attributes/state/loadStateTMCAttributesTable.sql)";\
 
+
+
 db/drop-root-lottr-percentiles-table:
 	@if psql -c '\d public.lottr_percentiles' > /dev/null 2>&1; then\
 		psql -f './sql/lottr_percentiles/drop_root_lottr_percentiles.sql';\
@@ -778,6 +780,53 @@ db/create-state-lottr-percentiles-yrmo-table: \
 			" ./sql/lottr_percentiles/create_state_lottr_percentiles_yrmo.sql\
 		)";\
 	fi
+
+
+
+db/drop-lottr-percentiles-rankings-table:
+	@if psql -c '\d public.lottr_percentiles_rankings' > /dev/null 2>&1; then\
+		psql -f './sql/lottr_percentiles_rankings/drop_lottr_percentiles_rankings.sql';\
+	fi
+
+db/create-lottr-percentiles-rankings-table:
+	@if ! psql -c '\d public.lottr_percentiles_rankings' > /dev/null 2>&1; then\
+		psql -f './sql/lottr_percentiles_rankings/create_lottr_percentiles_rankings.sql';\
+	fi
+
+db/drop-lottr-percentiles-rankings-yrmo-table:
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if psql -c '\d interstate.lottr_percentiles_rankings_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/lottr_percentiles_rankings/drop_lottr_percentiles_rankings_yrmo.sql\
+		)";\
+	fi
+
+db/create-lottr-percentiles-rankings-yrmo-table: db/create-lottr-percentiles-rankings-table
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@if ! psql -c '\d interstate.lottr_percentiles_rankings_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+		psql -c "$$(\
+			sed "\
+				s/__YEAR__/${YEAR}/g;\
+				s/__MONTH__/${MONTH}/g;\
+			" ./sql/lottr_percentiles_rankings/create_lottr_percentiles_rankings_yrmo.sql\
+		)";\
+	fi
+
+db/load-lottr-percentiles-rankings-yrmo-table: db/create-lottr-percentiles-rankings-yrmo-table
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	psql -c "$$(\
+		sed "\
+			s/__YEAR__/${YEAR}/g;\
+			s/__MONTH__/${MONTH}/g;\
+		" ./sql/lottr_percentiles_rankings/load_lottr_percentiles_rankings_yrmo.sql\
+	)";
+
 
 
 db/drop-root-tttr-percentiles-table:
