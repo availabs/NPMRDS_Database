@@ -720,6 +720,12 @@ db/load-state-tmc-attributes: \
 	@ psql -c '\timing' -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tmc_attributes/state/loadStateTMCAttributesTable.sql)";\
 
 
+db/drop-tmcs-within-geography-fn:
+	@psql -f './sql/tmcs_within_geography_fn/drop_tmcs_within_geography_fn.sql'
+
+db/create-tmcs-within-geography-fn:
+	@psql -f './sql/tmcs_within_geography_fn/create_tmcs_within_geography_fn.sql'
+
 
 db/drop-root-lottr-percentiles-table:
 	@if psql -c '\d public.lottr_percentiles' > /dev/null 2>&1; then\
@@ -828,11 +834,11 @@ db/load-lottr-percentiles-rankings-yrmo-table: db/create-lottr-percentiles-ranki
 	)";
 
 
-db/drop-lottr-percentiles-rankings-fn:
-	@psql -f './sql/lottr_percentiles_rankings_fn/drop_lottr_percentiles_rankings_fn.sql'
+db/drop-lottr-percentiles-rankings-for-geography-fn:
+	@psql -f './sql/lottr_percentiles_rankings_for_geographies_fn/drop_lottr_percentiles_rankings_fn.sql'
 
-db/create-lottr-percentiles-rankings-fn:
-	@psql -f './sql/lottr_percentiles_rankings_fn/create_lottr_percentiles_rankings_fn.sql'
+db/create-lottr-percentiles-rankings-for-geography-fn:
+	@psql -f './sql/lottr_percentiles_rankings_for_geographies_fn/create_lottr_percentiles_rankings_for_geographies_fn.sql'
 
 
 
@@ -942,15 +948,11 @@ db/load-tttr-percentiles-rankings-yrmo-table: db/create-tttr-percentiles-ranking
 	)";
 
 
+db/drop-tttr-percentiles-rankings-for-geography-fn:
+	@psql -f './sql/tttr_percentiles_rankings_for_geography_fn/drop_tttr_percentiles_rankings_for_geography_fn.sql'
 
-db/drop-tttr-percentiles-rankings-fn:
-	@psql -f './sql/tttr_percentiles_rankings_fn/drop_tttr_percentiles_rankings_fn.sql'
-
-db/create-tttr-percentiles-rankings-fn:
-	@psql -f './sql/tttr_percentiles_rankings_fn/create_tttr_percentiles_rankings_fn.sql'
-
-
-
+db/create-tttr-percentiles-rankings-for-geography-fn:
+	@psql -f './sql/tttr_percentiles_rankings_for_geography_fn/create_tttr_percentiles_rankings_for_geography_fn.sql'
 
 
 db/drop-root-top-level-travel-time-reliability-table:
@@ -1169,11 +1171,11 @@ db/load-excessive-delay-rankings-yrmo-table: db/create-excessive-delay-rankings-
 		" ./sql/excessive_delay_rankings/load_excessive_delay_rankings_yrmo.sql\
 	)";
 
-db/drop-excessive-delay-rankings-fn:
-	@psql -f './sql/excessive_delay_rankings_fn/drop_excessive_delay_rankings_fn.sql'
+db/drop-excessive-delay-rankings-for-geography-fn:
+	@psql -f './sql/excessive_delay_rankings_for_geography_fn/drop_excessive_delay_rankings_for_geography_fn.sql'
 
-db/create-excessive-delay-rankings-fn:
-	@psql -f './sql/excessive_delay_rankings_fn/create_excessive_delay_rankings_fn.sql'
+db/create-excessive-delay-rankings-for-geography-fn:
+	@psql -f './sql/excessive_delay_rankings_for_geography_fn/create_excessive_delay_rankings_for_geography_fn.sql'
 		
 
 

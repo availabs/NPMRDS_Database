@@ -1,7 +1,10 @@
 BEGIN;
 
-CREATE FUNCTION tttr_percentiles_rankings_fn (
-    _t text,
+CREATE OR REPLACE FUNCTION lottr_percentiles_rankings_for_geography_fn (
+    states VARCHAR(2)[],
+    geo_level_type geography_level_type,
+    geo_name VARCHAR,
+    sortCol text,
     dYear INT,
     dMonth INT,
     startRank INT,
@@ -18,18 +21,19 @@ CREATE FUNCTION tttr_percentiles_rankings_fn (
           SELECT
               tmc,
               (row_number() OVER (ORDER BY %I, tmc) -1) AS row_number
-            FROM tttr_percentiles_rankings
+            FROM lottr_percentiles_rankings
+              INNER JOIN tmcs_within_geography_fn(%L::VARCHAR(2)[], %L, %L) USING (tmc)
             WHERE (
-              (year = %s)
+              (year = %L)
               AND
-              (month = %s)
+              (month = %L)
             )
         ) AS t
         WHERE (
           (
-            (%s IS NULL)
+            (%L IS NULL)
             OR
-            (row_number >= %s)
+            (row_number >= %L)
           )
           AND
           (
@@ -38,7 +42,7 @@ CREATE FUNCTION tttr_percentiles_rankings_fn (
             (row_number <= %s)
           )
         )
-      ', _t, dYear, dMonth, startRank, startRank, endRank, endRank);
+      ', sortCol, states, geo_level_type, geo_name, dYear, dMonth, startRank, startRank, endRank, endRank);
     END
   $func$ LANGUAGE plpgsql
 ;
