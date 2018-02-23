@@ -4,8 +4,9 @@ set -e
 
 cd ../
 
-source ./config/postgres.env.local
+# source ./config/postgres.env.local
 # source ./config/postgres.env.ares
+source ./config/postgres.env
 
 export PGDATABASE
 export PGUSER
