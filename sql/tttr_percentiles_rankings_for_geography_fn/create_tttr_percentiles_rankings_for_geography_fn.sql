@@ -1,10 +1,11 @@
 BEGIN;
 
-CREATE OR REPLACE FUNCTION tttr_percentiles_rankings_for_geography_fn (
+CREATE OR REPLACE FUNCTION lottr_percentiles_rankings_for_geography_fn (
     states VARCHAR(2)[],
-    geo_level_type geography_level_type,
-    geo_name VARCHAR,
+    geoLevelType geography_level_type,
+    geoName VARCHAR,
     sortCol text,
+    direction text,
     dYear INT,
     dMonth INT,
     startRank INT,
@@ -20,8 +21,12 @@ CREATE OR REPLACE FUNCTION tttr_percentiles_rankings_for_geography_fn (
         FROM (
           SELECT
               tmc,
-              (row_number() OVER (ORDER BY %I, tmc) -1) AS row_number
-            FROM tttr_percentiles_rankings
+              CASE -- Default direction is DESC
+                WHEN ((%L IS NULL) OR (UPPER(%L) = ''DESC''))
+                  THEN (row_number() OVER (ORDER BY %I DESC, tmc ASC) -1)
+                ELSE (row_number() OVER (ORDER BY %I ASC, tmc DESC) -1)
+              END AS row_number
+            FROM tttr
               INNER JOIN tmcs_within_geography_fn(%L::VARCHAR(2)[], %L, %L) USING (tmc)
             WHERE (
               (year = %L)
@@ -30,19 +35,19 @@ CREATE OR REPLACE FUNCTION tttr_percentiles_rankings_for_geography_fn (
             )
         ) AS t
         WHERE (
-          (
+          ( -- startRank NULL or gte the specified
             (%L IS NULL)
             OR
             (row_number >= %L)
           )
           AND
-          (
-            (%s IS NULL)
+          ( -- endRank NULL or lte the specified
+            (%L IS NULL)
             OR
-            (row_number <= %s)
+            (row_number <= %L)
           )
         )
-      ', sortCol, states, geo_level_type, geo_name, dYear, dMonth, startRank, startRank, endRank, endRank);
+      ', direction, direction, sortCol, sortCol, states, geoLevelType, geoName, dYear, dMonth, startRank, startRank, endRank, endRank);
     END
   $func$ LANGUAGE plpgsql
 ;

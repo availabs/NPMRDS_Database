@@ -789,57 +789,120 @@ db/create-state-lottr-percentiles-yrmo-table: \
 
 
 
-db/drop-lottr-percentiles-rankings-table:
-	@if psql -c '\d public.lottr_percentiles_rankings' > /dev/null 2>&1; then\
-		psql -f './sql/lottr_percentiles_rankings/drop_lottr_percentiles_rankings.sql';\
+db/drop-root-lottr-table:
+	@if psql -c '\d public.lottr' > /dev/null 2>&1; then\
+		psql -f './sql/lottr/root/drop_root_lottr.sql';\
 	fi
 
-db/create-lottr-percentiles-rankings-table:
-	@if ! psql -c '\d public.lottr_percentiles_rankings' > /dev/null 2>&1; then\
-		psql -f './sql/lottr_percentiles_rankings/create_lottr_percentiles_rankings.sql';\
+db/create-root-lottr-table:
+	@if ! psql -c '\d public.lottr' > /dev/null 2>&1; then\
+		psql -f './sql/lottr/root/create_root_lottr.sql';\
 	fi
 
-db/drop-lottr-percentiles-rankings-yrmo-table:
+db/drop-state-lottr-table:
+	@:$(call check_defined,STATE)
+	@if psql -c '\d "${STATE}".lottr' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/lottr/state/drop_state_lottr.sql)";\
+	fi
+
+db/create-state-lottr-table: db/create-root-lottr-table
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".lottr' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/lottr/state/create_state_lottr.sql)";\
+	fi
+
+db/drop-state-lottr-yrmo-table:
+	@:$(call check_defined,STATE)
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
-	@if psql -c '\d interstate.lottr_percentiles_rankings_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+	@if psql -c '\d "${STATE}".lottr_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
 		psql -c "$$(\
 			sed "\
+				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
-			" ./sql/lottr_percentiles_rankings/drop_lottr_percentiles_rankings_yrmo.sql\
+			" ./sql/lottr/state/drop_state_lottr_yrmo.sql\
 		)";\
 	fi
 
-db/create-lottr-percentiles-rankings-yrmo-table: db/create-lottr-percentiles-rankings-table
+db/create-state-lottr-yrmo-table: db/create-state-lottr-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
-	@if ! psql -c '\d interstate.lottr_percentiles_rankings_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+	@if ! psql -c '\d "${STATE}".lottr_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
 		psql -c "$$(\
 			sed "\
+				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
-			" ./sql/lottr_percentiles_rankings/create_lottr_percentiles_rankings_yrmo.sql\
+			" ./sql/lottr/state/create_state_lottr_yrmo.sql\
 		)";\
 	fi
 
-db/load-lottr-percentiles-rankings-yrmo-table: db/create-lottr-percentiles-rankings-yrmo-table
+db/load-state-lottr-yrmo-table: db/create-state-lottr-yrmo-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
 	psql -c "$$(\
 		sed "\
+			s/__STATE__/${STATE}/g;\
 			s/__YEAR__/${YEAR}/g;\
 			s/__MONTH__/${MONTH}/g;\
-		" ./sql/lottr_percentiles_rankings/load_lottr_percentiles_rankings_yrmo.sql\
+		" ./sql/lottr/state/load_state_lottr_yrmo.sql\
 	)";
 
 
-db/drop-lottr-percentiles-rankings-for-geography-fn:
-	@psql -f './sql/lottr_percentiles_rankings_for_geographies_fn/drop_lottr_percentiles_rankings_fn.sql'
+db/drop-final-rule-measure-rankings-for-geography-fn:
+	@psql -f './sql/final_rule_measure_rankings_for_geography_fn/drop_final_rule_measure_rankings_for_geography_fn.sql'
 
-db/create-lottr-percentiles-rankings-for-geography-fn:
-	@psql -f './sql/lottr_percentiles_rankings_for_geographies_fn/create_lottr_percentiles_rankings_for_geographies_fn.sql'
+db/create-final-rule-measure-rankings-for-geography-fn:
+	@psql -f './sql/final_rule_measure_rankings_for_geography_fn/create_final_rule_measure_rankings_for_geography_fn.sql'
 
+
+db/drop-tmc-lexographic-rankings-for-geography-fn:
+	@psql -f './sql/tmc_lexographic_rankings_for_geography_fn/drop_tmc_lexographic_rankings_for_geography_fn.sql'
+
+db/create-tmc-lexographic-rankings-for-geography-fn:
+	@psql -f './sql/tmc_lexographic_rankings_for_geography_fn/create_tmc_lexographic_rankings_for_geography_fn.sql'
+
+
+db/drop-tmcs-in-final-rule-measure-rank-range-for-geography-fn:
+	@psql -f './sql/tmcs_in_final_rule_measure_rank_range_for_geography_fn/drop_tmcs_in_final_rule_measure_rank_range_for_geography_fn.sql'
+
+db/create-tmcs-in-final-rule-measure-rank-range-for-geography-fn:
+	@psql -f './sql/tmcs_in_final_rule_measure_rank_range_for_geography_fn/create_tmcs_in_final_rule_measure_rank_range_for_geography_fn.sql'
+
+
+db/drop-tmc-ranking-type:
+	@if [[ $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'tmc_ranking_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f './sql/tmc_ranking_type/drop_tmc_ranking_type.sql';\
+	fi
+
+db/create-tmc-ranking-type:
+	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'tmc_ranking_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f './sql/tmc_ranking_type/create_tmc_ranking_type.sql';\
+	fi
+
+db/drop-final-rule-measure-type:
+	@if [[ $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'final_rule_measure_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f './sql/final_rule_measure_type/drop_final_rule_measure_type.sql';\
+	fi
+
+db/create-final-rule-measure-type:
+	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'final_rule_measure_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f './sql/final_rule_measure_type/create_final_rule_measure_type.sql';\
+	fi
+
+
+db/drop-final-rule-measure-sort-column-type:
+	@if [[ $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'final_rule_measure_sort_column_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f './sql/final_rule_measure_sort_column_type/drop_final_rule_measure_sort_column_type.sql';\
+	fi
+
+db/create-final-rule-measure-sort-column-type:
+	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'final_rule_measure_sort_column_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f './sql/final_rule_measure_sort_column_type/create_final_rule_measure_sort_column_type.sql';\
+	fi
 
 
 
@@ -903,56 +966,67 @@ db/create-state-tttr-percentiles-yrmo-table: db/create-state-tttr-percentiles-ta
 	fi
 
 
-db/drop-tttr-percentiles-rankings-table:
-	@if psql -c '\d public.tttr_percentiles_rankings' > /dev/null 2>&1; then\
-		psql -f './sql/tttr_percentiles_rankings/drop_tttr_percentiles_rankings.sql';\
+db/drop-root-tttr-table:
+	@if psql -c '\d public.tttr' > /dev/null 2>&1; then\
+		psql -f './sql/tttr/root/drop_root_tttr.sql';\
 	fi
 
-db/create-tttr-percentiles-rankings-table:
-	@if ! psql -c '\d public.tttr_percentiles_rankings' > /dev/null 2>&1; then\
-		psql -f './sql/tttr_percentiles_rankings/create_tttr_percentiles_rankings.sql';\
+db/create-root-tttr-table:
+	@if ! psql -c '\d public.tttr' > /dev/null 2>&1; then\
+		psql -f './sql/tttr/root/create_root_tttr.sql';\
 	fi
 
-db/drop-tttr-percentiles-rankings-yrmo-table:
+db/drop-state-tttr-table:
+	@:$(call check_defined,STATE)
+	@if psql -c '\d "${STATE}".tttr' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tttr/state/drop_state_tttr.sql)";\
+	fi
+
+db/create-state-tttr-table: db/create-root-tttr-table
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".tttr' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tttr/state/create_state_tttr.sql)";\
+	fi
+
+db/drop-state-tttr-yrmo-table:
+	@:$(call check_defined,STATE)
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
-	@if psql -c '\d interstate.tttr_percentiles_rankings_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+	@if psql -c '\d "${STATE}".tttr_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
 		psql -c "$$(\
 			sed "\
+				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
-			" ./sql/tttr_percentiles_rankings/drop_tttr_percentiles_rankings_yrmo.sql\
+			" ./sql/tttr/state/drop_state_tttr_yrmo.sql\
 		)";\
 	fi
 
-db/create-tttr-percentiles-rankings-yrmo-table: db/create-tttr-percentiles-rankings-table
+db/create-state-tttr-yrmo-table: db/create-state-tttr-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
-	@if ! psql -c '\d interstate.tttr_percentiles_rankings_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+	@if ! psql -c '\d "${STATE}".tttr_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
 		psql -c "$$(\
 			sed "\
+				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
-			" ./sql/tttr_percentiles_rankings/create_tttr_percentiles_rankings_yrmo.sql\
+			" ./sql/tttr/state/create_state_tttr_yrmo.sql\
 		)";\
 	fi
 
-db/load-tttr-percentiles-rankings-yrmo-table: db/create-tttr-percentiles-rankings-yrmo-table
+db/load-state-tttr-yrmo-table: db/create-state-tttr-yrmo-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
 	psql -c "$$(\
 		sed "\
+			s/__STATE__/${STATE}/g;\
 			s/__YEAR__/${YEAR}/g;\
 			s/__MONTH__/${MONTH}/g;\
-		" ./sql/tttr_percentiles_rankings/load_tttr_percentiles_rankings_yrmo.sql\
+		" ./sql/tttr/state/load_state_tttr_yrmo.sql\
 	)";
-
-
-db/drop-tttr-percentiles-rankings-for-geography-fn:
-	@psql -f './sql/tttr_percentiles_rankings_for_geography_fn/drop_tttr_percentiles_rankings_for_geography_fn.sql'
-
-db/create-tttr-percentiles-rankings-for-geography-fn:
-	@psql -f './sql/tttr_percentiles_rankings_for_geography_fn/create_tttr_percentiles_rankings_for_geography_fn.sql'
 
 
 db/drop-root-top-level-travel-time-reliability-table:
@@ -1126,57 +1200,67 @@ db/create-state-excessive-delay-brkdwn-yrmo-table: db/create-state-excessive-del
 	fi
 
 
-
-db/drop-excessive-delay-rankings-table:
-	@if psql -c '\d public.excessive_delay_rankings' > /dev/null 2>&1; then\
-		psql -f './sql/excessive_delay_rankings/drop_excessive_delay_rankings.sql';\
+db/drop-root-phed-table:
+	@if psql -c '\d public.phed' > /dev/null 2>&1; then\
+		psql -f './sql/phed/root/drop_root_phed.sql';\
 	fi
 
-db/create-excessive-delay-rankings-table:
-	@if ! psql -c '\d public.excessive_delay_rankings' > /dev/null 2>&1; then\
-		psql -f './sql/excessive_delay_rankings/create_excessive_delay_rankings.sql';\
+db/create-root-phed-table:
+	@if ! psql -c '\d public.phed' > /dev/null 2>&1; then\
+		psql -f './sql/phed/root/create_root_phed.sql';\
 	fi
 
-db/drop-excessive-delay-rankings-yrmo-table:
+db/drop-state-phed-table:
+	@:$(call check_defined,STATE)
+	@if psql -c '\d "${STATE}".phed' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/phed/state/drop_state_phed.sql)";\
+	fi
+
+db/create-state-phed-table: db/create-root-phed-table
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".phed' > /dev/null 2>&1; then\
+		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/phed/state/create_state_phed.sql)";\
+	fi
+
+db/drop-state-phed-yrmo-table:
+	@:$(call check_defined,STATE)
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
-	@if psql -c '\d interstate.excessive_delay_rankings_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+	@if psql -c '\d "${STATE}".phed_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
 		psql -c "$$(\
 			sed "\
+				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
-			" ./sql/excessive_delay_rankings/drop_excessive_delay_rankings_yrmo.sql\
+			" ./sql/phed/state/drop_state_phed_yrmo.sql\
 		)";\
 	fi
 
-db/create-excessive-delay-rankings-yrmo-table: db/create-excessive-delay-rankings-table
+db/create-state-phed-yrmo-table: db/create-state-phed-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
-	@if ! psql -c '\d interstate.excessive_delay_rankings_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+	@if ! psql -c '\d "${STATE}".phed_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
 		psql -c "$$(\
 			sed "\
+				s/__STATE__/${STATE}/g;\
 				s/__YEAR__/${YEAR}/g;\
 				s/__MONTH__/${MONTH}/g;\
-			" ./sql/excessive_delay_rankings/create_excessive_delay_rankings_yrmo.sql\
+			" ./sql/phed/state/create_state_phed_yrmo.sql\
 		)";\
 	fi
 
-db/load-excessive-delay-rankings-yrmo-table: db/create-excessive-delay-rankings-yrmo-table
+db/load-state-phed-yrmo-table: db/create-state-phed-yrmo-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
 	psql -c "$$(\
 		sed "\
+			s/__STATE__/${STATE}/g;\
 			s/__YEAR__/${YEAR}/g;\
 			s/__MONTH__/${MONTH}/g;\
-		" ./sql/excessive_delay_rankings/load_excessive_delay_rankings_yrmo.sql\
+		" ./sql/phed/state/load_state_phed_yrmo.sql\
 	)";
-
-db/drop-excessive-delay-rankings-for-geography-fn:
-	@psql -f './sql/excessive_delay_rankings_for_geography_fn/drop_excessive_delay_rankings_for_geography_fn.sql'
-
-db/create-excessive-delay-rankings-for-geography-fn:
-	@psql -f './sql/excessive_delay_rankings_for_geography_fn/create_excessive_delay_rankings_for_geography_fn.sql'
-		
 
 
 db/drop-root-top-level-total-excessive-delay-table:
@@ -1228,6 +1312,7 @@ db/create-state-top-level-total-excessive-delay-yrmo-table: db/create-state-top-
 			" ./sql/top_level_total_excessive_delay/create_state_top_level_total_excessive_delay_yrmo.sql\
 		)";\
 	fi
+
 
 
 db/drop-terse-bq-top-level-measures-fn:
