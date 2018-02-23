@@ -1,1 +1,0 @@
-DROP TABLE IF EXISTS interstate.tttr_percentiles_rankings_y__YEAR__m__MONTH__ CASCADE;
