@@ -173,32 +173,32 @@ INSERT INTO "__STATE__".phed_y__YEAR__m__MONTH__ (
       '__STATE__' AS state,
       __YEAR__ AS year,
       __MONTH__ AS month,
-      phed_am_peak,
-      phed_pm_peak_1,
-      phed_pm_peak_2,
+      phed_am_peak::DOUBLE PRECISION,
+      phed_pm_peak_1::DOUBLE PRECISION,
+      phed_pm_peak_2::DOUBLE PRECISION,
       GREATEST(
         phed_am_peak,
         phed_pm_peak_1,
         phed_pm_peak_2
-      ) AS phed_max
+      )::DOUBLE PRECISION AS phed_max
     FROM (
       SELECT
           tmc,
-          SUM(total_vehicle_xdelay_hrs_for_hr_of_day) AS phed_am_peak
+          SUM(total_vehicle_xdelay_hrs_for_hr_of_day)::DOUBLE PRECISION AS phed_am_peak
         FROM cte_total_veh_xdelay_for_hour_of_day
         WHERE (hour BETWEEN 6 and 9)
         GROUP BY tmc
     ) AS sub_am_peak INNER JOIN (
       SELECT
           tmc,
-          SUM(total_vehicle_xdelay_hrs_for_hr_of_day) AS phed_pm_peak_1
+          SUM(total_vehicle_xdelay_hrs_for_hr_of_day)::DOUBLE PRECISION AS phed_pm_peak_1
         FROM cte_total_veh_xdelay_for_hour_of_day
         WHERE (hour BETWEEN 15 and 18)
         GROUP BY tmc
     ) AS sub_pm_peak_1 USING (tmc) INNER JOIN (
       SELECT
           tmc,
-          SUM(total_vehicle_xdelay_hrs_for_hr_of_day) AS phed_pm_peak_2
+          SUM(total_vehicle_xdelay_hrs_for_hr_of_day)::DOUBLE PRECISION AS phed_pm_peak_2
         FROM cte_total_veh_xdelay_for_hour_of_day
         WHERE (hour BETWEEN 16 and 19)
         GROUP BY tmc

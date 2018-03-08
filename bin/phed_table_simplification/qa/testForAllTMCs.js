@@ -9,7 +9,7 @@ const minimist = require('minimist');
 
 const argv = minimist(process.argv.slice(2));
 
-const configPath = join(__dirname, '../../../config/postgres.env');
+const configPath = join(__dirname, '../../../config/postgres.env')
 envFile(configPath);
 
 const { YEAR, MONTH } = Object.assign({}, argv, env);
@@ -30,7 +30,7 @@ const getPHEDForTMCs = async () => {
         phed_am_peak,
         phed_pm_peak_1,
         phed_pm_peak_2
-      FROM excessive_delay_brkdwn
+      FROM phed
       WHERE (
         (year = $1)
         AND
