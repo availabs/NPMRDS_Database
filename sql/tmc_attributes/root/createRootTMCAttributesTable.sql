@@ -51,6 +51,7 @@ CREATE TABLE public.tmc_attributes (
    is_interstate         BOOLEAN,
    is_controlled_access  BOOLEAN,
    avg_speedlimit        REAL,
+   avg_vehicle_occupancy REAL,
    mpo_code              CHARACTER VARYING,
    mpo_acrony            CHARACTER VARYING,
    mpo_name              CHARACTER VARYING,

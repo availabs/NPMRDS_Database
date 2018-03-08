@@ -1130,76 +1130,6 @@ db/create-geography-level-attributes-view: db/create-root-tmc-attributes
 	fi
 
 
-
-db/drop-root-excessive-delay-brkdwn-table:
-	@if psql -c '\d public.excessive_delay_brkdwn' > /dev/null 2>&1; then\
-		psql -f './sql/excessive_delay_brkdwn/dropRootExcessiveDelayBrkdwwnTable.sql';\
-	fi
-
-db/create-root-excessive-delay-brkdwn-table:
-	@if ! psql -c '\d public.excessive_delay_brkdwn' > /dev/null 2>&1; then\
-		psql -f './sql/excessive_delay_brkdwn/createRootExcessiveDelayBrkdwnTable.sql';\
-	fi
-
-db/drop-state-excessive-delay-brkdwn-table:
-	@:$(call check_defined,STATE)
-	@if psql -c '\d "${STATE}".excessive_delay_brkdwn' > /dev/null 2>&1; then\
-		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/excessive_delay_brkdwn/dropStateExcessiveDelayBrkdwnTable.sql)";\
-	fi
-
-db/create-state-excessive-delay-brkdwn-table: db/create-root-excessive-delay-brkdwn-table
-	@:$(call check_defined,STATE)
-	@if ! psql -c '\d "${STATE}".excessive_delay_brkdwn' > /dev/null 2>&1; then\
-		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/excessive_delay_brkdwn/createStateExcessiveDelayBrkdwnTable.sql)";\
-	fi
-
-db/drop-state-excessive-delay-brkdwn-yrmo-table:
-	@:$(call check_defined,STATE) #redundant, since source target calls the same.
-	@:$(call check_defined,YEAR)
-	@:$(call check_defined,MONTH)
-	@if psql -c '\d "${STATE}".excessive_delay_brkdwn_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
-		psql -c "$$(\
-			sed "\
-				s/__STATE__/${STATE}/g;\
-				s/__YEAR__/${YEAR}/g;\
-				s/__MONTH__/${MONTH}/g;\
-			" ./sql/excessive_delay_brkdwn/dropStateExcessiveDelayBrkdwnYrMoTable.sql\
-		)";\
-	fi
-
-db/create-state-excessive-delay-brkdwn-yrmo-table: db/create-state-excessive-delay-brkdwn-table
-	@:$(call check_defined,STATE) #redundant, since source target calls the same.
-	@:$(call check_defined,YEAR)
-	@:$(call check_defined,MONTH)
-	@if ! psql -c '\d "${STATE}".excessive_delay_brkdwn_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
-		if [[ ${MONTH} -eq 0 ]]; then\
-			START_DATE="$$(date -d "${YEAR}-01-01" '+%F')";\
-			END_DATE="$$(date -d "$${START_DATE} + 1 year" '+%F')";\
-		else\
-			START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
-			END_DATE="$$(date -d "$${START_DATE} + 1 month" '+%F')";\
-		fi;\
-		psql -c "$$(\
-			sed "\
-				s/__STATE__/${STATE}/g;\
-				s/__YEAR__/${YEAR}/g;\
-				s/__MONTH__/${MONTH}/g;\
-				s/__START_DATE__/$${START_DATE}/g;\
-				s/__END_DATE__/$${END_DATE}/g;\
-			" ./sql/excessive_delay_brkdwn/createStateExcessiveDelayBrkdwnYrMoTable.step-1.sql\
-		)";\
-		psql -c "$$(\
-			sed "\
-				s/__STATE__/${STATE}/g;\
-				s/__YEAR__/${YEAR}/g;\
-				s/__MONTH__/${MONTH}/g;\
-				s/__START_DATE__/$${START_DATE}/g;\
-				s/__END_DATE__/$${END_DATE}/g;\
-			" ./sql/excessive_delay_brkdwn/createStateExcessiveDelayBrkdwnYrMoTable.step-2.sql\
-		)";\
-	fi
-
-
 db/drop-root-phed-table:
 	@if psql -c '\d public.phed' > /dev/null 2>&1; then\
 		psql -f './sql/phed/root/drop_root_phed.sql';\
@@ -1254,11 +1184,20 @@ db/load-state-phed-yrmo-table: db/create-state-phed-yrmo-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
+	@if [[ ${MONTH} -eq 0 ]]; then\
+		START_DATE="$$(date -d "${YEAR}-01-01" '+%F')";\
+		END_DATE="$$(date -d "$${START_DATE} + 1 year" '+%F')";\
+	else\
+		START_DATE="$$(date -d "${YEAR}-${MONTH}-01" '+%F')";\
+		END_DATE="$$(date -d "$${START_DATE} + 1 month" '+%F')";\
+	fi;\
 	psql -c "$$(\
 		sed "\
 			s/__STATE__/${STATE}/g;\
 			s/__YEAR__/${YEAR}/g;\
 			s/__MONTH__/${MONTH}/g;\
+			s/__START_DATE__/$${START_DATE}/g;\
+			s/__END_DATE__/$${END_DATE}/g;\
 		" ./sql/phed/state/load_state_phed_yrmo.sql\
 	)";
 

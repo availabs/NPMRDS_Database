@@ -4,8 +4,8 @@ CREATE TABLE public.phed (
     year            SMALLINT,
     month           SMALLINT,
     phed_am_peak    REAL,
-    phed_pm1_peak   REAL,
-    phed_pm2_peak   REAL,
+    phed_pm_peak_1  REAL,
+    phed_pm_peak_2  REAL,
     phed_max        REAL
   )
   WITH (fillfactor=100, autovacuum_enabled=false)

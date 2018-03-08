@@ -296,6 +296,7 @@ INSERT INTO "__STATE__".tmc_attributes (
     is_interstate,
     is_controlled_access,
     avg_speedlimit,
+    avg_vehicle_occupancy,
     mpo_code,
     mpo_acrony,
     mpo_name,
@@ -375,6 +376,14 @@ INSERT INTO "__STATE__".tmc_attributes (
       ((f_system = 1) OR (f_system = 2)) AS is_controlled_access,
 
       avg_speedlimit,
+
+      (
+        (
+            (1.55 * (inrix_shapefile.aadt - (inrix_shapefile.aadt_singl + inrix_shapefile.aadt_combi))) -- cars
+          + (10.25 * inrix_shapefile.aadt_singl) -- buses
+          + (1.11 * inrix_shapefile.aadt_combi) -- combination trucks
+        ) / inrix_shapefile.aadt
+      ) AS avg_vehicle_occupancy,
 
       tmp_tmc_to_mpo.mpo_code,
       tmp_tmc_to_mpo.mpo_acrony,

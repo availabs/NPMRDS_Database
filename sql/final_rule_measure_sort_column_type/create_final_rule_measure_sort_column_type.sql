@@ -12,7 +12,7 @@ CREATE TYPE final_rule_measure_sort_column_type AS ENUM (
   'tttr_overnight',
   'tttr_max',
   'phed_am_peak',
-  'phed_pm1_peak',
-  'phed_pm2_peak',
+  'phed_pm_peak_1',
+  'phed_pm_peak_2',
   'phed_max'
 );
