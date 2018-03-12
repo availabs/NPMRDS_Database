@@ -446,7 +446,7 @@ INSERT INTO "__STATE__".tmc_attributes (
       USING (tmc)
     LEFT OUTER JOIN fips_codes
       ON (
-        (state_abbreviation.abbreviation = fips_codes.state)
+        (state_abbreviations.abbreviation = fips_codes.state)
         AND
         (inrix_shapefile.county = fips_codes.county)
       )
