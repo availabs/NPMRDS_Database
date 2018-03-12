@@ -25,6 +25,11 @@ INSERT INTO "__STATE__".phed_y__YEAR__m__MONTH__ (
     state,
     year,
     month,
+
+    xdelay_am_peak,
+    xdelay_pm_peak_1,
+    xdelay_pm_peak_2,
+
     phed_am_peak,
     phed_pm_peak_1,
     phed_pm_peak_2,
@@ -38,15 +43,15 @@ INSERT INTO "__STATE__".phed_y__YEAR__m__MONTH__ (
         -- MAX(60% of speedlimit or 20 mph)
         -- nearest whole second
         ROUND(
-          ROUND(miles::NUMERIC, 3)::DOUBLE PRECISION
+          ROUND(miles::NUMERIC, 3)::NUMERIC
           /
           GREATEST(
-            avg_speedlimit * 0.6,
+            avg_speedlimit::NUMERIC * 0.6::NUMERIC,
             20
-          )
+          )::NUMERIC
           * 
-          3600
-        )::INT AS excessive_delay_threshold_time_s,
+          3600::NUMERIC
+        )::INTEGER AS excessive_delay_threshold_time_s,
         congestion_level,
         directionality,
         CASE WHEN (faciltype = 1)
@@ -63,71 +68,66 @@ INSERT INTO "__STATE__".phed_y__YEAR__m__MONTH__ (
         AND
         (aadt IS NOT NULL)
       )
-  ), cte_hourly_volumes AS (
+  ), cte_vehicle_volumes AS (
       SELECT 
           congestion_level,
           directionality,
           functional_class,
-          FLOOR(epoch / 12)::INT AS hour,
-          SUM(percent_daily_volume)::DOUBLE PRECISION pct_daily_vol -- Sum across epochs for each hour
+          (epoch::INTEGER / 3)::INTEGER AS quarter_hour_bin,
+          SUM(percent_daily_volume::NUMERIC)::NUMERIC pct_daily_vol
         FROM traffic_distributions
         WHERE day_type = 'WEEKDAY' -- PHED only concerned with weekdays
         GROUP BY
           congestion_level,
           directionality,
           functional_class,
-          FLOOR(epoch / 12)::INT
+          quarter_hour_bin
   ), cte_total_veh_xdelay_for_hour_of_day AS (
       -- At this level, we aggregate the vehicle_hour_delay, for each hour,
       --   all the 15 minute bins across the date ranges.
       SELECT
           tmc,
-          FLOOR(quarter_hour_bin / 4)::INT AS hour,
+          quarter_hour_bin::INTEGER / 4 AS hour,
           -- Total delay for 15 min bins aggregated into hours and scaled by the aadt
+          SUM(qtrhr_bin_xdelay_hrs) AS xdelay_hrs,
           SUM(
-            total_excessive_delay_hrs_for_qtr_hr_bin::DOUBLE PRECISION
+            qtrhr_bin_xdelay_hrs::NUMERIC
             * (
-              cte_tmc_info.aadt::DOUBLE PRECISION
-              / aadt_divisor::DOUBLE PRECISION -- Uni/Bi-directional AADT
-              * day_of_week_adj_factor::DOUBLE PRECISION
-              * (cte_hourly_volumes.pct_daily_vol::DOUBLE PRECISION / 100::DOUBLE PRECISION)
-              / 4::DOUBLE PRECISION /* 15mins of the hourly volume */
+              cte_tmc_info.aadt::NUMERIC
+              / aadt_divisor::NUMERIC -- Uni/Bi-directional AADT
+              * day_of_week_adj_factor::NUMERIC
+              * (cte_vehicle_volumes.pct_daily_vol::NUMERIC / 100::NUMERIC)
             )
-          )::DOUBLE PRECISION AS total_vehicle_xdelay_hrs_for_hr_of_day
+          )::NUMERIC AS xdelay_veh_hrs
         FROM (
           SELECT
               tmc,
               day_of_week_adj_factor,
-              quarter_hour_bin::INT,
+              quarter_hour_bin::INTEGER,
               -- Total delay for that 15 minute bin for the given dow adj factor
               SUM(
                 ROUND(
                   (
+                    --TODO TODO TODO Round this
                     GREATEST(
                       LEAST(mean_travel_time - excessive_delay_threshold_time_s, 900),
                       0
-                    )::DOUBLE PRECISION / 3600::DOUBLE PRECISION
+                    )::NUMERIC / 3600::NUMERIC
                   )::NUMERIC,
                   3
-                )::DOUBLE PRECISION
-              )::DOUBLE PRECISION AS total_excessive_delay_hrs_for_qtr_hr_bin
+                )::NUMERIC
+              )::NUMERIC AS qtrhr_bin_xdelay_hrs
             FROM (
               SELECT
                   tmc,
                   CASE WHEN (EXTRACT(DOW FROM date) BETWEEN 1 AND 4)
-                    THEN 1.05::DOUBLE PRECISION -- Monday thru Thursday
-                    ELSE 1.1::DOUBLE PRECISION  -- Friday (DOW = 5)
+                    THEN 1.05::NUMERIC -- Monday thru Thursday
+                    ELSE 1.1::NUMERIC  -- Friday (DOW = 5)
                   END AS day_of_week_adj_factor,
-                  FLOOR(epoch / 3)::INT AS quarter_hour_bin,
-                  (
-                    COUNT(1)::DOUBLE PRECISION 
-                    / 
-                    SUM(
-                      1::DOUBLE PRECISION
-                      /
-                      travel_time_all_vehicles::DOUBLE PRECISION
-                    )
-                  )::DOUBLE PRECISION AS mean_travel_time
+                  (epoch::INTEGER / 3) AS quarter_hour_bin,
+                  ROUND(
+                    AVG(travel_time_all_vehicles::NUMERIC)
+                  )::NUMERIC AS mean_travel_time
                 FROM "__STATE__".npmrds INNER JOIN cte_tmc_info USING (tmc)
                 WHERE (
                   (
@@ -157,48 +157,53 @@ INSERT INTO "__STATE__".phed_y__YEAR__m__MONTH__ (
             ) AS sub_avg_travel_times_for_each_qtr_hr
               INNER JOIN cte_tmc_info USING (tmc)
             GROUP BY tmc, quarter_hour_bin, day_of_week_adj_factor
-          ) AS sub_xdelay_hrs_agg
+          ) AS sub_xdelay_hrs
         LEFT OUTER JOIN cte_tmc_info USING (tmc)
-        LEFT OUTER JOIN cte_hourly_volumes ON (
-          (FLOOR(quarter_hour_bin / 4)::INT = cte_hourly_volumes.hour::INT)
-          AND (cte_tmc_info.functional_class = cte_hourly_volumes.functional_class)
-          AND (cte_tmc_info.congestion_level = cte_hourly_volumes.congestion_level)
-          AND (cte_tmc_info.directionality = cte_hourly_volumes.directionality)
-        )
-      --  WHERE (total_excessive_delay_hrs_for_qtr_hr_bin > 0) -- If delay = 0, then no effect on total
-      GROUP BY tmc, FLOOR(quarter_hour_bin / 4)::INT -- tmc, hour of day
+        LEFT OUTER JOIN cte_vehicle_volumes
+          USING (quarter_hour_bin, functional_class, congestion_level, directionality)
+      GROUP BY tmc, hour -- tmc, hour of day
   )
   SELECT
       tmc,
       '__STATE__' AS state,
       __YEAR__ AS year,
       __MONTH__ AS month,
-      phed_am_peak::DOUBLE PRECISION,
-      phed_pm_peak_1::DOUBLE PRECISION,
-      phed_pm_peak_2::DOUBLE PRECISION,
+
+      xdelay_am_peak::NUMERIC,
+      xdelay_pm_peak_1::NUMERIC,
+      xdelay_pm_peak_2::NUMERIC,
+
+      phed_am_peak::NUMERIC,
+      phed_pm_peak_1::NUMERIC,
+      phed_pm_peak_2::NUMERIC,
+
       GREATEST(
         phed_am_peak,
         phed_pm_peak_1,
         phed_pm_peak_2
-      )::DOUBLE PRECISION AS phed_max
+      )::NUMERIC AS phed_max
+
     FROM (
       SELECT
           tmc,
-          SUM(total_vehicle_xdelay_hrs_for_hr_of_day)::DOUBLE PRECISION AS phed_am_peak
+          SUM(xdelay_hrs)::NUMERIC AS xdelay_am_peak,
+          SUM(xdelay_veh_hrs)::NUMERIC AS phed_am_peak
         FROM cte_total_veh_xdelay_for_hour_of_day
         WHERE (hour BETWEEN 6 and 9)
         GROUP BY tmc
     ) AS sub_am_peak INNER JOIN (
       SELECT
           tmc,
-          SUM(total_vehicle_xdelay_hrs_for_hr_of_day)::DOUBLE PRECISION AS phed_pm_peak_1
+          SUM(xdelay_hrs)::NUMERIC AS xdelay_pm_peak_1,
+          SUM(xdelay_veh_hrs)::NUMERIC AS phed_pm_peak_1
         FROM cte_total_veh_xdelay_for_hour_of_day
         WHERE (hour BETWEEN 15 and 18)
         GROUP BY tmc
     ) AS sub_pm_peak_1 USING (tmc) INNER JOIN (
       SELECT
           tmc,
-          SUM(total_vehicle_xdelay_hrs_for_hr_of_day)::DOUBLE PRECISION AS phed_pm_peak_2
+          SUM(xdelay_hrs)::NUMERIC AS xdelay_pm_peak_2,
+          SUM(xdelay_veh_hrs)::NUMERIC AS phed_pm_peak_2
         FROM cte_total_veh_xdelay_for_hour_of_day
         WHERE (hour BETWEEN 16 and 19)
         GROUP BY tmc
@@ -212,5 +217,3 @@ CLUSTER VERBOSE "__STATE__".phed_y__YEAR__m__MONTH__
 COMMIT;
 
 ANALYZE VERBOSE "__STATE__".phed_y__YEAR__m__MONTH__;
-
-COMMIT;
