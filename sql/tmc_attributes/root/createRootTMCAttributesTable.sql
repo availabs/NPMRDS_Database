@@ -48,6 +48,8 @@ CREATE TABLE public.tmc_attributes (
    road_direction        TEXT,
    occupancy_factor      REAL,
    state                 CHARACTER(2),
+   state_code            CHAR(2), 
+   county_code           CHAR(5),
    is_interstate         BOOLEAN,
    is_controlled_access  BOOLEAN,
    avg_speedlimit        REAL,

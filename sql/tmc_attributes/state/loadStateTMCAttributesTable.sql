@@ -293,6 +293,8 @@ INSERT INTO "__STATE__".tmc_attributes (
     road_direction,
     occupancy_factor,
     state,
+    state_code,
+    county_code,
     is_interstate,
     is_controlled_access,
     avg_speedlimit,
@@ -372,6 +374,9 @@ INSERT INTO "__STATE__".tmc_attributes (
 
       state_abbreviations.abbreviation AS state,
 
+      fips_codes.state_code AS state_code,
+      (fips_codes.state_code || fips_codes.county_code) AS county_code,
+
       (f_system = 1) AS is_interstate,
       ((f_system = 1) OR (f_system = 2)) AS is_controlled_access,
 
@@ -379,7 +384,19 @@ INSERT INTO "__STATE__".tmc_attributes (
 
       (
         (
-            (1.55 * (inrix_shapefile.aadt - (inrix_shapefile.aadt_singl + inrix_shapefile.aadt_combi))) -- cars
+          (
+            1.55 
+            * 
+            (
+              inrix_shapefile.aadt
+              -
+              (
+                inrix_shapefile.aadt_singl
+                +
+                inrix_shapefile.aadt_combi
+              )
+            )
+          ) -- cars
           + (10.25 * inrix_shapefile.aadt_singl) -- buses
           + (1.11 * inrix_shapefile.aadt_combi) -- combination trucks
         ) / inrix_shapefile.aadt
@@ -427,6 +444,12 @@ INSERT INTO "__STATE__".tmc_attributes (
       USING (tmc)
     LEFT OUTER JOIN tmp_bounding_boxes
       USING (tmc)
+    LEFT OUTER JOIN fips_codes
+      ON (
+        (state_abbreviation.abbreviation = fips_codes.state)
+        AND
+        (inrix_shapefile.county = fips_codes.county)
+      )
   WHERE (state_abbreviations.abbreviation = '__STATE__')
 ;
 
