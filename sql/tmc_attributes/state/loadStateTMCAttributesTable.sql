@@ -116,9 +116,11 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
           SELECT 
               tmc,
               AVG(travel_time_all_vehicles)::REAL AS avg_peak_period_travel_time
-            FROM "__STATE__".npmrds
-              INNER JOIN "__STATE__".tmc_date_ranges USING (tmc)
+            FROM npmrds
+              INNER JOIN tmc_date_ranges USING (tmc)
             WHERE (
+              (state = '__STATE__')
+              AND
               ( /* Peak hours */
                    (epoch BETWEEN (12 * 6) AND ((12 * 10) - 1)) /* 6am til 10am */
                 OR (epoch BETWEEN (12 * (3+12)) AND ((12 * (7+12)) - 1)) /* 3am til 7pm */
@@ -132,9 +134,11 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
           SELECT 
               tmc,
               AVG(travel_time_all_vehicles)::REAL AS avg_free_flow_travel_time
-            FROM "__STATE__".npmrds
-              INNER JOIN "__STATE__".tmc_date_ranges USING (tmc)
+            FROM npmrds
+              INNER JOIN tmc_date_ranges USING (tmc)
             WHERE (
+              (state = '__STATE__')
+              AND
               ( /* Free flow hours */
                    (epoch BETWEEN (12 * 0) AND ((12 * 5) - 1)) /* midnight til 5am */
                 OR (epoch BETWEEN (12 * (10+12)) AND ((12 * (12+12)) - 1)) /* 10pm til midnight */
@@ -163,9 +167,11 @@ CREATE TEMPORARY TABLE tmp_directionality_factors
           SELECT 
               tmc,
               AVG(travel_time_all_vehicles)::REAL AS avg_am_peak_travel_time
-            FROM "__STATE__".npmrds
-              INNER JOIN "__STATE__".tmc_date_ranges USING (tmc)
+            FROM npmrds
+              INNER JOIN tmc_date_ranges USING (tmc)
             WHERE (
+              (state = '__STATE__')
+              AND
               (epoch BETWEEN (12 * 6) AND ((12 * 10) - 1))
               AND (travel_time_all_vehicles > 0)
               AND (npmrds.date >= date_trunc('month', tmc_date_ranges.last_date - INTERVAL '1 year' + INTERVAL '1 MONTH'))
@@ -175,9 +181,11 @@ CREATE TEMPORARY TABLE tmp_directionality_factors
           SELECT 
               tmc,
               AVG(travel_time_all_vehicles)::REAL AS avg_pm_peak_travel_time
-            FROM "__STATE__".npmrds
-              INNER JOIN "__STATE__".tmc_date_ranges USING (tmc)
+            FROM npmrds
+              INNER JOIN tmc_date_ranges USING (tmc)
             WHERE (
+              (state = '__STATE__')
+              AND
               (epoch BETWEEN (12 * (3+12)) AND ((12 * (7+12)) - 1))
               AND (travel_time_all_vehicles > 0)
               AND (npmrds.date >= date_trunc('month', tmc_date_ranges.last_date - INTERVAL '1 year' + INTERVAL '1 MONTH'))
