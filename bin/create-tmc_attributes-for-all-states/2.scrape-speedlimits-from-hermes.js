@@ -3,6 +3,7 @@
 const { execSync } = require('child_process');
 const { existsSync, openSync } = require('fs');
 const { join } = require('path');
+const { sync: mkdirpSync } = require('mkdirp');
 
 const { PGPASSWORD } = process.env;
 
@@ -11,10 +12,14 @@ if (!PGPASSWORD) {
   process.exit(1);
 }
 
-const states = require('./states.json');
+const states = require('./s.json');
+
+console.log(typeof states);
 
 const ROOT_DIR = join(__dirname, '../../');
 const DATA_DIR = join(__dirname, '../../data/csv/speedlimits/');
+
+mkdirpSync(DATA_DIR);
 
 states.forEach(state => {
   const outF = join(DATA_DIR, `${state}_avg_speedlimits.csv`);

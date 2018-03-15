@@ -691,6 +691,7 @@ db/drop-root-tmc-attributes:
 db/create-root-tmc-attributes: \
 	db/create-enum-types \
 	db/create-root-npmrds-table \
+	db/create-root-tmc-date-ranges-table \
 	db/create-state-abbreviations-table \
 	db/create-root-occupancy-factor-table \
 	db/create-root-average-speedlimits-table \
@@ -712,9 +713,7 @@ db/create-state-tmc-attributes: db/create-root-tmc-attributes
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tmc_attributes/state/createStateTMCAttributesTable.sql)";\
 	fi
 
-db/load-state-tmc-attributes: \
-	db/create-state-tmc-attributes \
-	db/create-state-tmc-date-ranges-table
+db/load-state-tmc-attributes: db/create-state-tmc-attributes
 
 	@:$(call check_defined,STATE)
 	@ psql -c '\timing' -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tmc_attributes/state/loadStateTMCAttributesTable.sql)";\
@@ -1294,8 +1293,9 @@ db/drop-state-average-speedlimits-table:
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/avg_speedlimits/dropStateAvgSpeedlimitsTable.sql)";\
 	fi
 
-db/create-state-average-speedlimits-table: data/move-speedlimits-csv-to-data-dir db/create-root-average-speedlimits-table db/create-schema-${STATE}
+db/create-state-average-speedlimits-table: db/create-state-abbreviations-table db/create-root-average-speedlimits-table db/create-schema-${STATE}
 	@:$(call check_defined,STATE)
+	@echo ${STATE}
 	@if ! psql -c '\d ${STATE}.avg_speedlimits' > /dev/null 2>&1; then\
 		psql -c "$$(sed 's/__STATE__/${STATE}/g' ./sql/avg_speedlimits/createStateAvgSpeedlimitsTable.sql)";\
 		cat ${_SPEEDLIMITS_DATA_DIR}/${STATE}_avg_speedlimits.csv |\

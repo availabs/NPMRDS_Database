@@ -39,6 +39,7 @@ CREATE TEMPORARY TABLE tmp_tmc_to_mpo
                     sub_tmc_shp.wkb_geometry
                   )
                 )
+              WHERE (abbreviation = '__STATE__')
             ) AS sub_tmc_mpo_intersections
         ) AS sub_ranked_tmc_to_mpo
       WHERE (
@@ -72,15 +73,21 @@ CREATE TEMPORARY TABLE tmp_tmc_to_ua
                 ST_Length(
                   ST_Intersection(
                     sub_tmc_shp.wkb_geometry,
-                    ua_shp.wkb_geometry
+                    sub_ua_shp.wkb_geometry
                   )
                 ) AS intersection_len,
                 state_abbreviations.abbreviation AS state
               FROM inrix_shapefile AS sub_tmc_shp
                 INNER JOIN state_abbreviations
                   ON (sub_tmc_shp.state = state_abbreviations.state_name)
-                INNER JOIN urban_area_boundaries AS ua_shp
-                  ON (sub_tmc_shp.wkb_geometry && ua_shp.wkb_geometry)
+                INNER JOIN urban_area_boundaries AS sub_ua_shp
+                ON (
+                  ST_Intersects(
+                    sub_ua_shp.wkb_geometry,
+                    sub_tmc_shp.wkb_geometry
+                  )
+                )
+              WHERE (abbreviation = '__STATE__')
             ) AS sub_tmc_ua_intersections
         ) AS sub_ranked_tmc_to_ua
       WHERE (
@@ -119,7 +126,7 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
             FROM npmrds
               INNER JOIN tmc_date_ranges USING (tmc)
             WHERE (
-              (state = '__STATE__')
+              (npmrds.state = '__STATE__')
               AND
               ( /* Peak hours */
                    (epoch BETWEEN (12 * 6) AND ((12 * 10) - 1)) /* 6am til 10am */
@@ -137,7 +144,7 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
             FROM npmrds
               INNER JOIN tmc_date_ranges USING (tmc)
             WHERE (
-              (state = '__STATE__')
+              (npmrds.state = '__STATE__')
               AND
               ( /* Free flow hours */
                    (epoch BETWEEN (12 * 0) AND ((12 * 5) - 1)) /* midnight til 5am */
@@ -170,7 +177,7 @@ CREATE TEMPORARY TABLE tmp_directionality_factors
             FROM npmrds
               INNER JOIN tmc_date_ranges USING (tmc)
             WHERE (
-              (state = '__STATE__')
+              (npmrds.state = '__STATE__')
               AND
               (epoch BETWEEN (12 * 6) AND ((12 * 10) - 1))
               AND (travel_time_all_vehicles > 0)
@@ -184,7 +191,7 @@ CREATE TEMPORARY TABLE tmp_directionality_factors
             FROM npmrds
               INNER JOIN tmc_date_ranges USING (tmc)
             WHERE (
-              (state = '__STATE__')
+              (npmrds.state = '__STATE__')
               AND
               (epoch BETWEEN (12 * (3+12)) AND ((12 * (7+12)) - 1))
               AND (travel_time_all_vehicles > 0)

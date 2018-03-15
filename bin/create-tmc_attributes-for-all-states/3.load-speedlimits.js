@@ -3,7 +3,7 @@
 const { execSync } = require('child_process');
 const { join } = require('path');
 
-const states = require('./states.json');
+const states = require('./states.no-nynj.json');
 
 const ROOT_DIR = join(__dirname, '../../');
 
