@@ -13,6 +13,7 @@ SHELL := /bin/bash
 PATH := $(PATH):node_modules/.bin
 
 .DEFAULT_GOAL := echo_conf
+.SUFFIXES:
 
 # Transform STATE to lowercase
 STATE := $(shell echo ${STATE} | tr '[:upper:]' '[:lower:]')
@@ -167,6 +168,33 @@ echo_conf:
 
 #####################################################
 
+verify-state-env-variable-defined:
+	@:$(call check_defined,STATE)
+
+# BEFORE NPMRDS data loaded
+db/bootstrap-state-stage-1: \
+	verify-state-env-variable-defined \
+	db/create-database \
+	db/create-enum-types \
+	db/upload-mpo-boundaries-shapefile \
+	db/create-mpo-boundaries-view \
+	db/upload-urban-area-boundaries-shapefile \
+	db/create-state-abbreviations-table \
+	db/load-fips-codes-table \
+	db/create-state-codes-view \
+	db/create-federal-holidays-table \
+	db/create-traffic-distributions-table \
+	db/create-root-tmc-attributes \
+	db/create-tmcs-within-geography-fn \
+	db/create-state-average-speedlimits-table \
+	db/upload-inrix-shapefile-for-state
+
+# After NPMRDS data loaded
+db/bootstrap-state-stage-2: \
+	db/refresh-state-tmc-date-ranges-table \
+	db/load-state-tmc-attributes
+
+
 db/list-tables:
 	psql -c '\d'
 
@@ -191,6 +219,9 @@ db/clean-schema-%: db/drop-schema-% db/create-schema-%
 
 db/drop-schema-%:
 	@schema=$*; psql -c "DROP SCHEMA IF EXISTS \"$${schema,,}\" CASCADE;"
+
+db/create-schema-:
+	$(error Make sure to define the STATE env variable.)
 
 db/create-schema-%: db/create-database
 	@if [ ! '$*' ]; then\
@@ -312,7 +343,7 @@ db/create-state-tmc-date-ranges-table: db/create-schema-${STATE} db/create-root-
 			)";\
 	fi
 
-db/refresh-state-tmc-date-ranges-table:
+db/refresh-state-tmc-date-ranges-table: db/create-state-tmc-date-ranges-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@psql -c "$$(\
 			sed "\
@@ -330,7 +361,6 @@ db/create-mpo-acronyms-table: db/create-schema-us
 	@if ! psql -c '\d us.mpo_acronyms' > /dev/null 2>&1; then\
 		psql -f ./sql/mpo_acronyms/create_mpo_acronyms.sql;\
 	fi
-
 
 db/drop-mpo-to-ua-table:
 	@if psql -c '\d public.mpo_to_ua' > /dev/null 2>&1; then\
@@ -412,25 +442,6 @@ db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
 		echo "INRIX Shapefile in the database is the latest.";\
 	fi;
 
-# db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
-	# @:$(call check_defined,STATE)
-	# @cd ${_INRIX_SHAPEFILES_DIR} && unzip -o ${STATE}_*.zip;\
-	# VER=$$(ls ${_INRIX_SHAPEFILES_DIR}/${STATE} | sort | tail -1);\
-	# LATEST_FILE_VERSION="inrix_shapefile_$${VER}";\
-	# psql -c "DROP TABLE IF EXISTS \"${STATE}\".$${LATEST_FILE_VERSION};";\
-	# LATEST_PGDB_VERSION=$$(psql -t -c "SELECT table_name FROM information_schema.tables WHERE (table_schema='${STATE}') and (table_name LIKE 'inrix_shapefile_%') ORDER BY table_name DESC LIMIT 1;" | tr -d " \t\n\r";);\
-	# echo "== lpgv: $${LATEST_PGDB_VERSION}";\
-	# if [ -z $${LATEST_PGDB_VERSION} ] || [[ $${LATEST_FILE_VERSION} > $${LATEST_PGDB_VERSION} ]]; then\
-		# psql -c "CREATE TABLE IF NOT EXISTS \"${STATE}\".$${LATEST_FILE_VERSION} (LIKE public.inrix_shapefile);";\
-		# SHP_DIR="${_INRIX_SHAPEFILES_DIR}/${STATE}/$${VER}/";\
-		# ogr2ogr -update -append -t_srs EPSG:4326 -f \
-			# PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-			# "$${SHP_DIR}"  -lco OVERWRITE=YES -lco SCHEMA=${STATE} -lco GEOM_TYPE=geometry -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "$${LATEST_FILE_VERSION}";\
-		# psql -c "ALTER TABLE \"${STATE}\".$${LATEST_FILE_VERSION} INHERIT public.inrix_shapefile;";\
-	# else\
-		# echo "INRIX Shapefile in the database is the latest.";\
-	# fi;
-
 db/upload-county-subdivision-boundaries-shapefile: db/create-database db/create-schema-${STATE}
 	@:$(call check_defined,STATE)
 	@set -e;\
@@ -474,25 +485,6 @@ db/upload-urban-area-boundaries-shapefile: db/create-database db/create-schema-u
 		psql -c "ALTER TABLE us.$${OLDER_VERSION} NO INHERIT public.urban_area_boundaries;";\
 	fi;\
 	psql -c "ALTER TABLE us.urban_area_boundaries_$${LATEST_VERSION} INHERIT public.urban_area_boundaries;";\
-	find $${SHP_DIR} \
-		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
-		-type f -delete;
-
-db/upload-core-based-staticstical-area-boundaries-shapefile: db/create-database db/create-schema-us
-	@set -e;\
-	LATEST_VERSION=$$(ls ${_CORE_BASED_STATISTICAL_AREAS_DIRS_SHAPEFILE_DIR} | sort | tail -1);\
-	SHP_DIR=${_CORE_BASED_STATISTICAL_AREAS_DIRS_SHAPEFILE_DIR}/$${LATEST_VERSION};\
-	pushd $${SHP_DIR} && unzip -o "*.zip" && popd;\
-	psql -c "$$(sed "s/__LATEST_VERSION__/$${LATEST_VERSION}/g" ./sql/core_based_statistical_area_boundaries/drop_core_based_statistical_area_boundaries_version_table.sql)";\
-	ogr2ogr -t_srs EPSG:4326 -f \
-		PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-		"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "core_based_statistical_area_boundaries_$${LATEST_VERSION}";\
-	psql -c "$$(sed "s/__LATEST_VERSION__/$${LATEST_VERSION}/g" ./sql/core_based_statistical_area_boundaries/create_root_core_based_statistical_area_boundaries_table_from_version_table.sql)";\
-	OLDER_VERSION="$$(psql -t -f ./sql/core_based_statistical_area_boundaries/list_core_based_statistical_area_boundaries_child_table.sql | tr -d " \t\n\r")";\
-	if [[ ! -z $${OLDER_VERSION} ]]; then\
-		psql -c "ALTER TABLE us.$${OLDER_VERSION} NO INHERIT public.core_based_statistical_area_boundaries;";\
-	fi;\
-	psql -c "ALTER TABLE us.core_based_statistical_area_boundaries_$${LATEST_VERSION} INHERIT public.core_based_statistical_area_boundaries;";\
 	find $${SHP_DIR} \
 		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
 		-type f -delete;
@@ -658,7 +650,8 @@ db/create-enum-types:\
 	db/create-functional-class-type \
 	db/create-traffic-dist-day-type \
 	db/create-traffic-dist-congestion-level-type \
-	db/create-traffic-dist-directionality-type
+	db/create-traffic-dist-directionality-type \
+	db/create-phed-peak-period-type
 
 db/drop-root-occupancy-factor-table:
 	@if psql -c '\d public.occupancy_factor' > /dev/null 2>&1; then\
@@ -714,7 +707,6 @@ db/create-state-tmc-attributes: db/create-root-tmc-attributes
 	fi
 
 db/load-state-tmc-attributes: db/create-state-tmc-attributes
-
 	@:$(call check_defined,STATE)
 	@ psql -c '\timing' -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tmc_attributes/state/loadStateTMCAttributesTable.sql)";\
 

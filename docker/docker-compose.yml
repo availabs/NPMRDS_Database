@@ -1,8 +1,8 @@
 version: '2'
 services:
-    postgres:
+    db:
       image: mdillon/postgis:9.6
-      container_name: npmrds_api_docker
+      container_name: npmrds_api_db
       ports:
         - "5434:5432"
       volumes:
