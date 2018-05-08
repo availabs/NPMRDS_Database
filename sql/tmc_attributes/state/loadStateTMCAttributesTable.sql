@@ -392,7 +392,7 @@ INSERT INTO "__STATE__".tmc_attributes (
       fips_codes.state_code AS state_code,
       (fips_codes.state_code || fips_codes.county_code) AS county_code,
 
-      (f_system = 1) AS is_interstate,
+      (frc = 1) AS is_interstate,
       ((f_system = 1) OR (f_system = 2)) AS is_controlled_access,
 
       avg_speedlimit,
