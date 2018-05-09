@@ -63,6 +63,7 @@ CREATE TABLE public.tmc_attributes (
    region_name           CHARACTER VARYING,
    congestion_level      traffic_dist_congestion_level_type,
    directionality        traffic_dist_directionality_type,
+   requires_offset       BOOLEAN,
    bounding_box          BOX2D
 ) WITH (fillfactor=100, autovacuum_enabled=false);
 
