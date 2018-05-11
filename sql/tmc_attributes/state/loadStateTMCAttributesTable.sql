@@ -1,110 +1,73 @@
 BEGIN;
 
-/* Using DELETE because TRUNCATE locks the table. */
+-- Using DELETE because TRUNCATE locks the table.
+-- DELETE allows clients to use the old data until the new table is completely rebuilt.
 DELETE FROM "__STATE__".tmc_attributes;
-
 
 CREATE TEMPORARY TABLE tmp_tmc_to_mpo
   ON COMMIT DROP
   AS
-    SELECT
+    SELECT DISTINCT
         tmc,
-        mpo_code,
+        mpo_id AS mpo_code,
         mpo_acrony,
         mpo_name
-      FROM (
-        SELECT
-            ROW_NUMBER() OVER (PARTITION BY tmc ORDER BY intersection_len DESC, mpo_code) AS row_num,
-            sub_tmc_mpo_intersections.*
-          FROM (
-            SELECT
-                tmc,
-                mpo_id AS mpo_code,
-                mpo_acrony,
-                mpo_name,
-                ST_Length(
-                  ST_Intersection(
-                    sub_tmc_shp.wkb_geometry,
-                    sub_mpo_shp.wkb_geometry
-                  )
-                ) AS intersection_len,
-                state_abbreviations.abbreviation AS state
-              FROM inrix_shapefile AS sub_tmc_shp
-                INNER JOIN state_abbreviations
-                  ON (sub_tmc_shp.state = state_abbreviations.state_name)
-                INNER JOIN mpo_boundaries_view AS sub_mpo_shp
-                ON (
-                  ST_Intersects(
-                    sub_mpo_shp.wkb_geometry,
-                    sub_tmc_shp.wkb_geometry
-                  )
-                )
-              WHERE (abbreviation = '__STATE__')
-            ) AS sub_tmc_mpo_intersections
-        ) AS sub_ranked_tmc_to_mpo
-      WHERE (
-        (sub_ranked_tmc_to_mpo.row_num = 1)
-        AND
-        (sub_ranked_tmc_to_mpo.state = '__STATE__')
-      )
+      FROM inrix_shapefile AS sub_tmc_shp
+        INNER JOIN state_abbreviations
+          ON (sub_tmc_shp.state = state_abbreviations.state_name)
+        INNER JOIN mpo_boundaries_view AS sub_mpo_shp
+        ON (
+          ST_Contains(
+            sub_mpo_shp.wkb_geometry,
+            sub_tmc_shp.wkb_geometry
+          )
+        )
+      WHERE (state_abbreviations.abbreviation = '__STATE__')
 ;
 
 ALTER TABLE tmp_tmc_to_mpo ADD PRIMARY KEY (tmc);
-
 
 
 /* TMC to UA */
 CREATE TEMPORARY TABLE tmp_tmc_to_ua
   ON COMMIT DROP
   AS
-    SELECT
+    SELECT DISTINCT
         tmc,
-        ua_code,
-        ua_name
-      FROM (
-        SELECT
-            ROW_NUMBER() OVER (PARTITION BY tmc ORDER BY intersection_len DESC, ua_code) AS row_num,
-            sub_tmc_ua_intersections.*
-          FROM (
-            SELECT
-                tmc,
-                geoid10 AS ua_code,
-                name10 AS ua_name,
-                ST_Length(
-                  ST_Intersection(
-                    sub_tmc_shp.wkb_geometry,
-                    sub_ua_shp.wkb_geometry
-                  )
-                ) AS intersection_len,
-                state_abbreviations.abbreviation AS state
-              FROM inrix_shapefile AS sub_tmc_shp
-                INNER JOIN state_abbreviations
-                  ON (sub_tmc_shp.state = state_abbreviations.state_name)
-                INNER JOIN urban_area_boundaries AS sub_ua_shp
-                ON (
-                  ST_Intersects(
-                    sub_ua_shp.wkb_geometry,
-                    sub_tmc_shp.wkb_geometry
-                  )
-                )
-              WHERE (abbreviation = '__STATE__')
-            ) AS sub_tmc_ua_intersections
-        ) AS sub_ranked_tmc_to_ua
-      WHERE (
-        (sub_ranked_tmc_to_ua.row_num = 1)
-        AND
-        (sub_ranked_tmc_to_ua.state = '__STATE__')
-      )
+        geoid10 AS ua_code,
+        name10 AS ua_name
+      FROM inrix_shapefile AS sub_tmc_shp
+        INNER JOIN state_abbreviations
+          ON (sub_tmc_shp.state = state_abbreviations.state_name)
+        INNER JOIN urban_area_boundaries AS sub_ua_shp
+        ON (
+          ST_Contains(
+            sub_ua_shp.wkb_geometry,
+            sub_tmc_shp.wkb_geometry
+          )
+          -- Extract the list of states from the end of the UA name,
+          --   and make sure the current state is in that list
+          AND 
+          (
+            SPLIT_PART(
+              LOWER(name10),  -- to lower case
+              ',',            -- split on the ','
+              2               -- return the 2nd part
+            )
+            LIKE
+           '%__STATE__%'
+          )
+        )
+      WHERE (abbreviation = '__STATE__')
 ;
 
 ALTER TABLE tmp_tmc_to_ua ADD PRIMARY KEY (tmc);
 
 
-
 CREATE TEMPORARY TABLE tmp_speed_reduction_factor
   ON COMMIT DROP
   AS
-    SELECT
+    SELECT DISTINCT
         tmc,
 
         avg_free_flow_travel_time,
@@ -164,7 +127,7 @@ ALTER TABLE tmp_speed_reduction_factor ADD PRIMARY KEY (tmc);
 CREATE TEMPORARY TABLE tmp_directionality_factors
   ON COMMIT DROP
   AS
-    SELECT
+    SELECT DISTINCT
         tmc,
         avg_am_peak_travel_time, 
         avg_pm_peak_travel_time,
@@ -207,7 +170,7 @@ ALTER TABLE tmp_directionality_factors ADD PRIMARY KEY (tmc);
 CREATE TEMPORARY TABLE tmp_traffic_distribution_factors
   ON COMMIT DROP
   AS
-    SELECT 
+    SELECT DISTINCT
         tmc,
         CASE functional_class
           WHEN 'FREEWAY' THEN
@@ -259,6 +222,56 @@ CREATE TEMPORARY TABLE tmp_bounding_boxes
 
 ALTER TABLE tmp_bounding_boxes ADD PRIMARY KEY (tmc);
 
+CREATE TEMPORARY TABLE tmp_tmcs_buffered
+  ON COMMIT DROP
+  AS
+    SELECT 
+        tmc,
+        GEOMETRY(
+          ST_Buffer(
+            GEOGRAPHY(
+              wkb_geometry
+            ),
+            1, --meters
+            'endcap=flat join=round'
+          )
+        ) AS line_buf,
+        tmclinear,
+        direction
+      FROM inrix_shapefile AS shp
+        INNER JOIN state_abbreviations AS abbr
+        ON (shp.state = abbr.state_name)
+      WHERE (abbr.abbreviation = '__STATE__')
+;
+
+CREATE INDEX tmp_tmcs_buffered_gix ON tmp_tmcs_buffered USING GIST (line_buf);
+CLUSTER tmp_tmcs_buffered USING tmp_tmcs_buffered_gix;
+
+
+CREATE TEMPORARY TABLE tmp_tmcs_requiring_offset
+  ON COMMIT DROP
+  AS
+    SELECT DISTINCT
+        a.tmc
+      FROM inrix_shapefile AS a
+        INNER JOIN tmp_tmcs_buffered AS b ON (
+          (a.tmclinear = b.tmclinear)
+          AND
+          (ST_Contains(a.wkb_geometry, b.line_buf))
+          AND
+          (
+            (a.direction = 'E' and b.direction = 'W')
+            OR
+            (a.direction = 'W' and b.direction = 'E') 
+            OR 
+            (a.direction = 'N' and b.direction = 'S')
+            OR
+            (a.direction = 'S' and b.direction = 'N')
+          )
+        )
+;
+
+ALTER TABLE tmp_tmcs_requiring_offset ADD PRIMARY KEY (tmc);
 
 INSERT INTO "__STATE__".tmc_attributes (
     tmc,
@@ -323,6 +336,7 @@ INSERT INTO "__STATE__".tmc_attributes (
     region_name,
     congestion_level,
     directionality,
+    requires_offset,
     bounding_box
   ) 
   SELECT
@@ -414,7 +428,7 @@ INSERT INTO "__STATE__".tmc_attributes (
           ) -- cars
           + (10.25 * inrix_shapefile.aadt_singl) -- buses
           + (1.11 * inrix_shapefile.aadt_combi) -- combination trucks
-        ) / inrix_shapefile.aadt
+        ) / NULLIF(inrix_shapefile.aadt, 0)
       ) AS avg_vehicle_occupancy,
 
       tmp_tmc_to_mpo.mpo_code,
@@ -430,6 +444,8 @@ INSERT INTO "__STATE__".tmc_attributes (
       traffic_dist_factors.congestion_level,
       traffic_dist_factors.directionality,
 
+      (inrix_shapefile.tmc IN (SELECT tmc FROM tmp_tmcs_requiring_offset)) AS requires_offset,
+
       tmp_bounding_boxes.bounding_box AS bounding_box
 
   FROM inrix_shapefile
@@ -441,7 +457,7 @@ INSERT INTO "__STATE__".tmc_attributes (
         AND (inrix_shapefile.county = occupancy_factor.geography_level_name)
         AND (occupancy_factor.geography_level = 'COUNTY')
       )
-    LEFT OUTER JOIN avg_speedlimits
+    LEFT OUTER JOIN "__STATE__".avg_speedlimits
       USING (tmc)
     LEFT OUTER JOIN tmp_tmc_to_mpo
       USING (tmc)
