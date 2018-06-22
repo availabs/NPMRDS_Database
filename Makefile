@@ -711,6 +711,13 @@ db/load-state-tmc-attributes: db/create-state-tmc-attributes
 	@ psql -c '\timing' -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tmc_attributes/state/loadStateTMCAttributesTable.sql)";\
 
 
+db/drop-tmc-level-pm3-all-tables-for-version-fn:
+	@psql -f './sql/tmc_level_pm3_all_tables_for_version_fn/drop_tmc_level_pm3_all_tables_for_version_fn.sql'
+
+db/create-tmc-level-pm3-all-tables-for-version-fn: db/create-npmrds-version-type
+	@psql -f './sql/tmc_level_pm3_all_tables_for_version_fn/create_tmc_level_pm3_all_tables_for_version_fn.sql'
+
+
 db/drop-tmcs-within-geography-fn:
 	@psql -f './sql/tmcs_within_geography_fn/drop_tmcs_within_geography_fn.sql'
 
@@ -863,6 +870,16 @@ db/drop-tmcs-in-final-rule-measure-rank-range-for-geography-fn:
 db/create-tmcs-in-final-rule-measure-rank-range-for-geography-fn:
 	@psql -f './sql/tmcs_in_final_rule_measure_rank_range_for_geography_fn/create_tmcs_in_final_rule_measure_rank_range_for_geography_fn.sql'
 
+
+db/drop-npmrds-version-type:
+	@if [[ $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'npmrds_version_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f './sql/npmrds_version_type/drop_npmrds_version_type.sql';\
+	fi
+
+db/create-npmrds-version-type:
+	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'npmrds_version_type';" | tr -d " \t\n\r";) ]]; then\
+		psql -f './sql/npmrds_version_type/create_npmrds_version_type.sql';\
+	fi
 
 db/drop-tmc-ranking-type:
 	@if [[ $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'tmc_ranking_type';" | tr -d " \t\n\r";) ]]; then\
