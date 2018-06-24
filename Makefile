@@ -718,6 +718,27 @@ db/create-tmc-level-pm3-all-tables-for-version-fn: db/create-npmrds-version-type
 	@psql -f './sql/tmc_level_pm3_all_tables_for_version_fn/create_tmc_level_pm3_all_tables_for_version_fn.sql'
 
 
+db/drop-geo-level-pm3-all-tables-for-version-fn:
+	@psql -f './sql/geo_level_pm3_all_tables_for_version_fn/drop_geo_level_pm3_all_tables_for_version_fn.sql'
+
+db/create-geo-level-pm3-all-tables-for-version-fn: db/create-npmrds-version-type
+	@psql -f './sql/geo_level_pm3_all_tables_for_version_fn/create_geo_level_pm3_all_tables_for_version_fn.sql'
+
+
+db/drop-tmc-level-pm3-all-active-leaf-tables-for-version-fn:
+	@psql -f './sql/tmc_level_pm3_all_active_leaf_tables_for_version_fn/drop_tmc_level_pm3_all_active_leaf_tables_for_version_fn.sql'
+
+db/create-tmc-level-pm3-all-active-leaf-tables-for-version-fn: db/create-npmrds-version-type
+	@psql -f './sql/tmc_level_pm3_all_active_leaf_tables_for_version_fn/create_tmc_level_pm3_all_active_leaf_tables_for_version_fn.sql'
+
+
+db/drop-geo-level-pm3-all-active-leaf-tables-for-version-fn:
+	@psql -f './sql/geo_level_pm3_all_active_leaf_tables_for_version_fn/drop_geo_level_pm3_all_active_leaf_tables_for_version_fn.sql'
+
+db/create-geo-level-pm3-all-active-leaf-tables-for-version-fn: db/create-npmrds-version-type
+	@psql -f './sql/geo_level_pm3_all_active_leaf_tables_for_version_fn/create_geo_level_pm3_all_active_leaf_tables_for_version_fn.sql'
+
+
 db/drop-tmcs-within-geography-fn:
 	@psql -f './sql/tmcs_within_geography_fn/drop_tmcs_within_geography_fn.sql'
 
