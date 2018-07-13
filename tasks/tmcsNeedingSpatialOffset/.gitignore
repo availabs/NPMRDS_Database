@@ -1,0 +1,7 @@
+*.json
+*.geojson
+merged/
+geojson/
+*.tar
+*.tar.gz
+*.bak
