@@ -5,7 +5,7 @@ set -a
 
 cd "$( dirname "${BASH_SOURCE[0]}")"
 
-source ../../config/postgres.env.local
+source ../../config/postgres.env
 
 mkdir -p ./geojson
 
@@ -30,7 +30,7 @@ while read s; do
         -v STATE="'${s}'" \
         -v DIRECTIONS="'${dir}'" \
         -v REQUIRES_OFFSET="${reqoffset}" \
-        -f ./createMapBoxGeoJSON.sql \
+        -f ./createMapBoxGeoJSON.2.sql \
       | gzip > "./geojson/${s}.${DNAME}.${ROFF}.geojson.gz"
     done
   done

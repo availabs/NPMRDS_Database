@@ -158,8 +158,10 @@ SELECT
             INNER JOIN (
               SELECT
                   tmc,
-                  requires_offset
+                  tmp_lines.requires_offset,
+                  is_interstate
                 FROM tmp_lines
+                  INNER JOIN tmc_attributes USING (tmc)
             ) As lp 
             ON (
               (lg.tmc = lp.tmc)
