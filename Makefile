@@ -145,7 +145,7 @@ endef
 # Read .env (squelching error messages if one doesn't exist) and pass each
 # environment pair to EXPAND\_EXPORTS to make it available to commands in
 # targets.
-$(foreach a,$(shell cat ./config/postgres.env | sed -e '/\s*#.*$$/d' -e '/^\s*$$/d' 2> /dev/null),$(eval $(call EXPAND_EXPORTS,$(a))))
+$(foreach a,$(shell if [ "$${PG_ENV}" = "production" ]; then cat ./config/postgres.env.prod; else cat ./config/postgres.env.dev; fi | sed -e '/\s*#.*$$/d' -e '/^\s*$$/d' 2> /dev/null),$(eval $(call EXPAND_EXPORTS,$(a))))
 
 # https://stackoverflow.com/a/10858332/3970755
 # Check that given variables are set and all have non-empty values,
@@ -154,6 +154,8 @@ $(foreach a,$(shell cat ./config/postgres.env | sed -e '/\s*#.*$$/d' -e '/^\s*$$
 #   1. Variable name(s) to test.
 #   2. (optional) Error message to print.
 #
+# CONSIDER: This code was breaking EXPORT_ALL_VARIABLES. Is this a better solution:
+#   https://stackoverflow.com/questions/4728810/makefile-variable-as-prerequisite/4731504#4731504
 check_defined = $(strip $(foreach 1,$1, $(call __check_defined,$1,$(strip $(value 2)))))
 
 __check_defined = $(if $(value $1),, $(error Undefined $1$(if $2, ($2))$(if $(value @), \ required by target `$@')))
@@ -230,7 +232,8 @@ db/create-schema-%: db/create-database
 	else\
 		schema=$*;\
 		schema=$${schema,,};\
-		if [[ ! $$(psql -t -c "\dn $${schema}") ]]; then\
+		if ! psql -t -c "\dn $${schema}" | sed '/^$/d' > /dev/null 2>&1; then\
+			echo "=== $$schema ===";\
 			psql -c "CREATE SCHEMA IF NOT EXISTS \"$${schema}\";";\
 		fi;\
 	fi
@@ -420,27 +423,29 @@ db/drop-inrix-shapefile:
 		psql -f ./sql/inrix_shapefile/dropInrixShapefileTable.sql;\
 	fi
 
-
-db/upload-inrix-shapefile-for-state: db/create-schema-${STATE}
+db/create-root-inrix-shapefile-table:
 	@:$(call check_defined,STATE)
-	@cd ${_INRIX_SHAPEFILES_DIR} && unzip -o ${STATE}_*.zip;\
-	VER=$$(ls ${_INRIX_SHAPEFILES_DIR}/${STATE} | sort | tail -1);\
-	LATEST_FILE_VERSION="inrix_shapefile_$${VER}";\
-	LATEST_PGDB_VERSION=$$(psql -t -c "SELECT table_name FROM information_schema.tables WHERE (table_schema='${STATE}') and (table_name LIKE 'inrix_shapefile_%') ORDER BY table_name DESC LIMIT 1;" | tr -d " \t\n\r";);\
-	echo "== lpgv: $${LATEST_PGDB_VERSION}";\
-	if [ -z $${LATEST_PGDB_VERSION} ] || [[ $${LATEST_FILE_VERSION} > $${LATEST_PGDB_VERSION} ]]; then\
-		if [ $${LATEST_PGDB_VERSION} ]; then\
-			psql -c "DROP TABLE IF EXISTS \"${STATE}\".$${LATEST_PGDB_VERSION} CASCADE;";\
-		fi;\
-		SHP_DIR="${_INRIX_SHAPEFILES_DIR}/${STATE}/$${VER}/";\
-		ogr2ogr -t_srs EPSG:4326 -f \
-			PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-			"$${SHP_DIR}" -lco SCHEMA=${STATE} -lco GEOM_TYPE=geometry -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "$${LATEST_FILE_VERSION}";\
-		psql -c "CREATE TABLE IF NOT EXISTS public.inrix_shapefile (LIKE \"${STATE}\".$${LATEST_FILE_VERSION} EXCLUDING ALL);";\
-		psql -c "ALTER TABLE \"${STATE}\".$${LATEST_FILE_VERSION} INHERIT public.inrix_shapefile;";\
-	else\
-		echo "INRIX Shapefile in the database is the latest.";\
-	fi;
+	@if ! psql -c '\d public.inrix_shapefile' > /dev/null 2>&1; then\
+		psql -f ./sql/inrix_shapefile/createRootInrixShapefileTable.sql;\
+	fi
+
+db/upload-inrix-shapefile-for-state: db/create-schema-${STATE} db/create-root-inrix-shapefile-table
+	@:$(call check_defined,STATE)
+	@TMP_DIR=$$(mktemp -d);\
+	echo ${_INRIX_SHAPEFILES_DIR};\
+	cd ${_INRIX_SHAPEFILES_DIR} && unzip -o ${STATE}_*.zip -d $${TMP_DIR};\
+	SHP_VERSION_DATE="$$(\
+	find "$${TMP_DIR}" -mindepth 1 -type d |\
+		grep -e '[0-9]\{8\}' |\
+		sort |\
+		tail -1 |\
+		sed 's/.*\///g' \
+	)";\
+	export STATE;\
+	export PG_ENV;\
+	${_MKFILE_DIR}/make_targets/db/upload-inrix-shapefile-for-state.sh "$${TMP_DIR}/${STATE}/$${SHP_VERSION_DATE}";\
+	rm -rf $$TMP_DIR
+
 
 db/upload-county-subdivision-boundaries-shapefile: db/create-database db/create-schema-${STATE}
 	@:$(call check_defined,STATE)
@@ -1579,20 +1584,19 @@ data/move-speedlimits-csv-to-data-dir: ${_SPEEDLIMITS_DATA_DIR} preprocessing/cr
 	fi
 	
 	
-
 preprocessing:
 	mkdir -p ${_PREPROCESSING_DIR}
 
 preprocessing/partition-inrix-shapefile:
 	source ${_BIN_DIR}/stateAbbreviations.sh;\
-	SHP_ZIP=${_INRIX_SHAPEFILE_PREPROCESSING_DIR}/USA.zip;\
+	US_SHP_ZIP=${_INRIX_SHAPEFILE_PREPROCESSING_DIR}/USA.zip;\
 	STATES_DIR=${_INRIX_SHAPEFILE_PREPROCESSING_DIR}/states;\
-	if [ ! -f $${SHP_ZIP} ]; then\
-		echo 'ERROR: The INRIX-Shapefile is expected to be here: $${SHP_ZIP}';\
+	if [ ! -f $${US_SHP_ZIP} ]; then\
+		echo 'ERROR: The INRIX-Shapefile is expected to be here: $${US_SHP_ZIP}';\
 	else\
 		rm -rf $${STATES_DIR};\
 		mkdir -p $${STATES_DIR};\
-		unzip -o $${SHP_ZIP} -d $${STATES_DIR};\
+		unzip -o $${US_SHP_ZIP} -d $${STATES_DIR};\
 		pushd $${STATES_DIR};\
 		for f in *; do \
 			state="$${f/\.*/}";\

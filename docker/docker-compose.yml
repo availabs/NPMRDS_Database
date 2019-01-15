@@ -3,6 +3,7 @@ services:
     db:
       image: mdillon/postgis:9.6
       container_name: npmrds_api_db
+      network_mode: "host"
       ports:
         - "5434:5432"
       volumes:
