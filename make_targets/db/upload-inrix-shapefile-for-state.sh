@@ -18,7 +18,7 @@ if [[ -z "$DATA_DIR" ]]; then
   exit 1
 fi
 
-DATA_FILE_PATH="$(realpath "$DATA_FILE_PATH")"
+DATA_DIR="$(realpath "$DATA_DIR")"
 
 pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 
