@@ -1,0 +1,55 @@
+#!/bin/bash
+
+set -e
+set -a
+
+if [[ -z "$STATE" ]]; then
+  echo "ERROR: You must specify the STATE as an ENV variable."
+  exit 1
+fi
+
+if [[ -z "$YEAR" ]]; then
+  echo "ERROR: You must specify the YEAR as an ENV variable."
+  exit 1
+fi
+
+if [[ -z "$MONTH" ]]; then
+  echo "ERROR: You must specify the YEAR as an ENV variable."
+  exit 1
+fi
+
+# To lowercase
+STATE="${STATE,,}"
+
+DATA_FILE_PATH=${1:-$DATA_FILE_PATH}
+
+if [[ -z "$DATA_FILE_PATH" ]]; then
+  echo "ERROR: You must specify the DATA_FILE_PATH either as the 1st cli argument or as an ENV variable."
+  exit 1
+fi
+
+DATA_FILE_PATH="$(realpath "$DATA_FILE_PATH")"
+
+if ! [ -f "${DATA_FILE_PATH}" ]; then
+  echo "ERROR: DATA_FILE_PATH ${DATA_FILE_PATH} directory found."
+  exit 1
+fi
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+if [ "$PG_ENV" = "production" ]; then
+	. ../../config/postgres.env.prod
+else
+	. ../../config/postgres.env.dev
+fi
+
+FULL_TABLE_NAME="\"${STATE}\".npmrds_y${YEAR}m${MONTH}"
+
+COLS="$(zcat "$DATA_FILE_PATH" | head -1)"
+
+SQL="COPY $FULL_TABLE_NAME ($COLS) FROM STDIN CSV HEADER;"
+
+zcat "$DATA_FILE_PATH" |
+  psql -c "$SQL" 
+
+popd >/dev/null

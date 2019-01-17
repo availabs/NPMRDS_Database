@@ -36,7 +36,7 @@ _ETL_DIR := etl
 _ETL_SORTED_DIR := ${_ETL_DIR}/sorted
 _ETL_TRANSFORMED_DIR := ${_ETL_DIR}/transformed
 
-_FIPS_CODES_CSV_PATH := ${_DATA_DIR}/csv/fip_codes/us/fips_codes.us.csv.gz
+_FIPS_CODES_CSVS_DIR := ${_DATA_DIR}/csv/fip_codes/
 
 _MPOS_DIRS_SHAPEFILE_DIR := ${_DATA_DIR}/shapefiles/mpo_boundaries/us
 
@@ -223,7 +223,7 @@ db/drop-schema-%:
 	@schema=$*; psql -c "DROP SCHEMA IF EXISTS \"$${schema,,}\" CASCADE;"
 
 db/create-schema-:
-	$(error Make sure to define the STATE env variable.)
+	$(error Make sure to define the STATE or COUNTRY env variable.)
 
 db/create-schema-%: db/create-database
 	@if [ ! '$*' ]; then\
@@ -303,7 +303,12 @@ db/upload-npmrds-state-yrmo: db/drop-npmrds-state-yrmo-table db/create-npmrds-st
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
 	@if [[ ! $$(psql -t -c 'SELECT * FROM "${STATE}".npmrds_y${YEAR}m${MONTH} LIMIT 1;' | tr -d " \t\n\r";) ]]; then\
-		./bin/projectNPMRDSTableColumns.sh < ${_ETL_TRANSFORMED_DIR}/${STATE}/${YEAR}/${STATE}_y${YEAR}m${MONTH}.transformed.csv | psql -c 'COPY "${STATE}".npmrds_y${YEAR}m${MONTH} (tmc,date,epoch,travel_time_all_vehicles,travel_time_passenger_vehicles,travel_time_freight_trucks) FROM STDIN CSV HEADER;';\
+		export DATA_FILE_PATH="${_ETL_TRANSFORMED_DIR}/${STATE}/here-schema/${STATE}.${YEAR}${MONTH}.here-schema.sorted.csv.gz";\
+		export STATE;\
+		export YEAR;\
+		export MONTH;\
+		export PG_ENV;\
+		./make_targets/db/upload-npmrds-state-yrmo.sh;\
 	fi
 
 
@@ -441,7 +446,7 @@ db/upload-inrix-shapefile-for-state: db/create-schema-${STATE} db/create-root-in
 		tail -1 |\
 		sed 's/.*\///g' \
 	)";\
-	export STATE;\
+	export SCHEMA=${STATE};\
 	export PG_ENV;\
 	${_MKFILE_DIR}/make_targets/db/upload-inrix-shapefile-for-state.sh "$${TMP_DIR}/${STATE}/$${SHP_VERSION_DATE}";\
 	rm -rf $$TMP_DIR
@@ -1490,24 +1495,38 @@ db/load-year-state-populations-table: db/create-year-state-populations-table
 	fi
 
 
-db/drop-fips-codes-table:
+db/drop-root-fips-codes-table:
 	@if psql -c '\d public.fip_codes' > /dev/null 2>&1; then\
-		psql -f './sql/fip_codes/drop_fip_codes_table.sql';\
+		psql -f './sql/fips_codes/dropRootFipsCodesTable.sql';\
 	fi
 
-db/create-fips-codes-table: db/create-database
+db/create-root-fips-codes-table: db/create-database
 	@if ! psql -c '\d public.fips_codes' > /dev/null 2>&1; then\
-		psql -f './sql/fips_codes/create_fips_codes_table.sql';\
+		psql -f './sql/fips_codes/createRootFipsCodesTable.sql';\
 	fi
 
-db/load-fips-codes-table: db/create-fips-codes-table
+db/drop-country-fips-codes-table:
+	@:$(call check_defined,COUNTRY)
+	@if psql -c "\d \"${COUNTRY}\".fip_codes" > /dev/null 2>&1; then\
+		psql -f './sql/fips_codes/dropCountryFipsCodesTable.sql';\
+	fi
+
+db/create-country-fips-codes-table: db/create-root-fips-codes-table  db/create-schema-${COUNTRY}
+	@:$(call check_defined,COUNTRY)
+	@if ! psql -c "\d \"${COUNTRY}\".fip_codes" > /dev/null 2>&1; then\
+		psql -v COUNTRY="$${COUNTRY}" -f './sql/fips_codes/createCountryFipsCodesTable.sql';\
+	fi
+
+db/load-country-fips-codes-table: db/create-country-fips-codes-table
+	@:$(call check_defined,COUNTRY)
 	@set -e;\
-	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM public.fips_codes;" | tr -d " \t\n\r";);\
+	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM \"${COUNTRY}\".fips_codes;" | tr -d " \t\n\r";);\
 	if [ $${COUNT} -eq 0 ]; then\
-		gunzip -c '${_FIPS_CODES_CSV_PATH}' | \
+		FIPS_CODES_CSV_PATH="${_FIPS_CODES_CSVS_DIR}${COUNTRY}/fips_codes.${COUNTRY}.csv.gz";\
+		gunzip -c "$${FIPS_CODES_CSV_PATH}" | \
 			iconv -f iso-8859-1 -t utf-8 - |\
-			psql -c "$$(cat ./sql/fips_codes/load_fips_codes_table.sql)";\
-		psql -f ./sql/fips_codes/finish_fips_codes_table.sql;\
+			psql -c "$$(sed 's/__COUNTRY__/${COUNTRY}/g;' ./sql/fips_codes/loadCountryFipsCodesTable.sql)" ;\
+		psql -v COUNTRY="${COUNTRY}" -f ./sql/fips_codes/finishCountryFipsCodesTable.sql;\
 	fi
 
 db/drop-state-codes-view:
@@ -1515,7 +1534,7 @@ db/drop-state-codes-view:
 		psql -f './sql/state_codes/drop_state_codes_view.sql';\
 	fi
 
-db/create-state-codes-view: db/create-fips-codes-table
+db/create-state-codes-view: db/create-root-fips-codes-table
 	@if ! psql -c '\d public.state_codes' > /dev/null 2>&1; then\
 		psql -f './sql/state_codes/create_state_codes_view.sql';\
 	fi

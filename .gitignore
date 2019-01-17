@@ -1,5 +1,5 @@
 data*
 etl*
-preprocessing*
+./preprocessing*
 node_modules/
 package-lock.json

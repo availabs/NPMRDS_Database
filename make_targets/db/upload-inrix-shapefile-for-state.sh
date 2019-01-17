@@ -18,6 +18,8 @@ if [[ -z "$DATA_DIR" ]]; then
   exit 1
 fi
 
+DATA_FILE_PATH="$(realpath "$DATA_FILE_PATH")"
+
 pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 
 if [ "$PG_ENV" = "production" ]; then
