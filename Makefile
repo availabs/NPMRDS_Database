@@ -716,7 +716,7 @@ db/create-state-tmc-attributes: db/create-root-tmc-attributes
 		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tmc_attributes/state/createStateTMCAttributesTable.sql)";\
 	fi
 
-db/load-state-tmc-attributes: db/create-state-tmc-attributes
+db/load-state-tmc-attributes: db/create-state-average-speedlimits-table db/create-state-tmc-attributes
 	@:$(call check_defined,STATE)
 	@ psql -c '\timing' -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/tmc_attributes/state/loadStateTMCAttributesTable.sql)";\
 
@@ -1338,6 +1338,13 @@ db/create-state-average-speedlimits-table: db/create-state-abbreviations-table d
 	@echo ${STATE}
 	@if ! psql -c '\d ${STATE}.avg_speedlimits' > /dev/null 2>&1; then\
 		psql -c "$$(sed 's/__STATE__/${STATE}/g' ./sql/avg_speedlimits/createStateAvgSpeedlimitsTable.sql)";\
+	fi
+
+db/load-state-average-speedlimits-table: db/create-state-average-speedlimits-table
+	@:$(call check_defined,STATE)
+	@echo ${STATE}
+	@if psql -c '\d ${STATE}.avg_speedlimits' > /dev/null 2>&1; then\
+		psql -c 'TRUNCATE ${STATE}.avg_speedlimits';\
 		cat ${_SPEEDLIMITS_DATA_DIR}/${STATE}_avg_speedlimits.csv |\
 			psql -c "$$(sed 's/__STATE__/${STATE}/g' ./sql/avg_speedlimits/loadStateSpeedlimits.sql)";\
 		psql -c "$$(sed 's/__STATE__/${STATE}/g' ./sql/avg_speedlimits/finishStateAvgSpeedlimitsTable.sql)";\

@@ -113,8 +113,8 @@ if [ -z "${LATEST_PGDB_VERSION}" ] || [[ "${LATEST_FILE_VERSION}" > "${LATEST_PG
 		-c 'BEGIN;' \
 		-c "$UNINHERIT_OLD" \
     -c "ALTER TABLE ${FULL_TABLE_NAME} INHERIT public.inrix_shapefile;" \
-    -c "CREATE INDEX ${LATEST_FILE_VERSION}_gix ON ${FULL_TABLE_NAME} USING GIST (wkb_geometry);" \
-    -c "CLUSTER ${FULL_TABLE_NAME} USING ${LATEST_FILE_VERSION}_gix;" \
+    -c "CREATE INDEX ${LATEST_FILE_VERSION}_wkb_geometry_geom_idx ON ${FULL_TABLE_NAME} USING GIST (wkb_geometry);" \
+    -c "CLUSTER ${FULL_TABLE_NAME} USING ${LATEST_FILE_VERSION}_wkb_geometry_geom_idx;" \
 		-c 'COMMIT;' \
     -c "VACUUM ANALYZE ${FULL_TABLE_NAME};" \
 

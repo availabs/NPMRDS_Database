@@ -95,7 +95,7 @@ INSERT INTO cn.state_abbreviations (state_name, abbreviation)
     ('Nunavut', 'nu'),
     ('Ontario', 'on'),
     ('Prince Edward Island', 'pe'),
-    ('Quebec', 'qc'),
+    ('Québec', 'qc'),
     ('Saskatchewan', 'sk'),
     ('Yukon', 'yt')
 ;

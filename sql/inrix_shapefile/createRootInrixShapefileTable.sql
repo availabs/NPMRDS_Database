@@ -1,6 +1,6 @@
 CREATE TABLE inrix_shapefile (
   ogc_fid      INTEGER,
-  tmc          CHARACTER VARYING,
+  tmc          CHARACTER VARYING PRIMARY KEY,
   tmctype      CHARACTER VARYING,
   roadnumber   CHARACTER VARYING,
   roadname     CHARACTER VARYING,
@@ -36,5 +36,5 @@ CREATE TABLE inrix_shapefile (
   strhnt_pct   BIGINT,
   truck        BIGINT,
   wkb_geometry GEOMETRY(MULTILINESTRING,4326)
-) ;
+) WITH (fillfactor=100);
 
