@@ -3,10 +3,13 @@
 set -e
 set -a
 
-if [[ -z "$STATE" ]]; then
-  echo "ERROR: You must specify the STATE as an ENV variable."
+if [[ -z "$SCHEMA" ]]; then
+  echo "ERROR: You must specify the SCHEMA as an ENV variable."
   exit 1
 fi
+
+# To lowercase
+SCHEMA="${SCHEMA,,}"
 
 DATA_DIR=${1:-$DATA_DIR}
 
@@ -22,6 +25,8 @@ if [ "$PG_ENV" = "production" ]; then
 else
 	. ../../config/postgres.env.dev
 fi
+
+. ../../bin/stateAbbreviations.sh;
 
 echo "PGHOST: $PGHOST"
 echo "PGPORT: $PGPORT"
@@ -39,13 +44,18 @@ if [ -z "${SHP_VERSION_DATE}" ]; then SHP_VERSION_DATE='00000000'; fi;
 
 LATEST_FILE_VERSION="inrix_shapefile_${SHP_VERSION_DATE}"
 
+FULL_TABLE_NAME="\"${SCHEMA}\".${LATEST_FILE_VERSION}"
+
+echo "FULL_TABLE_NAME: $FULL_TABLE_NAME"
+
+
 LATEST_PGDB_VERSION=$(
   psql -t \
     -c "
       SELECT table_name
         FROM information_schema.tables
         WHERE (
-          (table_schema='${STATE}')
+          (table_schema='${SCHEMA}')
           AND
           (table_name LIKE 'inrix_shapefile_%')
         )
@@ -59,18 +69,21 @@ if [ -z "${LATEST_PGDB_VERSION}" ] || [[ "${LATEST_FILE_VERSION}" > "${LATEST_PG
 
   psql -c "
 		BEGIN;
-    DROP TABLE IF EXISTS \"${STATE}\".${LATEST_FILE_VERSION};
-    CREATE TABLE IF NOT EXISTS \"${STATE}\".${LATEST_FILE_VERSION} ()
-			INHERITS (public.inrix_shapefile);
-		ALTER TABLE \"${STATE}\".${LATEST_FILE_VERSION}
+    DROP TABLE IF EXISTS ${FULL_TABLE_NAME};
+    CREATE TABLE IF NOT EXISTS ${FULL_TABLE_NAME} (
+      LIKE public.inrix_shapefile INCLUDING ALL
+    );
+		ALTER TABLE ${FULL_TABLE_NAME}
 			ALTER COLUMN ogc_fid DROP NOT NULL;
 		COMMIT;
   "
 
   ogr2ogr -append -update -t_srs EPSG:4326 -f \
     PostgreSQL "PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}" \
-    "$PWD" -nlt PROMOTE_TO_MULTI -nln "${STATE}.${LATEST_FILE_VERSION}";
+    "$PWD" -nlt PROMOTE_TO_MULTI -nln "${SCHEMA}.${LATEST_FILE_VERSION}";
 
+  # Which table for this schema currently inherits public.inrix_shapefile
+  #   We need this info to uninherit that table.
 	CUR_DEFAULT="$(psql -t -c "
 		SELECT c.relname
 			FROM pg_inherits 
@@ -81,20 +94,60 @@ if [ -z "${LATEST_PGDB_VERSION}" ] || [[ "${LATEST_FILE_VERSION}" > "${LATEST_PG
 			WHERE (
 				(p.relname = 'inrix_shapefile')
 				AND
-				(cn.nspname = '${STATE}')
-				AND
 				(c.relname <> '${LATEST_FILE_VERSION}')
+				AND
+				(pn.nspname = 'public')
+				AND
+				(cn.nspname = '${SCHEMA}')
 			);
 	" | sed '/^$/d; s/^\s*//g')"
 
+  # If 
 	if ! [[ -z "$CUR_DEFAULT" ]]; then
-		UNINHERIT_OLD="ALTER TABLE \"${STATE}\".${CUR_DEFAULT} NO INHERIT public.inrix_shapefile;"
+		UNINHERIT_OLD="ALTER TABLE \"${SCHEMA}\".${CUR_DEFAULT} NO INHERIT public.inrix_shapefile;"
 	fi
 
 	psql \
 		-c 'BEGIN;' \
 		-c "$UNINHERIT_OLD" \
-		-c 'COMMIT;'
+    -c "ALTER TABLE ${FULL_TABLE_NAME} INHERIT public.inrix_shapefile;" \
+    -c "CREATE INDEX ${LATEST_FILE_VERSION}_gix ON ${FULL_TABLE_NAME} USING GIST (wkb_geometry);" \
+    -c "CLUSTER ${FULL_TABLE_NAME} USING ${LATEST_FILE_VERSION}_gix;" \
+		-c 'COMMIT;' \
+    -c "VACUUM ANALYZE ${FULL_TABLE_NAME};" \
+
+	STATES_IN_SHAPEFILE="$(psql -t -c "
+		SELECT DISTINCT state
+      FROM ${FULL_TABLE_NAME}
+      ORDER BY state;
+	" | sed '/^$/d; s/^\s*//g')"
+
+
+  while read -r state_name; do
+    state="${STATE_ABBREVIATIONS[${state_name,,}]}";
+
+    # If we have a 2 char code for the state
+    #   and the state is not the same as the SCHEMA name
+    if [[ ! -z "$state" && "$SCHEMA" != "$state" ]]; then
+      echo "=== Creating view for ${state_name} (${state})  ==="
+      VIEW_NAME="\"${state}\".${LATEST_FILE_VERSION}"
+
+      # If the state specific view does not exist
+      if ! psql -c "\d $VIEW_NAME" > /dev/null 2>&1; then
+        CREATE_VIEW_SQL="
+          CREATE VIEW $VIEW_NAME
+            AS SELECT * FROM ${FULL_TABLE_NAME} WHERE state = '${state_name}'
+          ;
+        "
+
+        psql \
+          -c 'BEGIN;' \
+          -c "CREATE SCHEMA IF NOT EXISTS \"${state}\";" \
+          -c  "$CREATE_VIEW_SQL" \
+          -c 'COMMIT;'
+      fi
+    fi
+  done <<< "$STATES_IN_SHAPEFILE"
 
 else
   echo "INRIX Shapefile in the database is the latest.";

@@ -1,0 +1,5 @@
+BEGIN;
+
+DROP TABLE :"COUNTRY".fips_codes;
+
+COMMIT;

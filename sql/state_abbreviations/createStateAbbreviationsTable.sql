@@ -1,11 +1,23 @@
 BEGIN;
 
-CREATE TABLE state_abbreviations (
-  state_name   VARCHAR(20) PRIMARY KEY,
-  abbreviation CHAR(2)
-) WITH (fillfactor = 100);
+CREATE TABLE public.state_abbreviations (
+  state_name    VARCHAR PRIMARY KEY,
+  abbreviation  CHAR(2),
+  country       VARCHAR
+);
 
-INSERT INTO state_abbreviations (state_name, abbreviation)
+CREATE TABLE us.state_abbreviations (
+    CONSTRAINT state_abbreviations_pkey PRIMARY KEY(abbreviation),
+    CONSTRAINT country CHECK (country = 'us')
+  )
+  INHERITS (public.state_abbreviations)
+  WITH (fillfactor=100, autovacuum_enabled=false)
+;
+
+ALTER TABLE us.state_abbreviations
+  ALTER COLUMN country SET DEFAULT 'us';
+
+INSERT INTO us.state_abbreviations (state_name, abbreviation)
   VALUES
     ('Alabama', 'al'),
     ('Alaska', 'ak'),
@@ -60,4 +72,35 @@ INSERT INTO state_abbreviations (state_name, abbreviation)
     ('Wyoming', 'wy')
 ;
 
+CREATE TABLE cn.state_abbreviations (
+    CONSTRAINT state_abbreviations_pkey PRIMARY KEY(abbreviation),
+    CONSTRAINT country CHECK (country = 'cn')
+  )
+  INHERITS (public.state_abbreviations)
+  WITH (fillfactor=100, autovacuum_enabled=false)
+;
+
+ALTER TABLE cn.state_abbreviations
+  ALTER COLUMN country SET DEFAULT 'cn';
+
+INSERT INTO cn.state_abbreviations (state_name, abbreviation)
+  VALUES
+    ('Alberta', 'ab'),
+    ('British Columbia', 'bc'),
+    ('Manitoba', 'mb'),
+    ('New Brunswick', 'nb'),
+    ('Newfoundland and Labrador', 'nl'),
+    ('Northwest Territories', 'nt'),
+    ('Nova Scotia', 'ns'),
+    ('Nunavut', 'nu'),
+    ('Ontario', 'on'),
+    ('Prince Edward Island', 'pe'),
+    ('Quebec', 'qc'),
+    ('Saskatchewan', 'sk'),
+    ('Yukon', 'yt')
+;
+
 COMMIT;
+
+VACUUM FULL ANALYZE us.state_abbreviations;
+VACUUM FULL ANALYZE cn.state_abbreviations;

@@ -77,4 +77,25 @@ STATE_ABBREVIATIONS['virginislands']=vi
 STATE_ABBREVIATIONS['canada']=cn
 STATE_ABBREVIATIONS['mexico']=mx
 
+STATE_ABBREVIATIONS['alberta']=ab
+STATE_ABBREVIATIONS['british columbia']=bc
+STATE_ABBREVIATIONS['britishcolumbia']=bc
+STATE_ABBREVIATIONS['manitoba']=mb
+STATE_ABBREVIATIONS['new brunswick']=nb
+STATE_ABBREVIATIONS['newbrunswick']=nb
+STATE_ABBREVIATIONS['newfoundland and labrador']=nl
+STATE_ABBREVIATIONS['newfoundlandandlabrador']=nl
+STATE_ABBREVIATIONS['northwest territories']=nt
+STATE_ABBREVIATIONS['northwestterritories']=nt
+STATE_ABBREVIATIONS['nova scotia']=ns
+STATE_ABBREVIATIONS['novascotia']=ns
+STATE_ABBREVIATIONS['nunavut']=nu
+STATE_ABBREVIATIONS['ontario']=on
+STATE_ABBREVIATIONS['prince edward island']=pe
+STATE_ABBREVIATIONS['princeedwardisland']=pe
+STATE_ABBREVIATIONS['québec']=qc
+STATE_ABBREVIATIONS['quebec']=qc
+STATE_ABBREVIATIONS['saskatchewan']=sk
+STATE_ABBREVIATIONS['yukon']=yt
+
 export STATE_ABBREVIATIONS
