@@ -1168,6 +1168,16 @@ db/create-geography-level-attributes-view: db/create-root-tmc-attributes
 		psql -f './sql/geography_level_attributes_view/createStateGeographyAttributesView.sql';\
 	fi
 
+db/drop-geography-level-attributes-view-2:
+	@if psql -c '\d public.geography_level_attributes_view_2' > /dev/null 2>&1; then\
+		psql -f './sql/geography_level_attributes_view_2/dropStateGeographyLevelAttributesView2.sql';\
+	fi
+
+db/create-geography-level-attributes-view-2: db/create-root-tmc-attributes
+	@if ! psql -c '\d public.geography_level_attributes_view_2' > /dev/null 2>&1; then\
+		psql -f './sql/geography_level_attributes_view_2/createStateGeographyAttributesView2.sql';\
+	fi
+
 
 db/drop-root-phed-table:
 	@if psql -c '\d public.phed' > /dev/null 2>&1; then\
