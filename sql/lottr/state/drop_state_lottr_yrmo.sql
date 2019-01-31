@@ -1,1 +1,0 @@
-DROP TABLE IF EXISTS "__STATE__".lottr_y__YEAR__m__MONTH__ CASCADE;
