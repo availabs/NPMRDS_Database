@@ -1,10 +1,111 @@
 # Dependencies
 
 ```
-sudo apt-get install unzip
+sudo apt-get install unzip p7zip-full
 ```
 
-Download INRIX data example:
+# Download NPMRDS Shapefiles from RITIS
+
+## Example 1: USA shapefile for conflation year 2017
 ```
-STATE=ny YEAR=2017 MONTH=09 DATA_URL="https://npmrds.ritis.org/export/download/085a0d26-932f-4edc-89f9-14d6ed793cd0?dl=1" make data/download-inrix-data
+COUNTRY=usa YEAR=2017 make etl/download-and-partition-npmrds-shapefile
 ```
+
+Produces tar file `etl/USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636.tar` with the following structure:
+```
+$ tar tf etl/USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636.tar
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/DOWNLOAD_TIMESTAMP
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/USA.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ma.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/hi.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/va.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/or.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ms.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/wv.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/az.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ky.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ga.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/al.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/nd.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/dc.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/wa.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/tx.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/fl.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/me.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/nj.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/mo.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/wi.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ut.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/mi.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ks.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/tn.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/vt.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ne.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/nm.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/co.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ar.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ny.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/de.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/md.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ak.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ca.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/oh.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/il.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ia.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/in.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/mt.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/mn.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/id.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/wy.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ok.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/sd.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/sc.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ct.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/pa.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/ri.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/nc.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/la.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/nv.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/pr.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/states/nh.zip
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/META.json
+USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636/USA/2017/SHAPEFILE_VERSION
+```
+
+NOTE: In the above example, `20171108` is the `DBF_DATE_LAST_UPDATE` value in the downloaded shapefile. If RITIS updates the US's shapefile for conflation year 2017, that value will reflect the update.
+
+To archive on RIT storage:
+```
+scp etl/USA_conflationYear2017_shpVersion20171108_downloadTS20190204T180636.tar avail@lor.availabs.org:/mnt/RIT.samba/BACKUPS/INRIX-NPMRDS/inrix_shapefile
+```
+
+## Example 2: Canada shapefile for conflation year 2018
+```
+COUNTRY=canada YEAR=2018 make etl/download-and-partition-npmrds-shapefile
+```
+
+Produces tar file `etl/CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T180501.tar` with the following structure:
+```
+$ tar tf etl/CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T180501.tar
+CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T180501/
+CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T180501/CANADA/
+CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T180501/CANADA/2018/
+CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T180501/CANADA/2018/DOWNLOAD_TIMESTAMP
+CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T180501/CANADA/2018/states/
+CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T180501/CANADA/2018/states/cn.zip
+CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T180501/CANADA/2018/META.json
+CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T180501/CANADA/2018/SHAPEFILE_VERSION
+CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T180501/CANADA/2018/Canada.zip
+```
+
+NOTE: In the above example, `20181011` is the `DBF_DATE_LAST_UPDATE` value in the downloaded shapefile. If RITIS updates the Canada's shapefile for conflation year 2018, that value will reflect the update.
+
+To archive on RIT storage:
+```
+scp etl/CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T180501.tar avail@lor.availabs.org:/mnt/RIT.samba/BACKUPS/INRIX-NPMRDS/inrix_shapefile
+```
+
