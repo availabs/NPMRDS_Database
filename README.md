@@ -125,7 +125,7 @@ NOTE: To use the above make target, the tar archive must be the output of the `e
 ## Create and load the tmc_metadata table
 
 ```
-PG_ENV=production STATE=ny YEAR=2017 make db/load-state-year-tmc-metadata
+PG_ENV=production STATE=ny YEAR=2018 make db/load-state-year-tmc-metadata
 ```
 
 NOTE: After the above make target completes, you must manually set the new *tmc_metadata* table as the default. The following code is an example of this process.
