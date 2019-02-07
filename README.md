@@ -1,12 +1,12 @@
-# Dependencies
+## Dependencies
 
 ```
 sudo apt-get install unzip p7zip-full
 ```
 
-# Download NPMRDS Shapefiles from RITIS
+## Download NPMRDS Shapefiles from RITIS
 
-## Example 1: USA shapefile for conflation year 2017
+### Example 1: USA shapefile for conflation year 2017
 ```
 COUNTRY=usa YEAR=2017 make etl/download-and-partition-npmrds-shapefile
 ```
@@ -84,7 +84,7 @@ To archive on RIT storage:
 scp etl/USA_conflationYear2017_shpVersion20171108_downloadTS20190204T202445.tar avail@lor.availabs.org:/mnt/RIT.samba/BACKUPS/INRIX-NPMRDS/inrix_shapefile
 ```
 
-## Example 2: Canada shapefile for conflation year 2018
+### Example 2: Canada shapefile for conflation year 2018
 ```
 COUNTRY=canada YEAR=2018 make etl/download-and-partition-npmrds-shapefile
 ```
@@ -111,3 +111,28 @@ To archive on RIT storage:
 scp etl/CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T202224.tar avail@lor.availabs.org:/mnt/RIT.samba/BACKUPS/INRIX-NPMRDS/inrix_shapefile
 ```
 
+---
+
+## Load a state NPMRDS shapefile into the database
+
+### Example 1: NY shapefile for conflation year 2017 into the production database.
+```
+PG_ENV=production STATE=ny TAR_ARCHIVE_PATH=./etl/USA_conflationYear2017_shpVersion20171108_downloadTS20190205T002219.tar make db/upload-state-npmrds-shapefile-from-country-tar.sh
+```
+
+NOTE: To use the above make target, the tar archive must be the output of the `etl/download-and-partition-npmrds-shapefile` make target. To load other shapefiles, see the [upload-npmrds-shapefile-for-state-year.sh](make_targets/db/upload-npmrds-shapefile-for-state-year.sh) script. In the above make target example, an intermediary script extracts information from the tar archive, sets environment variables, then calls upload-npmrds-shapefile-for-state-year.sh.
+
+## Create and load the tmc_metadata table
+
+```
+PG_ENV=production STATE=ny YEAR=2017 make db/load-state-year-tmc-metadata
+```
+
+NOTE: After the above make target completes, you must manually set the new *tmc_metadata* table as the default. The following code is an example of this process.
+
+```
+BEGIN;
+alter table ny.tmc_metadata_2018_shpver20181011_v20190206215514 no inherit ny.tmc_metadata_2018;
+alter table ny.tmc_metadata_2018_shpver20181011_v20190206235438 inherit ny.tmc_metadata_2018;
+COMMIT;
+```
