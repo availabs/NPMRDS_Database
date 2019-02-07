@@ -34,17 +34,17 @@ const client = new Client();
 
 const getDefaultNpmrdsShapefileVersion = async (state, year) => {
   const sql = `
-		SELECT
+    SELECT
         MAX(s.npmrds_shapefile_version) AS ver
-			FROM npmrds_shapefile AS s
+      FROM npmrds_shapefile AS s
         INNER JOIN state_abbreviations AS a
         ON (s.state = a.state_name)
       WHERE (
         (a.abbreviation = $1)
         AND
         (s.conflation_year = $2)
-			)
-	`;
+      )
+  `;
 
   const { rows } = await client.query(sql, [state, year]);
   const [{ ver }] = rows;

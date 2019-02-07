@@ -880,3 +880,9 @@ data/copy-state-npmrds-shapefile-from-preprocessing-to-data: ${_NPMRDS_SHAPEFILE
 data/clean-shapefiles-dir:
 	$(shell find ./data/shapefiles \( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \) -type f -delete)
 	@true
+
+mapbox/create-tileset-for-year.sh:
+	@:$(call check_defined,YEAR)
+	@export YEAR;\
+	${_MKFILE_DIR}/make_targets/mapbox/create-tileset-for-year.sh
+
