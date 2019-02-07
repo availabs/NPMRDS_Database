@@ -4,6 +4,8 @@
 sudo apt-get install unzip p7zip-full
 ```
 
+---
+
 ## Download NPMRDS Shapefiles from RITIS
 
 ### Example 1: USA shapefile for conflation year 2017
@@ -122,6 +124,8 @@ PG_ENV=production STATE=ny TAR_ARCHIVE_PATH=./etl/USA_conflationYear2017_shpVers
 
 NOTE: To use the above make target, the tar archive must be the output of the `etl/download-and-partition-npmrds-shapefile` make target. To load other shapefiles, see the [upload-npmrds-shapefile-for-state-year.sh](make_targets/db/upload-npmrds-shapefile-for-state-year.sh) script. In the above make target example, an intermediary script extracts information from the tar archive, sets environment variables, then calls upload-npmrds-shapefile-for-state-year.sh.
 
+---
+
 ## Create and load the tmc_metadata table
 
 ```
@@ -136,3 +140,16 @@ alter table ny.tmc_metadata_2018_shpver20181011_v20190206215514 no inherit ny.tm
 alter table ny.tmc_metadata_2018_shpver20181011_v20190206235438 inherit ny.tmc_metadata_2018;
 COMMIT;
 ```
+
+---
+
+## Create mapbox tileset from npmrds_shapefile
+
+```
+PG_ENV=production YEAR=2018 make mapbox/create-tileset-for-year
+```
+
+The above created a file named *tmc_metadata_2018_shpver20181011_20190207T011826.mbtiles*
+
+NOTE: This code is not finished. See [make_targets/mapbox/create-tileset-for-year.sh](make_targets/mapbox/create-tileset-for-year.sh) for the current tippecanoe configuration.
+

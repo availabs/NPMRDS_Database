@@ -13,12 +13,6 @@ fi
 
 OUTPUT_FILE_PATH=${1:-$OUTPUT_FILE_PATH}
 
-if [[ -z "$OUTPUT_FILE_PATH" ]]; then
-  OUTPUT_FILE_PATH="tmc_metadata_${YEAR}_shpver${NPMRDS_SHAPEFILE_VERSION}_$(date +%Y%m%dT%H%M%S).mbtiles"
-fi
-
-OUTPUT_FILE_PATH="$(realpath "$OUTPUT_FILE_PATH")"
-
 pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 
 # source the database connection config.
@@ -27,6 +21,9 @@ if [ "$PG_ENV" = "production" ]; then
 else
 	. ../../config/postgres.env.dev
 fi
+
+popd >/dev/null
+
 
 NPMRDS_SHAPEFILE_VERSION="$(
   psql -c "
@@ -37,6 +34,13 @@ NPMRDS_SHAPEFILE_VERSION="$(
     ) TO STDOUT
   "
 )"
+
+if [[ -z "$OUTPUT_FILE_PATH" ]]; then
+  OUTPUT_FILE_PATH="tmc_metadata_${YEAR}_shpver${NPMRDS_SHAPEFILE_VERSION}_$(date +%Y%m%dT%H%M%S).mbtiles"
+fi
+
+OUTPUT_FILE_PATH="$(realpath "$OUTPUT_FILE_PATH")"
+
 
 SQL="
   SELECT
@@ -51,14 +55,14 @@ SQL="
           SELECT
               'Feature' As type,
               ST_AsGeoJSON(shp.wkb_geometry)::json AS geometry,
-              row_to_json(sub_meta) As properties
+              row_to_json(props) As properties
             FROM (
                 SELECT
                     tmc,
                     f_system
-                  FROM tmc_metadata
+                  FROM npmrds_shapefile
                   WHERE (conflation_year = ${YEAR})
-            ) AS sub_meta
+            ) AS props
               INNER JOIN npmrds_shapefile AS shp USING (tmc)
             WHERE (shp.conflation_year = ${YEAR})
         ) As f
@@ -86,5 +90,3 @@ tippecanoe \
   <( psql -t -c "$SQL" )
 
 echo "$OUTPUT_FILE_PATH"
-
-popd >/dev/null
