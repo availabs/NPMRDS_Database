@@ -5,74 +5,105 @@ const { Client } = require('pg');
 const { join } = require('path');
 const envFile = require('node-env-file');
 
+const { PG_ENV, STATE, YEAR, NPMRDS_SHAPEFILE_VERSION } = process.env;
 
-const now = new Date()
-const yyyy = now.getFullYear()
-const mm = `0${now.getMonth() + 1}`.slice(-2)
-const dd = `0${now.getDate()}`.slice(-2)
-const HH = `0${now.getHours()}`.slice(-2)
-const MM = `0${now.getMinutes()}`.slice(-2)
-const SS = `0${now.getSeconds()}`.slice(-2)
+if (NPMRDS_SHAPEFILE_VERSION && !Number.isFinite(+NPMRDS_SHAPEFILE_VERSION)) {
+  console.error(
+    `ERROR: Invalid NPMRDS_SHAPEFILE_VERSION ${NPMRDS_SHAPEFILE_VERSION}`
+  );
+  process.exit(1);
+}
 
-const defaultTMCMetadataVer = `${yyyy}${mm}${dd}${HH}${MM}${SS}`
-
-const {
-	PG_ENV,
-	STATE,
-	YEAR,
-	INRIX_SHAPEFILE_VER,
-	TMC_METADATA_VER
-} = process.env
+const sqlFilePath = join(
+  __dirname,
+  '../../sql/tmc_metadata/state/loadStateTMCMetadataTableVersion.sql'
+);
 
 if (!(STATE && YEAR)) {
-	console.error('STATE and YEAR are required ENV variables.')
-	process.exit(1)
+  console.error('STATE and YEAR are required ENV variables.');
+  process.exit(1);
 }
 
 const dbConfigFileName =
-	PG_ENV === 'production'
-		? 'postgres.env.prod'
-		: 'postgres.env.dev'
+  PG_ENV === 'production' ? 'postgres.env.prod' : 'postgres.env.dev';
 
 const configPath = join(__dirname, '../../config', dbConfigFileName);
 envFile(configPath);
 
 const client = new Client();
 
-
-const getDefaultInrixShapefileVersion = (state, year) => {
-	const sql = `
-		SELECT c.relname AS table_name
-			FROM pg_inherits 
-				JOIN pg_class AS c ON (inhrelid=c.oid)
-				JOIN pg_class as p ON (inhparent=p.oid)
-				JOIN pg_namespace pn ON pn.oid = p.relnamespace
-				JOIN pg_namespace cn ON cn.oid = c.relnamespace
-			WHERE (
-				(pn.nspname = '${state}')
-				AND
-				(p.relname = 'inrix_shapefile_${year}')
+const getDefaultNpmrdsShapefileVersion = async (state, year) => {
+  const sql = `
+		SELECT
+        MAX(s.npmrds_shapefile_version) AS ver
+			FROM npmrds_shapefile AS s
+        INNER JOIN state_abbreviations AS a
+        ON (s.state = a.state_name)
+      WHERE (
+        (a.abbreviation = $1)
+        AND
+        (s.conflation_year = $2)
 			)
-	`
+	`;
 
-	const rows = (await client.query(sql))
-	const [{ table_name }] = rows
+  const { rows } = await client.query(sql, [state, year]);
+  const [{ ver }] = rows;
 
-	const [ver] = table_name.match(/v\d{8}/) || [null]
+  return ver;
+};
 
-	return ver
-}
+const getTMCMetadataVersion = () => {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = `0${now.getMonth() + 1}`.slice(-2);
+  const dd = `0${now.getDate()}`.slice(-2);
+  const HH = `0${now.getHours()}`.slice(-2);
+  const MM = `0${now.getMinutes()}`.slice(-2);
+  const SS = `0${now.getSeconds()}`.slice(-2);
 
-const doIt = async () => {
-  await client.connect();
+  return `${yyyy}${mm}${dd}${HH}${MM}${SS}`;
+};
 
-  const theSQL = `
+const createTMCMetadataTable = (npmrdsShapefileVer, tmcMetadataVersion) => {
+  // const cmd = `
+  // psql \
+  // --echo-queries --quiet \
+  // -v STATE=${STATE} \
+  // -v YEAR=${YEAR} \
+  // -v NPMRDS_SHAPEFILE_VERSION=${npmrdsShapefileVer} \
+  // -v TMC_METADATA_VERSION=${tmcMetadataVersion} \
+  // -f '${sqlFilePath}'
+  // `
+  const cmd = `
+    psql \
+      -v ON_ERROR_STOP=1 \
+      -v STATE=${STATE} \
+      -v YEAR=${YEAR} \
+      -v NPMRDS_SHAPEFILE_VERSION=${npmrdsShapefileVer} \
+      -v TMC_METADATA_VERSION=${tmcMetadataVersion} \
+      -f '${sqlFilePath}'
   `;
 
-  await client.query(theSQL);
+  const stdout = execSync(cmd, { encoding: 'utf8' });
+  console.log(stdout);
+};
 
-  await client.end();
+const doIt = async () => {
+  try {
+    await client.connect();
+
+    const npmrdsShapefileVer =
+      NPMRDS_SHAPEFILE_VERSION ||
+      (await getDefaultNpmrdsShapefileVersion(STATE, YEAR));
+
+    const tmcMetadataVersion = getTMCMetadataVersion();
+
+    createTMCMetadataTable(npmrdsShapefileVer, tmcMetadataVersion);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    await client.end();
+  }
 };
 
 doIt();
-

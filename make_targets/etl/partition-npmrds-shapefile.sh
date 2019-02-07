@@ -32,6 +32,12 @@ pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 # Change to the zipped shapefile's dir
 cd "$SHP_ZIP_DIR" || exit
 
+# If the SHP_ZIP_DIR contains the CONFLATION_YEAR file,
+#   put the year into a variable for later use.
+if [ -f ./CONFLATION_YEAR ]; then
+  CONFLATION_YEAR="$(cat ./CONFLATION_YEAR)"
+fi
+
 STATES_DIR=states;
 
 # If the STATES_DIR output directory currently exists, exit.
@@ -65,12 +71,23 @@ done <<< "$(find . -type f | sed 's/^\.\///; s/\..*//g;' | sort -u)"
 
 LATEST_VER='00000000'
 
+STATES="$(find . -mindepth 1 -type d -printf "%f\n" | sort -u)"
+
 while read -r state_dir; do
   pushd "${state_dir}" >/dev/null;
 
   # Get the last update info from the state's shapfile
   ver=$(ogrinfo -ro -so -al . | grep 'DBF_DATE_LAST_UPDATE' | sed 's/.*=//g; s/-//g');
   if [ -z "${ver}" ]; then ver="$LATEST_VER"; fi;
+
+  echo "$ver" > './NPMRDS_SHAPEFILE_VERSION'
+
+  # NOTE: state_dir is the 2 character abbreviation
+  echo "$state_dir" > './STATE'
+
+  if [ ! -z "$CONFLATION_YEAR" ]; then
+    echo "$CONFLATION_YEAR" > ./CONFLATION_YEAR
+  fi
 
   # Update the interstate LATEST_VER, if needed.
   if [[ "${ver}" > "${LATEST_VER}" ]]; then LATEST_VER="$ver"; fi;
@@ -79,9 +96,9 @@ while read -r state_dir; do
 
   # Create a zip archive of the state specific shapefile.
   zip -q -rm "${state_dir}.zip" "$state_dir";
-done <<< "$(find . -mindepth 1 -type d )"
+done <<<  "${STATES}"
 
-echo "$LATEST_VER" > "${SHP_ZIP_DIR}/SHAPEFILE_VERSION"
+echo "$LATEST_VER" > "${SHP_ZIP_DIR}/NPMRDS_SHAPEFILE_VERSION"
+echo "$STATES" > "${SHP_ZIP_DIR}/STATES"
 
 popd >/dev/null
-

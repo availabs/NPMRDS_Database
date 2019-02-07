@@ -27,6 +27,9 @@ SHP_ZIP_DIR="${WORK_DIR}/${COUNTRY}/${YEAR}/";
 
 mkdir -p "$SHP_ZIP_DIR";
 
+echo "$COUNTRY" > "${SHP_ZIP_DIR}COUNTRY"
+echo "$YEAR" > "${SHP_ZIP_DIR}CONFLATION_YEAR"
+
 if [[ "$COUNTRY" = 'USA' ]]; then
   SHP_ZIP_BASENAME='USA.zip'
 elif [[ "$COUNTRY" = 'CANADA' ]]; then
@@ -43,7 +46,6 @@ SHP_ZIP_PATH="${SHP_ZIP_DIR}${SHP_ZIP_BASENAME}"
 "${PROJECT_ROOT}/make_targets/etl/download-npmrds-shapefile.js" "${SHP_ZIP_PATH}"
 
 DOWNLOAD_TIMESTAMP="$(date +%Y%m%dT%H%M%S)"
-
 echo "$DOWNLOAD_TIMESTAMP" > "${SHP_ZIP_DIR}/DOWNLOAD_TIMESTAMP"
 
 if ! PARTITIONER_OUTPUT="$("${PROJECT_ROOT}/make_targets/etl/partition-npmrds-shapefile.sh" "${SHP_ZIP_PATH}")"; then
@@ -52,23 +54,13 @@ if ! PARTITIONER_OUTPUT="$("${PROJECT_ROOT}/make_targets/etl/partition-npmrds-sh
   exit 1
 fi
 
-## The last line of output from partition-npmrds-shapefile.sh
-##   is the DBF_DATE_LAST_UPDATE field of the shapefile.
-SHAPEFILE_LAST_UPDATE="$(
-  cat "${SHP_ZIP_DIR}/SHAPEFILE_VERSION"
+NPMRDS_SHAPEFILE_VERSION="$(
+  cat "${SHP_ZIP_DIR}/NPMRDS_SHAPEFILE_VERSION"
 )";
-
-# Add the META.json file to the SHP_ZIP_DIR
-echo "{
-  \"YEAR\":${YEAR},
-  \"COUNTRY\":\"${COUNTRY}\",
-  \"SHAPEFILE_LAST_UPDATE\":\"${SHAPEFILE_LAST_UPDATE}\",
-  \"DOWNLOAD_TIMESTAMP\":\"${DOWNLOAD_TIMESTAMP}\"
-}" > "${SHP_ZIP_DIR}/META.json";
 
 cd "${ETL_DIR}";
 
-FINAL_DIR_NAME="${COUNTRY}_conflationYear${YEAR}_shpVersion${SHAPEFILE_LAST_UPDATE}_downloadTS${DOWNLOAD_TIMESTAMP}";
+FINAL_DIR_NAME="${COUNTRY}_conflationYear${YEAR}_shpVersion${NPMRDS_SHAPEFILE_VERSION}_downloadTS${DOWNLOAD_TIMESTAMP}";
 echo "FINAL_DIR_NAME=$FINAL_DIR_NAME"
 
 mv "${WORK_DIR}" "${FINAL_DIR_NAME}";
