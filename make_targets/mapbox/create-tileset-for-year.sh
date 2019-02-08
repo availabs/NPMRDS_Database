@@ -35,8 +35,10 @@ NPMRDS_SHAPEFILE_VERSION="$(
   "
 )"
 
+LAYER_NAME="tmc_metadata_${YEAR}_shpver${NPMRDS_SHAPEFILE_VERSION}"
+
 if [[ -z "$OUTPUT_FILE_PATH" ]]; then
-  OUTPUT_FILE_PATH="tmc_metadata_${YEAR}_shpver${NPMRDS_SHAPEFILE_VERSION}_$(date +%Y%m%dT%H%M%S).mbtiles"
+  OUTPUT_FILE_PATH="${LAYER_NAME}_$(date +%Y%m%dT%H%M%S).mbtiles"
 fi
 
 OUTPUT_FILE_PATH="$(realpath "$OUTPUT_FILE_PATH")"
@@ -83,10 +85,17 @@ FILTER='
   }
 '
 
+# tippecanoe \
+  # --generate-ids \
+  # --force -o "$OUTPUT_FILE_PATH" \
+   # -z16 -d16 --drop-densest-as-needed \
+  # -j "$FILTER" \
+  # <( psql -t -c "$SQL" )
+
 tippecanoe \
+  --layer="$LAYER_NAME" \
+  --generate-ids \
   --force -o "$OUTPUT_FILE_PATH" \
-   -z16 -d16 --drop-densest-as-needed \
-  -j "$FILTER" \
   <( psql -t -c "$SQL" )
 
 echo "$OUTPUT_FILE_PATH"
