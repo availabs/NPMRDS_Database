@@ -1,14 +1,5 @@
-BEGIN;
-
 CREATE TABLE :"STATE".tmc_metadata_:YEAR (
-    LIKE :"STATE".tmc_metadata INCLUDING ALL
-  )
+  CONSTRAINT tmc_metadata_state_check CHECK (state = :'STATE')
+) INHERITS (public.tmc_metadata_:YEAR)
   WITH (fillfactor=100, autovacuum_enabled=false)
 ;
-
-ALTER TABLE :"STATE".tmc_metadata_:YEAR
-  ADD PRIMARY KEY (tmc),
-  ADD CONSTRAINT tmc_metadata_year_check CHECK (conflation_year = :YEAR),
-  INHERIT :"STATE".tmc_metadata ;
-
-COMMIT;

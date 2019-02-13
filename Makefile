@@ -477,7 +477,19 @@ db/create-enum-types:\
 	db/create-traffic-dist-directionality-type
 
 
-db/create-root-tmc-metadata: \
+db/create-avail-table-metadata-table:
+	@if ! psql -c '\d public.avail_table_metadata' > /dev/null 2>&1; then\
+		psql -f ./sql/avail_table_metadata/create_avail_table_metadata.sql;\
+	else\
+		echo "public.avail_table_metadata exists. Skipping db/create-avail-table-metadata-table.";\
+	fi
+
+db/create-relation-dependencies-fn:
+	@if ! psql -c '\df relation_dependencies_fn' > /dev/null 2>&1; then\
+		@psql -f './sql/relation_dependencies_fn/create_relation_dependencies_fn.sql';\
+	fi
+
+db/create-root-year-tmc-metadata: \
 	db/create-enum-types \
 	db/create-state-abbreviations-table \
 	db/create-root-npmrds-table \
@@ -486,25 +498,14 @@ db/create-root-tmc-metadata: \
 	db/create-root-average-speedlimits-table \
 	db/create-mpo-boundaries-view \
 	db/create-root-fips-codes-table
-	@if ! psql -c '\d "public".tmc_metadata' > /dev/null 2>&1; then\
-		psql -f './sql/tmc_metadata/root/createRootTMCMetadataTable.sql';\
-	fi
-
-db/drop-state-tmc-metadata:
-	@:$(call check_defined,STATE)
-	@if psql -c '\d "${STATE}".tmc_metadata' > /dev/null 2>&1; then\
-		psql -v STATE="$${STATE}" -f ./sql/tmc_metadata/state/dropStateTMCMetadataTable.sql;\
-	fi
-
-db/create-state-tmc-metadata: db/create-root-tmc-metadata
-	@:$(call check_defined,STATE)
-	@if ! psql -c '\d "${STATE}".tmc_metadata' > /dev/null 2>&1; then\
-		psql -v STATE="$${STATE}" -f ./sql/tmc_metadata/state/createStateTMCMetadataTable.sql;\
+	@:$(call check_defined,YEAR)
+	@if ! psql -c '\d public.tmc_metadata_${YEAR}' > /dev/null 2>&1; then\
+		psql -v YEAR="$${YEAR}" -f ./sql/tmc_metadata/root/createRootYearTMCMetadataTable.sql;\
 	else\
-		echo "${STATE}.tmc_metadata exists. Skipping db/create-state-tmc-metadata.";\
+		echo "public.tmc_metadata_${YEAR} exists. Skipping db/create-root-year-tmc-metadata.";\
 	fi
 
-db/create-state-year-tmc-metadata: db/create-state-tmc-metadata
+db/create-state-year-tmc-metadata: db/create-root-year-tmc-metadata
 	@:$(call check_defined,STATE)
 	@:$(call check_defined,YEAR)
 	@if ! psql -c '\d "${STATE}".tmc_metadata_${YEAR}' > /dev/null 2>&1; then\
@@ -513,14 +514,17 @@ db/create-state-year-tmc-metadata: db/create-state-tmc-metadata
 		echo "${STATE}.tmc_metadata_${YEAR} exists. Skipping db/create-state-tmc-metadata.";\
 	fi
 
-db/load-state-year-tmc-metadata: db/create-state-average-speedlimits-table db/create-state-year-tmc-metadata
+db/load-state-year-tmc-metadata: \
+	db/create-state-average-speedlimits-table \
+	db/create-state-year-tmc-metadata \
+	db/create-avail-table-metadata-table \
+	db/create-relation-dependencies-fn
 	@:$(call check_defined,STATE)
 	@:$(call check_defined,YEAR)
 		@export PG_ENV;\
 		export STATE;\
 		export YEAR;\
 		./make_targets/db/load-state-year-tmc-metadata.js
-
 
 db/drop-tmc-level-pm3-all-tables-for-version-fn:
 	@psql -f './sql/tmc_level_pm3_all_tables_for_version_fn/drop_tmc_level_pm3_all_tables_for_version_fn.sql'

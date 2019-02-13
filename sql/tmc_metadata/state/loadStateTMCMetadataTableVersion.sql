@@ -11,6 +11,7 @@ BEGIN;
 \set tbl_name :"STATE"'.tmc_metadata_':YEAR'_shpver':NPMRDS_SHAPEFILE_VERSION'_v':TMC_METADATA_VERSION
 \set idx_name 'tmc_metadata_':YEAR'_shpver':NPMRDS_SHAPEFILE_VERSION'_v':TMC_METADATA_VERSION'_pkey'
 
+-- NOTE: May be a VIEW if STATE is a Canadian Province.
 \set shp_tbl_name :"STATE"'.npmrds_shapefile_':YEAR'_v':NPMRDS_SHAPEFILE_VERSION
 
 -- tmc -> mpo using spatial join
@@ -89,11 +90,8 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
           SELECT 
               tmc,
               AVG(travel_time_all_vehicles)::REAL AS avg_peak_period_travel_time
-            FROM npmrds
-              INNER JOIN tmc_date_ranges USING (tmc)
+            FROM :"STATE".npmrds
             WHERE (
-              (npmrds.state = :'STATE')
-              AND
               ( /* Peak hours */
                 (epoch BETWEEN (12 * 6) AND ((12 * 10) - 1)) /* 6am til 10am */
                 OR
@@ -102,18 +100,19 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
               AND 
               (travel_time_all_vehicles > 0)
               AND
-              (npmrds.date BETWEEN ('01/01/'||:'YEAR')::DATE AND ('12/31/'||:'YEAR')::DATE)
+              (
+                npmrds.date >= ('01/01/'||:'YEAR')::DATE
+                AND
+                npmrds.date < ('01/01/'||(:YEAR + 1)::TEXT)::DATE
+              )
             )
          GROUP BY tmc
         ) AS peak NATURAL FULL OUTER JOIN (
           SELECT 
               tmc,
               AVG(travel_time_all_vehicles)::REAL AS avg_free_flow_travel_time
-            FROM npmrds
-              INNER JOIN tmc_date_ranges USING (tmc)
+            FROM :"STATE".npmrds
             WHERE (
-              (npmrds.state = :'STATE')
-              AND
               ( /* Free flow hours */
                 (epoch BETWEEN (12 * 0) AND ((12 * 5) - 1)) /* midnight til 5am */
                 OR
@@ -123,7 +122,11 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
               (travel_time_all_vehicles > 0)
               /* Latest 12 months of data. */
               AND
-              (npmrds.date BETWEEN ('01/01/'||:'YEAR')::DATE AND ('12/31/'||:'YEAR')::DATE)
+              (
+                npmrds.date >= ('01/01/'||:'YEAR')::DATE
+                AND
+                npmrds.date < ('01/01/'||(:YEAR + 1)::TEXT)::DATE
+              )
             )
             GROUP BY tmc
         ) AS free_flow
@@ -174,7 +177,11 @@ CREATE TEMPORARY TABLE tmp_directionality_factors
               AND
               (travel_time_all_vehicles > 0)
               AND
-              (npmrds.date BETWEEN ('01/01/'||:'YEAR')::DATE AND ('12/31/'||:'YEAR')::DATE)
+              (
+                npmrds.date >= ('01/01/'||:'YEAR')::DATE
+                AND
+                npmrds.date < ('01/01/'||(:YEAR + 1)::TEXT)::DATE
+              )
             )
             GROUP BY tmc
         ) AS am_peak NATURAL FULL OUTER JOIN (
@@ -189,7 +196,11 @@ CREATE TEMPORARY TABLE tmp_directionality_factors
               AND
               (travel_time_all_vehicles > 0)
               AND
-              (npmrds.date BETWEEN ('01/01/'||:'YEAR')::DATE AND ('12/31/'||:'YEAR')::DATE)
+              (
+                npmrds.date >= ('01/01/'||:'YEAR')::DATE
+                AND
+                date < ('01/01/'||(:YEAR + 1)::TEXT)::DATE
+              )
             )
             GROUP BY tmc
         ) AS pm_peak
@@ -272,37 +283,9 @@ CREATE TEMPORARY TABLE tmp_bounding_boxes
 
 ALTER TABLE tmp_bounding_boxes ADD PRIMARY KEY (tmc);
 
-CREATE TEMPORARY TABLE tmp_tmcs_buffered
-  ON COMMIT DROP
-  AS
-    SELECT 
-        tmc,
-        GEOMETRY(
-          ST_Buffer(
-            GEOGRAPHY(
-              wkb_geometry
-            ),
-            1, --meters
-            'endcap=flat join=round'
-          )
-        ) AS line_buf,
-        tmclinear,
-        direction
-      FROM :shp_tbl_name AS sub_tmc_shp
-        INNER JOIN state_abbreviations AS abbr
-        ON (sub_tmc_shp.state = abbr.state_name)
-      WHERE (
-        (abbr.abbreviation = :'STATE')
-        AND
-        (sub_tmc_shp.conflation_year = :YEAR)
-      )
-;
-
-CREATE INDEX tmp_tmcs_buffered_gix ON tmp_tmcs_buffered USING GIST (line_buf);
-CLUSTER tmp_tmcs_buffered USING tmp_tmcs_buffered_gix;
-
 CREATE TABLE :tbl_name (
-  LIKE :"STATE".tmc_metadata_:YEAR INCLUDING ALL
+  LIKE :"STATE".tmc_metadata_:YEAR INCLUDING ALL,
+  PRIMARY KEY (tmc)
 ) WITH (fillfactor=100, autovacuum_enabled=false) ;
 
 INSERT INTO :tbl_name (

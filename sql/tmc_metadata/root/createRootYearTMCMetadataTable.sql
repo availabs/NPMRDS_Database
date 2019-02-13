@@ -1,4 +1,4 @@
-CREATE TABLE tmc_metadata (
+CREATE TABLE public.tmc_metadata_:YEAR (
   tmc                      CHARACTER VARYING,
   tmctype                  CHARACTER VARYING,
   roadnumber               CHARACTER VARYING,
@@ -50,5 +50,7 @@ CREATE TABLE tmc_metadata (
   state_code               CHARACTER(2),
   county_code              CHARACTER(5),
   conflation_year          SMALLINT,
-  npmrds_shapefile_version CHARACTER VARYING
+  npmrds_shapefile_version CHARACTER VARYING,
+
+  CONSTRAINT tmc_metadata_year_check CHECK (conflation_year = :YEAR)
 );

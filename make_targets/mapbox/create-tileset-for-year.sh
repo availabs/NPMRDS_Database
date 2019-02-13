@@ -13,9 +13,9 @@ fi
 
 OUTPUT_FILE_PATH=${1:-$OUTPUT_FILE_PATH}
 
+# source the database connection config.
 pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 
-# source the database connection config.
 if [ "$PG_ENV" = "production" ]; then
 	. ../../config/postgres.env.prod
 else
