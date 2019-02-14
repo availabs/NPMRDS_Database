@@ -39,7 +39,7 @@ const getDefaultNpmrdsShapefileVersion = async (state, year) => {
   const sql = `
     SELECT
         MAX(s.npmrds_shapefile_version) AS ver
-      FROM npmrds_shapefile AS s
+      FROM npmrds_shapefile_${YEAR} AS s
         INNER JOIN state_abbreviations AS a
         ON (s.state = a.state_name)
       WHERE (
@@ -133,19 +133,20 @@ const insertRowInAvailMetadataTable = async ({
   const requiredRelations = extractRequiredRelations(createTableSQL);
   const dependencies = await getDependencies(requiredRelations);
 
-  const metadata = { dependencies };
+  const metadata = {
+    schemaname: STATE,
+    relname: tableName,
+    npmrdsShapefileVer,
+    createdTimestamp,
+    dependencies
+  };
 
   const sql = `
-		INSERT INTO avail_table_metadata (class_oid, created_timestamp, metadata, sql)
-			VALUES ($1, $2, $3, $4);
+		INSERT INTO avail_table_metadata (class_oid, metadata, sql)
+			VALUES ($1, $2, $3);
 	`;
 
-  await client.query(sql, [
-    classOID,
-    createdTimestamp,
-    metadata,
-    createTableSQL
-  ]);
+  await client.query(sql, [classOID, metadata, createTableSQL]);
 };
 
 const doIt = async () => {
@@ -157,7 +158,9 @@ const doIt = async () => {
       (await getDefaultNpmrdsShapefileVersion(STATE, YEAR));
 
     if (!npmrdsShapefileVer) {
-      throw new Error(`ERROR: no shapefiles for ${STATE} conflation year ${YEAR}`)
+      throw new Error(
+        `ERROR: no shapefiles for ${STATE} conflation year ${YEAR}`
+      );
     }
 
     const tmcMetadataVersion = getTMCMetadataVersion();
