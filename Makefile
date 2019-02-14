@@ -338,25 +338,26 @@ db/create-mpo-boundaries-view:
 # Uploading the versioned NPMRDS shapefiles #
 #############################################
 
-db/create-root-npmrds-shapefile-table:
-	@if ! psql -c '\d public.npmrds_shapefile' > /dev/null 2>&1; then\
-		psql -f ./sql/npmrds_shapefile/root/createRootNPMRDSShapefileTable.sql;\
+# NOTE: Here for convenience.
+#       make_targets/db/upload-state-npmrds-shapefile-from-country-tar.sh takes care of this internally.
+db/create-root-year-npmrds-shapefile-table:
+	@:$(call check_defined,YEAR)
+	@if ! psql -c '\d public.npmrds_shapefile_${YEAR}' > /dev/null 2>&1; then\
+		psql -v YEAR="${YEAR}" -f ./sql/npmrds_shapefile/root/createRootYearNPMRDSShapefileTable.sql;\
 	fi
 
-db/create-state-npmrds-shapefile-table: db/create-schema-${STATE} db/create-root-npmrds-shapefile-table
-	@:$(call check_defined,STATE)
-	@if ! psql -c '\d "${STATE}".npmrds_shapefile' > /dev/null 2>&1; then\
-		psql -v STATE="$${STATE}" -f ./sql/npmrds_shapefile/state/createStateNPMRDSShapefileTable.sql;\
-	fi
-
-db/create-state-npmrds-shapefile-year-table: db/create-state-npmrds-shapefile-table
+# NOTE: Here for convenience.
+#       make_targets/db/upload-state-npmrds-shapefile-from-country-tar.sh takes care of this internally.
+db/create-state-npmrds-shapefile-year-table: db/create-schema-${STATE} db/create-root-year-npmrds-shapefile-table
 	@:$(call check_defined,STATE)
 	@:$(call check_defined,YEAR)
 	@if ! psql -c '\d "${STATE}".npmrds_shapefile_${YEAR}' > /dev/null 2>&1; then\
 		psql -v STATE="$${STATE}" -v YEAR="$${YEAR}" -f ./sql/npmrds_shapefile/state/createStateNPMRDSShapefileYearTable.sql;\
 	fi
 
-db/upload-state-npmrds-shapefile-from-country-tar.sh: db/create-state-npmrds-shapefile-table
+# NOTE: make_targets/db/upload-state-npmrds-shapefile-from-country-tar.sh
+# 			takes care of creating the ancestor tables in the inheritance hierarchy.
+db/upload-state-npmrds-shapefile-from-country-tar:
 	@:$(call check_defined,TAR_ARCHIVE_PATH)
 	@:$(call check_defined,STATE)
 	@export TAR_ARCHIVE_PATH;\
@@ -494,7 +495,7 @@ db/create-root-year-tmc-metadata: \
 	db/create-state-abbreviations-table \
 	db/create-root-npmrds-table \
 	db/create-root-tmc-date-ranges-table \
-	db/create-root-npmrds-shapefile-table \
+	db/create-root-year-npmrds-shapefile-table \
 	db/create-root-average-speedlimits-table \
 	db/create-mpo-boundaries-view \
 	db/create-root-fips-codes-table

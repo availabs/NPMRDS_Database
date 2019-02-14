@@ -55,15 +55,29 @@ else
 fi
 
 # Last chance to kill script... just in case
-echo "PostgreSQL Server: ${PGHOST}:${PGPORT}"
+(>&2 echo "PostgreSQL Server: ${PGHOST}:${PGPORT}")
 sleep 3
 
-PARENT_TABLE_NAME="npmrds_shapefile_${YEAR}"
+ROOT_TABLE_NAME="npmrds_shapefile_${YEAR}"
+FULL_ROOT_TABLE_NAME="public.${ROOT_TABLE_NAME}"
+
+PARENT_TABLE_NAME="${ROOT_TABLE_NAME}"
 FULL_PARENT_TABLE_NAME="\"${STATE}\".${PARENT_TABLE_NAME}"
+
+# If the root table does not exist, create it.
+if ! psql -c "\d $FULL_ROOT_TABLE_NAME" > /dev/null 2>&1; then
+  psql \
+    --quiet \
+    -v YEAR="$YEAR" \
+    -c "BEGIN;" \
+    -f ../../sql/npmrds_shapefile/root/createRootYearNPMRDSShapefileTable.sql \
+    -c "COMMIT;"
+fi
 
 # If the parent table does not exist, create it.
 if ! psql -c "\d $FULL_PARENT_TABLE_NAME" > /dev/null 2>&1; then
   psql \
+    --quiet \
     -v STATE="$STATE" -v YEAR="$YEAR" \
     -c "BEGIN;" \
     -f ../../sql/npmrds_shapefile/state/createStateNPMRDSShapefileYearTable.sql \
@@ -82,6 +96,7 @@ cd "${DATA_DIR}" || exit
 
 # Create the table into which we will upload the data
 psql \
+  --quiet \
   -v STATE="$STATE" -v YEAR="$YEAR" -v NPMRDS_SHAPEFILE_VERSION="$NPMRDS_SHAPEFILE_VERSION" \
   -c "BEGIN;" \
   -f "${CREATE_TABLE_SQL_FILE_PATH}" \
@@ -94,11 +109,14 @@ ogr2ogr -append -update -t_srs EPSG:4326 -f \
 
 # Create spatial index and cluster the table using it.
 psql \
+  --quiet \
   -v STATE="$STATE" -v YEAR="$YEAR" -v NPMRDS_SHAPEFILE_VERSION="$NPMRDS_SHAPEFILE_VERSION" \
   -c "BEGIN;" \
   -f "${OPTIMIZE_TABLE_SQL_FILE_PATH}" \
   -c "COMMIT;" \
   -c "VACUUM ANALYZE ${FULL_TABLE_NAME};"
+
+echo "$FULL_TABLE_NAME"
 
 # Which table in this schema currently inherits public.npmrds_shapefile_:YEAR?
 #   We need this info to potentially uninherit that table, and
@@ -124,6 +142,7 @@ if [ -z "${CUR_DEFAULT}" ] || [[ "${TABLE_NAME}" > "${CUR_DEFAULT}" ]]; then
   INHERIT_NEW="ALTER TABLE ${FULL_TABLE_NAME} INHERIT ${FULL_PARENT_TABLE_NAME};"
 
   psql \
+    --quiet \
     -c 'BEGIN;' \
     -c "$UNINHERIT_OLD" \
     -c "$INHERIT_NEW" \
@@ -138,16 +157,15 @@ STATES_IN_SHAPEFILE="$(psql -t -c "
     ORDER BY state;
 " | sed '/^$/d; s/^\s*//g')"
 
-echo "$STATES_IN_SHAPEFILE"
-
 while read -r state_name; do
   state="${STATE_ABBREVIATIONS[${state_name,,}]}";
 
   # If we have a 2 char code for the state
   #   and the state is not the same as the STATE name
   if [[ ! -z "$state" && "$STATE" != "$state" ]]; then
-    echo "=== Creating npmrds_shapefile VIEW for ${state_name} (${state})  ==="
     VIEW_FULL_NAME="\"${state}\".${TABLE_NAME}"
+
+    echo "$VIEW_FULL_NAME"
 
     # If the state specific view does not exist
     if ! psql -c "\d $VIEW_FULL_NAME" > /dev/null 2>&1; then

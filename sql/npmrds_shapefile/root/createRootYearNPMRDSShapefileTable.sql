@@ -1,4 +1,4 @@
-CREATE TABLE public.npmrds_shapefile (
+CREATE TABLE public.npmrds_shapefile_:YEAR (
   ogc_fid                  INTEGER,
   tmc                      CHARACTER VARYING,
   tmctype                  CHARACTER VARYING,
@@ -36,7 +36,9 @@ CREATE TABLE public.npmrds_shapefile (
   strhnt_pct               BIGINT,
   truck                    BIGINT,
   wkb_geometry             GEOMETRY(MULTILINESTRING,4326),
-  conflation_year          SMALLINT,
-  npmrds_shapefile_version CHARACTER VARYING
+  conflation_year          SMALLINT DEFAULT :YEAR,
+  npmrds_shapefile_version CHARACTER VARYING,
+
+  CONSTRAINT tmc_metadata_year_check CHECK (conflation_year = :YEAR)
 ) WITH (fillfactor=100);
 
