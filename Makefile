@@ -208,13 +208,14 @@ db/create-npmrds-state-yrmo-table: db/create-npmrds-state-table
 		)";\
 	fi
 
-db/upload-npmrds-state-yrmo: db/drop-npmrds-state-yrmo-table db/create-npmrds-state-yrmo-table
+db/upload-npmrds-state-yrmo: db/create-npmrds-state-yrmo-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
+	@:$(call check_defined,DATA_FILE_PATH)
 	@if [[ ! $$(psql -t -c 'SELECT * FROM "${STATE}".npmrds_y${YEAR}m${MONTH} LIMIT 1;' | tr -d " \t\n\r";) ]]; then\
 		export PG_ENV;\
-		export DATA_FILE_PATH="${_ETL_TRANSFORMED_DIR}/${STATE}/here-schema/${STATE}.${YEAR}${MONTH}.here-schema.sorted.csv.gz";\
+		export DATA_FILE_PATH;\
 		export STATE;\
 		export YEAR;\
 		export MONTH;\
@@ -357,7 +358,7 @@ db/create-state-npmrds-shapefile-year-table: db/create-schema-${STATE} db/create
 
 # NOTE: make_targets/db/upload-state-npmrds-shapefile-from-country-tar.sh
 # 			takes care of creating the ancestor tables in the inheritance hierarchy.
-db/upload-state-npmrds-shapefile-from-country-tar:
+db/upload-state-npmrds-shapefile-from-country-tar: db/create-schema-${STATE}
 	@:$(call check_defined,TAR_ARCHIVE_PATH)
 	@:$(call check_defined,STATE)
 	@export TAR_ARCHIVE_PATH;\

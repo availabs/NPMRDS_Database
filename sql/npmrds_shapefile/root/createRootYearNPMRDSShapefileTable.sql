@@ -18,6 +18,7 @@ CREATE TABLE public.npmrds_shapefile_:YEAR (
   miles                    DOUBLE PRECISION,
   frc                      BIGINT,
   border_set               CHARACTER VARYING,
+  isprimary                SMALLINT, 
   f_system                 BIGINT,
   urban_code               BIGINT,
   faciltype                BIGINT,
