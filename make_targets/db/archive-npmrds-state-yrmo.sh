@@ -73,11 +73,6 @@ TIMESTAMP=$TIMESTAMP
 popd >/dev/null
 
 # Change directory to the state yrmo work dir
-
-echo "$ARCHIVE_DIRECTORY_PATH"
-echo "$STATE_YRMO_DIR_NAME"
-echo "$STATE_YRMO_DIR_PATH"
-
 pushd "$ARCHIVE_DIRECTORY_PATH" >/dev/null
 
 # Create the tar archive
