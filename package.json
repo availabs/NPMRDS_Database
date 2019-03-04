@@ -17,6 +17,7 @@
     "deep-equal": "^1.0.1",
     "event-stream": "^3.3.4",
     "fast-csv": "^2.4.1",
+    "markdown-pdf": "^9.0.0",
     "minimist": "^1.2.0",
     "mkdirp": "^0.5.1",
     "moment": "^2.18.1",

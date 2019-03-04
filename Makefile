@@ -816,6 +816,18 @@ db/create-state-codes-view: db/create-root-fips-codes-table
 		psql -f './sql/state_codes/create_state_codes_view.sql';\
 	fi
 
+db/archive-npmrds-state-yrmo:
+	@:$(call check_defined,STATE)
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@:$(call check_defined,ARCHIVE_DIRECTORY_PATH)
+	@export PG_ENV;\
+	export STATE;\
+	export YEAR;\
+	export MONTH;\
+	export DATA_FILE_PATH;\
+	./make_targets/db/archive-npmrds-state-yrmo.sh;
+
 
 #####################################################
 
