@@ -145,6 +145,34 @@ db/create-database:
 db/create-schema-:
 	$(error Make sure to define the STATE or COUNTRY env variable.)
 
+
+db/create-enum-types:\
+	db/create-database \
+	db/create-traffic-dist-functional-class-type \
+	db/create-geography-level-type \
+	db/create-functional-class-type \
+	db/create-traffic-dist-day-type \
+	db/create-traffic-dist-congestion-level-type \
+	db/create-traffic-dist-directionality-type
+
+db/initialize-root-tables: \
+	db/create-enum-types \
+	db/create-state-abbreviations-table \
+	db/create-mpo-acronyms-table \
+	db/create-root-fips-codes-table \
+	db/create-root-average-speedlimits-table \
+	db/create-root-npmrds-table \
+	db/create-root-tmc-date-ranges-table \
+	db/create-root-mpo-boundaries-table \
+
+db/initialize-root-year-tables: \
+	db/create-root-year-npmrds-shapefile-table \
+	db/create-root-year-tmc-metadata
+
+db/initialize-minimal-database:
+	@:$(call check_defined,YEARS)
+	${_MKFILE_DIR}/make_targets/db/initialize-minimal-database
+
 db/create-schema-%: db/create-database
 	@if [ ! '$*' ]; then\
 		echo "Schema not defined.";\
@@ -301,28 +329,14 @@ db/load-mpo-acronyms-table: db/create-mpo-acronyms-table
 		psql -f ./sql/mpo_acronyms/load_mpo_acronyms.sql;\
 	fi
 
+db/create-root-mpo-boundaries-table:
+	@if ! psql -c '\d public.mpo_boundaries' > /dev/null 2>&1; then\
+		psql -f ./sql/mpo_boundaries/create_root_mpo_boundaries_table.sql;\
+	fi
 
-db/upload-mpo-boundaries-shapefile: db/load-mpo-acronyms-table
-	@# TODO: compare version in DB to version in data dir.
-	@#       If a newer version available, upload. Otherwise, skip.
-	@set -e;\
-	LATEST_VERSION=$$(ls ${_MPOS_DIRS_SHAPEFILE_DIR} | sort | tail -1);\
-	SHP_DIR=${_MPOS_DIRS_SHAPEFILE_DIR}/$${LATEST_VERSION};\
-	pushd $${SHP_DIR} && unzip -o "*.zip" && popd;\
-	psql -c "$$(sed "s/__LATEST_VERSION__/$${LATEST_VERSION}/g" ./sql/mpo_boundaries/drop_mpo_boundaries_version_table.sql)";\
-	ogr2ogr -t_srs EPSG:4326 -f \
-		PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-		"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "mpo_boundaries_$${LATEST_VERSION}";\
-	psql -c "$$(sed "s/__LATEST_VERSION__/$${LATEST_VERSION}/g" ./sql/mpo_boundaries/create_root_mpo_boundaries_table_from_version_table.sql)";\
-	OLDER_VERSION="$$(psql -t -f ./sql/mpo_boundaries/list_mpo_boundaries_child_table.sql | tr -d " \t\n\r")";\
-	if [[ ! -z $${OLDER_VERSION} ]]; then\
-		psql -c "ALTER TABLE us.$${OLDER_VERSION} NO INHERIT public.mpo_boundaries;";\
-	fi;\
-	psql -c "ALTER TABLE us.mpo_boundaries_$${LATEST_VERSION} INHERIT public.mpo_boundaries;";\
-	find $${SHP_DIR} \
-		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
-		-type f -delete;
-
+db/upload-mpo-boundaries-shapefile:
+	@:$(call check_defined,MPO_SHAPEFILE_ZIP_PATH)
+	${_MKFILE_DIR}/make_targets/db/upload-mpo-boundaries-shapefile
 
 db/drop-mpo-boundaries-view:
 	@if psql -c '\d public.mpo_boundaries' > /dev/null 2>&1; then\
@@ -395,7 +409,7 @@ db/drop-state-abbreviations-table:
 		psql -f 'sql/state_abbreviations/dropStateAbbreviationsTable.sql';\
 	fi
 
-db/create-state-abbreviations-table: db/create-database db/create-schema-us
+db/create-state-abbreviations-table: db/create-database db/create-schema-us db/create-schema-cn
 	@if ! psql -c '\d public.state_abbreviations' > /dev/null 2>&1; then\
 		psql -f 'sql/state_abbreviations/createStateAbbreviationsTable.sql';\
 	fi
@@ -468,16 +482,6 @@ db/create-traffic-dist-directionality-type: db/create-database
 	@if [[ ! $$(psql -t -c "SELECT 1 FROM pg_type WHERE typname = 'traffic_dist_directionality_type';" | tr -d " \t\n\r";) ]]; then\
 		psql -f 'sql/traffic_dist_directionality_type/createTrafficDistDirectionalityType.sql';\
 	fi
-
-db/create-enum-types:\
-	db/create-database \
-	db/create-traffic-dist-functional-class-type \
-	db/create-geography-level-type \
-	db/create-functional-class-type \
-	db/create-traffic-dist-day-type \
-	db/create-traffic-dist-congestion-level-type \
-	db/create-traffic-dist-directionality-type
-
 
 db/create-avail-table-metadata-table:
 	@if ! psql -c '\d public.avail_table_metadata' > /dev/null 2>&1; then\

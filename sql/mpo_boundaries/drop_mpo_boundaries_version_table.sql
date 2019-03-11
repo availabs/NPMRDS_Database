@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS us.mpo_boundaries___LATEST_VERSION__;
+DROP TABLE IF EXISTS us.mpo_boundaries_:MPO_SHAPEFILE_VERSION;

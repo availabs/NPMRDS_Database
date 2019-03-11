@@ -1,0 +1,42 @@
+#!/bin/bash
+
+set -e
+set -a
+
+# Get the path to, and verify the MPO shapefile zip archive.
+YEARS="${1:-$YEARS}"
+
+if [[ -z "$YEARS" ]]; then
+  ( >&2 echo "ERROR: Specify the YEARS as the 1st cli argument or as an ENV variable." )
+  exit 1
+fi
+
+YEARS="$(
+  echo "$YEARS" |
+    tr -d '[:punct:]' |
+    tr -d '[:space:]' |
+    fold -w4
+)"
+
+re='^[0-9]{4}$'
+
+while read -r year; do
+  if ! [[ $year =~ $re ]] ; then
+    ( >&2 echo echo "error: Not a 4 digit year" )
+    exit 1
+  fi
+done <<< "$YEARS"
+
+# Change directory to the project root
+pushd "$( dirname "${BASH_SOURCE[0]}" )/../../" >/dev/null
+
+export PG_ENV
+
+make db/initialize-root-tables
+
+while read -r YEAR; do
+  export YEAR
+  make db/initialize-root-year-tables
+done <<< "$YEARS"
+
+popd >/dev/null

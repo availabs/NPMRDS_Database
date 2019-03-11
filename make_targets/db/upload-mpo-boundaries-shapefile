@@ -1,0 +1,117 @@
+#!/bin/bash
+
+set -e
+set -a
+
+
+# Get the path to, and verify the MPO shapefile zip archive.
+MPO_SHAPEFILE_ZIP_PATH="${1:-$MPO_SHAPEFILE_ZIP_PATH}"
+
+if [[ -z "$MPO_SHAPEFILE_ZIP_PATH" ]]; then
+  ( >&2 echo "ERROR: Specify the MPO_SHAPEFILE_ZIP_PATH as the 1st cli argument or as an ENV variable." )
+  exit 1
+fi
+
+MPO_SHAPEFILE_ZIP_PATH="$(realpath "$MPO_SHAPEFILE_ZIP_PATH")"
+
+if [[ ! -f "$MPO_SHAPEFILE_ZIP_PATH" ]]; then
+  ( >&2 echo "ERROR: No file found at MPO_SHAPEFILE_ZIP_PATH." )
+  exit 1
+fi
+
+if ! unzip -t "$MPO_SHAPEFILE_ZIP_PATH" &>/dev/null ; then
+  ( >&2 echo "ERROR: INVALID ZIP Archive at $MPO_SHAPEFILE_ZIP_PATH" )
+  exit 1
+fi
+
+# Create a temporary TMP_WORK_DIR in the project's etl directory
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+. ../../config/postgres.env.dev
+
+PROJECT_ROOT="$(realpath ../../ )"
+
+mkdir -p ../../etl
+
+ETL_DIR="$( realpath ../../etl )"
+
+TMP_WORK_DIR="$( mktemp -d -p "$ETL_DIR" )";
+
+popd >/dev/null
+
+# Delete the TMP_WORK_DIR when script finishes
+function finish {
+  rm -rf "$TMP_WORK_DIR"
+}
+trap finish EXIT
+
+
+# Copy the shapefile zip to the work dir and extract it
+pushd "$TMP_WORK_DIR" >/dev/null
+
+cp "$MPO_SHAPEFILE_ZIP_PATH" .
+
+unzip "$( find . -type f -name '*zip' )" >/dev/null
+
+MPO_SHAPEFILE_VERSION="$(
+  ogrinfo -ro -so -al . |
+    grep 'DBF_DATE_LAST_UPDATE' |
+    sed 's/.*=//g; s/-//g'
+)";
+
+TABLE_NAME="mpo_boundaries_${MPO_SHAPEFILE_VERSION}"
+FULL_TABLE_NAME="us.$TABLE_NAME"
+
+# Create the table into which we are going to load the shapefile
+psql --quiet \
+  -v ON_ERROR_STOP=1 -v MPO_SHAPEFILE_VERSION="$MPO_SHAPEFILE_VERSION" \
+  -c 'BEGIN' \
+  -c 'CREATE schema IF NOT EXISTS "us";' \
+  -f "$PROJECT_ROOT/sql/mpo_boundaries/create_root_mpo_boundaries_table.sql" \
+  -f "$PROJECT_ROOT/sql/mpo_boundaries/drop_mpo_boundaries_version_table.sql" \
+  -f "$PROJECT_ROOT/sql/mpo_boundaries/create_mpo_boundaries_version_table.sql" \
+  -c 'COMMIT;'
+
+# Upload the data
+ogr2ogr -append -update -t_srs EPSG:4326 -f \
+  PostgreSQL "PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}" \
+  -preserve_fid "$PWD" -nlt PROMOTE_TO_MULTI -nln "$FULL_TABLE_NAME";
+
+# Which table in this schema currently inherits public.npmrds_shapefile_:YEAR?
+#   We need this info to potentially uninherit that table, and
+#   set the newly created table as the default for the YEAR.
+CUR_DEFAULT="$(psql -tA -c "
+  SELECT c.relname
+    FROM pg_inherits 
+      JOIN pg_class AS c ON (inhrelid=c.oid)
+      JOIN pg_class as p ON (inhparent=p.oid)
+      JOIN pg_namespace pn ON pn.oid = p.relnamespace
+    WHERE (
+      (pn.nspname = 'public')
+      AND
+      (p.relname = 'mpo_boundaries')
+    );"
+)"
+
+echo "CUR_DEFAULT: $CUR_DEFAULT"
+
+# If the newly uploaded table is a newer version than the current default version,
+#   set the newly uploaded table as the default for the given state/year.
+if [ -z "${CUR_DEFAULT}" ] || [[ "${TABLE_NAME}" > "${CUR_DEFAULT}" ]]; then
+  if ! [ -z "${CUR_DEFAULT}" ]; then
+    UNINHERIT_OLD="ALTER TABLE \"us\".${CUR_DEFAULT} NO INHERIT public.mpo_boundaries;"
+  fi
+
+  INHERIT_NEW="ALTER TABLE ${FULL_TABLE_NAME} INHERIT public.mpo_boundaries;"
+
+  psql \
+    --quiet \
+    -c 'BEGIN;' \
+    -c "$UNINHERIT_OLD" \
+    -c "$INHERIT_NEW" \
+    -c 'COMMIT;'
+
+  echo "$FULL_TABLE_NAME set as the default for public.mpo_boundaries"
+fi
+
+popd >/dev/null
