@@ -145,6 +145,8 @@ db/create-database:
 db/create-schema-:
 	$(error Make sure to define the STATE or COUNTRY env variable.)
 
+db/create-postgis-extension:
+	psql -c 'CREATE EXTENSION IF NOT EXISTS postgis;'
 
 db/create-enum-types:\
 	db/create-database \
@@ -156,6 +158,7 @@ db/create-enum-types:\
 	db/create-traffic-dist-directionality-type
 
 db/initialize-root-tables: \
+	db/create-postgis-extension \
 	db/create-enum-types \
 	db/create-state-abbreviations-table \
 	db/create-mpo-acronyms-table \
@@ -242,11 +245,6 @@ db/upload-npmrds-state-yrmo: db/create-npmrds-state-yrmo-table
 	@:$(call check_defined,MONTH)
 	@:$(call check_defined,DATA_FILE_PATH)
 	@if [[ ! $$(psql -t -c 'SELECT * FROM "${STATE}".npmrds_y${YEAR}m${MONTH} LIMIT 1;' | tr -d " \t\n\r";) ]]; then\
-		export PG_ENV;\
-		export DATA_FILE_PATH;\
-		export STATE;\
-		export YEAR;\
-		export MONTH;\
 		./make_targets/db/upload-npmrds-state-yrmo.sh;\
 	fi
 

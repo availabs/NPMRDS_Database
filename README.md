@@ -119,7 +119,7 @@ scp etl/CANADA_conflationYear2018_shpVersion20181011_downloadTS20190204T202224.t
 
 ### Example 1: NY shapefile for conflation year 2017 into the production database.
 ```
-PG_ENV=production STATE=ny TAR_ARCHIVE_PATH=./etl/USA_conflationYear2017_shpVersion20171108_downloadTS20190205T002219.tar make db/upload-state-npmrds-shapefile-from-country
+PG_ENV=production STATE=ny TAR_ARCHIVE_PATH=./etl/USA_conflationYear2017_shpVersion20171108_downloadTS20190205T002219.tar make db/upload-state-npmrds-shapefile-from-country-tar
 ```
 
 NOTE: To use the above make target, the tar archive must be the output of the `etl/download-and-partition-npmrds-shapefile` make target. To load other shapefiles, see the [upload-npmrds-shapefile-for-state-year.sh](make_targets/db/upload-npmrds-shapefile-for-state-year.sh) script. In the above make target example, an intermediary script extracts information from the tar archive, sets environment variables, then calls upload-npmrds-shapefile-for-state-year.sh.
