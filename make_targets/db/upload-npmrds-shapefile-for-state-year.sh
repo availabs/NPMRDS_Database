@@ -138,7 +138,9 @@ CUR_DEFAULT="$(psql -t -c "
 # If the newly uploaded table is a newer version than the current default version,
 #   set the newly uploaded table as the default for the given state/year.
 if [ -z "${CUR_DEFAULT}" ] || [[ "${TABLE_NAME}" > "${CUR_DEFAULT}" ]]; then
-  UNINHERIT_OLD="ALTER TABLE \"${STATE}\".${CUR_DEFAULT} NO INHERIT ${FULL_PARENT_TABLE_NAME};"
+  if ! [ -z "${CUR_DEFAULT}" ]; then
+    UNINHERIT_OLD="ALTER TABLE \"${STATE}\".${CUR_DEFAULT} NO INHERIT ${FULL_PARENT_TABLE_NAME};"
+  fi
   INHERIT_NEW="ALTER TABLE ${FULL_TABLE_NAME} INHERIT ${FULL_PARENT_TABLE_NAME};"
 
   psql \
