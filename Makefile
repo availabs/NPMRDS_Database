@@ -163,7 +163,7 @@ db/initialize-root-tables: \
 	db/create-state-abbreviations-table \
 	db/create-mpo-acronyms-table \
 	db/create-root-fips-codes-table \
-	db/create-root-average-speedlimits-table \
+	db/create-root-avg-speedlimits-table \
 	db/create-root-npmrds-table \
 	db/create-root-tmc-date-ranges-table \
 	db/create-root-mpo-boundaries-table \
@@ -478,7 +478,7 @@ db/create-root-year-tmc-metadata: \
 	db/create-root-npmrds-table \
 	db/create-root-tmc-date-ranges-table \
 	db/create-root-year-npmrds-shapefile-table \
-	db/create-root-average-speedlimits-table \
+	db/create-root-avg-speedlimits-table \
 	db/create-mpo-boundaries-view \
 	db/create-root-fips-codes-table
 	@:$(call check_defined,YEAR)
@@ -498,7 +498,8 @@ db/create-state-year-tmc-metadata: db/create-root-year-tmc-metadata
 	fi
 
 db/load-state-year-tmc-metadata: \
-	db/create-state-average-speedlimits-table \
+	db/create-root-fips-codes-table \
+	db/create-state-avg-speedlimits-table \
 	db/create-state-year-tmc-metadata \
 	db/create-avail-table-metadata-table \
 	db/create-relation-dependencies-fn
@@ -607,6 +608,17 @@ db/create-npmrds-date-fn:
 
 db/create-timestamptoepoch-fn:
 	@psql -f './sql/timestamptoepoch_fn/create_timestamptoepoch_function.sql'
+
+db/create-root-avg-speedlimits-table: 
+	@if ! psql -c '\d public.avg_speedlimits' > /dev/null 2>&1; then\
+		psql -f ./sql/avg_speedlimits/create_root_avg_speedlimits_table.sql; \
+	fi
+
+db/create-state-avg-speedlimits-table: db/create-root-avg-speedlimits-table
+	@:$(call check_defined,STATE)
+	@if ! psql -c '\d "${STATE}".avg_speedlimits' > /dev/null 2>&1; then\
+		psql -v STATE="$${STATE}" -f ./sql/avg_speedlimits/create_state_avg_speedlimits.sql; \
+	fi
 
 db/upload-state-avg-speedlimits:
 	@:$(call check_defined,STATE)

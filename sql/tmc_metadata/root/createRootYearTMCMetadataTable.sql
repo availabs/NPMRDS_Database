@@ -18,7 +18,6 @@ CREATE TABLE public.tmc_metadata_:YEAR (
   frc                      BIGINT,
   border_set               CHARACTER VARYING,
   f_system                 BIGINT,
-  urban_code               BIGINT,
   faciltype                BIGINT,
   structype                BIGINT,
   thrulanes                BIGINT,
