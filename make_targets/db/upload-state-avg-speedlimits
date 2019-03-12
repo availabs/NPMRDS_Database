@@ -1,0 +1,60 @@
+#!/bin/bash
+
+set -e
+set -a
+
+if [[ -z "$STATE" ]]; then
+  echo "ERROR: You must specify the STATE as an ENV variable."
+  exit 1
+fi
+
+# Get the path to, and verify the MPO shapefile zip archive.
+AVG_SPEEDLIMITS_GZIP_PATH="${1:-$AVG_SPEEDLIMITS_GZIP_PATH}"
+
+if [[ -z "$AVG_SPEEDLIMITS_GZIP_PATH" ]]; then
+  ( >&2 echo "ERROR: Specify the AVG_SPEEDLIMITS_GZIP_PATH as the 1st cli argument or as an ENV variable." )
+  exit 1
+fi
+
+AVG_SPEEDLIMITS_GZIP_PATH="$(realpath "$AVG_SPEEDLIMITS_GZIP_PATH")"
+
+if [[ ! -f "$AVG_SPEEDLIMITS_GZIP_PATH" ]]; then
+  ( >&2 echo "ERROR: No file found at AVG_SPEEDLIMITS_GZIP_PATH." )
+  exit 1
+fi
+
+if ! gunzip -t "$AVG_SPEEDLIMITS_GZIP_PATH" &>/dev/null ; then
+  ( >&2 echo "ERROR: INVALID GZIP Archive at $AVG_SPEEDLIMITS_GZIP_PATH" )
+  exit 1
+fi
+
+# Create a temporary TMP_WORK_DIR in the project's etl directory
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+# source the database connection config.
+if [ "$PG_ENV" = "production" ]; then
+	. ../../config/postgres.env.prod
+else
+	. ../../config/postgres.env.dev
+fi
+
+# Create the table and load the data all in a single transaction
+psql --quiet \
+  -v ON_ERROR_STOP=1 -v STATE="$STATE" \
+  -c 'BEGIN' \
+  -c "CREATE schema IF NOT EXISTS \"$STATE\";" \
+  -f ../../sql/avg_speedlimits/create_root_avg_speedlimits_table.sql \
+  -f ../../sql/avg_speedlimits/drop_state_avg_speedlimits.sql \
+  -f ../../sql/avg_speedlimits/create_state_avg_speedlimits.sql \
+  -f <(
+    echo "
+      COPY \"$STATE\".avg_speedlimits (state,tmc,avg_speedlimit)
+        FROM STDIN CSV HEADER;" &&
+    zcat "$AVG_SPEEDLIMITS_GZIP_PATH" &&
+    echo '\.'
+  ) \
+  -f ../../sql/avg_speedlimits/finish_state_avg_speedlimits.sql \
+  -c 'COMMIT;' \
+  -c "ANALYZE \"$STATE\".avg_speedlimits;"
+
+popd >/dev/null

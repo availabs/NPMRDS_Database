@@ -1,1 +1,0 @@
-DROP TABLE IF EXISTS avg_speedlimits CASCADE;

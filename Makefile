@@ -470,9 +470,7 @@ db/create-avail-table-metadata-table:
 	fi
 
 db/create-relation-dependencies-fn:
-	@if ! psql -c '\df relation_dependencies_fn' > /dev/null 2>&1; then\
-		@psql -f './sql/relation_dependencies_fn/create_relation_dependencies_fn.sql';\
-	fi
+	@psql -f './sql/relation_dependencies_fn/create_relation_dependencies_fn.sql';
 
 db/create-root-year-tmc-metadata: \
 	db/create-enum-types \
@@ -610,37 +608,10 @@ db/create-npmrds-date-fn:
 db/create-timestamptoepoch-fn:
 	@psql -f './sql/timestamptoepoch_fn/create_timestamptoepoch_function.sql'
 
-db/drop-root-average-speedlimits-table:
-	@if psql -c '\d public.avg_speedlimits' > /dev/null 2>&1; then\
-		psql -f './sql/avg_speedlimits/dropRootAverageSpeedLimitsTable.sql';\
-	fi
-
-db/create-root-average-speedlimits-table:
-	@if ! psql -c '\d public.avg_speedlimits' > /dev/null 2>&1; then\
-		psql -f './sql/avg_speedlimits/createRootAverageSpeedLimitsTable.sql';\
-	fi
-
-db/drop-state-average-speedlimits-table:
-	@if psql -c '\d ${STATE}.avg_speedlimits' > /dev/null 2>&1; then\
-		psql -c "$$(sed "s/__STATE__/${STATE}/g" ./sql/avg_speedlimits/dropStateAvgSpeedlimitsTable.sql)";\
-	fi
-
-db/create-state-average-speedlimits-table: db/create-state-abbreviations-table db/create-root-average-speedlimits-table db/create-schema-${STATE}
+db/upload-state-avg-speedlimits:
 	@:$(call check_defined,STATE)
-	@echo ${STATE}
-	@if ! psql -c '\d ${STATE}.avg_speedlimits' > /dev/null 2>&1; then\
-		psql -c "$$(sed 's/__STATE__/${STATE}/g' ./sql/avg_speedlimits/createStateAvgSpeedlimitsTable.sql)";\
-	fi
-
-db/load-state-average-speedlimits-table: db/create-state-average-speedlimits-table
-	@:$(call check_defined,STATE)
-	@echo ${STATE}
-	@if psql -c '\d ${STATE}.avg_speedlimits' > /dev/null 2>&1; then\
-		psql -c 'TRUNCATE ${STATE}.avg_speedlimits';\
-		cat ${_SPEEDLIMITS_DATA_DIR}/${STATE}_avg_speedlimits.csv |\
-			psql -c "$$(sed 's/__STATE__/${STATE}/g' ./sql/avg_speedlimits/loadStateSpeedlimits.sql)";\
-		psql -c "$$(sed 's/__STATE__/${STATE}/g' ./sql/avg_speedlimits/finishStateAvgSpeedlimitsTable.sql)";\
-	fi
+	@:$(call check_defined,AVG_SPEEDLIMITS_GZIP_PATH)
+	${_MKFILE_DIR}/make_targets/db/upload-state-avg-speedlimits
 
 db/drop-federal-holidays-table:
 	@if psql -c '\d public.federal_holidays' > /dev/null 2>&1; then\
@@ -651,7 +622,6 @@ db/create-federal-holidays-table: db/create-database
 	@if ! psql -c '\d public.federal_holidays' > /dev/null 2>&1; then\
 		psql -f './sql/federal_holidays/createFederalHolidaysTable.sql';\
 	fi
-
 
 
 db/drop-root-county-populations-table:
