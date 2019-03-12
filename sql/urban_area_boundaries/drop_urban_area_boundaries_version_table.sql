@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS us.urban_area_boundaries___LATEST_VERSION__;
+DROP TABLE IF EXISTS us.urban_area_boundaries_:UA_SHAPEFILE_VERSION;

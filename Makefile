@@ -377,29 +377,10 @@ db/upload-state-npmrds-shapefile-from-country-tar: db/create-schema-${STATE}
 	export STATE;\
 	${_MKFILE_DIR}/make_targets/db/upload-state-npmrds-shapefile-from-country-tar.sh
 
-db/drop-urban-area-boundaries-table:
-	@if psql -c '\d public.urban_area_boundaries' > /dev/null 2>&1; then\
-		psql -f ./sql/urban_area_boundaries/drop_root_urban_area_boundaries_table.sql;\
-	fi
+db/upload-urban-area-boundaries-shapefile:
+	@:$(call check_defined,UA_SHAPEFILE_ZIP_PATH)
+	${_MKFILE_DIR}/make_targets/db/upload-urban-area-boundaries-shapefile
 
-db/upload-urban-area-boundaries-shapefile: db/create-database db/create-schema-us
-	@set -e;\
-	LATEST_VERSION=$$(ls ${_URBAN_AREAS_SHAPEFILE_DIR} | sort | tail -1);\
-	SHP_DIR=${_URBAN_AREAS_SHAPEFILE_DIR}/$${LATEST_VERSION};\
-	pushd $${SHP_DIR} && unzip -o "*.zip" && popd;\
-	psql -c "$$(sed "s/__LATEST_VERSION__/$${LATEST_VERSION}/g" ./sql/urban_area_boundaries/drop_urban_area_boundaries_version_table.sql)";\
-	ogr2ogr -t_srs EPSG:4326 -f \
-		PostgreSQL 'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
-		"$${SHP_DIR}" -lco SCHEMA=us -lco OVERWRITE=YES -nlt PROMOTE_TO_MULTI -lco PRECISION=NO -nln "urban_area_boundaries_$${LATEST_VERSION}";\
-	psql -c "$$(sed "s/__LATEST_VERSION__/$${LATEST_VERSION}/g" ./sql/urban_area_boundaries/create_root_urban_area_boundaries_table_from_version_table.sql)";\
-	OLDER_VERSION="$$(psql -t -f ./sql/urban_area_boundaries/list_urban_area_boundaries_child_table.sql | tr -d " \t\n\r")";\
-	if [[ ! -z $${OLDER_VERSION} ]]; then\
-		psql -c "ALTER TABLE us.$${OLDER_VERSION} NO INHERIT public.urban_area_boundaries;";\
-	fi;\
-	psql -c "ALTER TABLE us.urban_area_boundaries_$${LATEST_VERSION} INHERIT public.urban_area_boundaries;";\
-	find $${SHP_DIR} \
-		\( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \)\
-		-type f -delete;
 
 
 db/drop-state-abbreviations-table:
