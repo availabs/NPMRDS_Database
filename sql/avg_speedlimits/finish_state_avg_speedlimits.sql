@@ -4,5 +4,5 @@ ALTER TABLE :"STATE".avg_speedlimits
   ADD CONSTRAINT avg_speedlimits_state_check CHECK(state = :'STATE'),
   INHERIT public.avg_speedlimits;
 
-CLUSTER VERBOSE :"STATE".avg_speedlimits 
+CLUSTER :"STATE".avg_speedlimits 
   USING avg_speedlimits_pkey;

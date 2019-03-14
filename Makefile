@@ -611,13 +611,13 @@ db/create-timestamptoepoch-fn:
 
 db/create-root-avg-speedlimits-table: 
 	@if ! psql -c '\d public.avg_speedlimits' > /dev/null 2>&1; then\
-		psql -f ./sql/avg_speedlimits/create_root_avg_speedlimits_table.sql; \
+		psql --quiet -f ./sql/avg_speedlimits/create_root_avg_speedlimits_table.sql; \
 	fi
 
 db/create-state-avg-speedlimits-table: db/create-root-avg-speedlimits-table
 	@:$(call check_defined,STATE)
 	@if ! psql -c '\d "${STATE}".avg_speedlimits' > /dev/null 2>&1; then\
-		psql -v STATE="$${STATE}" -f ./sql/avg_speedlimits/create_state_avg_speedlimits.sql; \
+		psql --quiet -v STATE="$${STATE}" -f ./sql/avg_speedlimits/create_state_avg_speedlimits.sql; \
 	fi
 
 db/upload-state-avg-speedlimits:
