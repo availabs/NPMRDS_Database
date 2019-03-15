@@ -52,4 +52,8 @@ SQL="COPY $FULL_TABLE_NAME ($COLS) FROM STDIN CSV HEADER;"
 zcat "$DATA_FILE_PATH" |
   psql -c "$SQL" 
 
+psql \
+  -v STATE="$STATE" \
+  -f ../../sql/tmc_date_ranges/refreshStateTMCDateRangeTable.sql
+
 popd >/dev/null

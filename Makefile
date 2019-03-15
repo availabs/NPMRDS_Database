@@ -289,13 +289,8 @@ db/create-state-tmc-date-ranges-table: db/create-schema-${STATE} db/create-root-
 	fi
 
 db/refresh-state-tmc-date-ranges-table: db/create-state-tmc-date-ranges-table
-	@:$(call check_defined,STATE) #redundant, since source target calls the same.
-	@psql -c "$$(\
-			sed "\
-				s/__STATE__/${STATE}/g;\
-			" ./sql/tmc_date_ranges/refreshStateTMCDateRangeTable.sql;\
-		)";
-
+	@:$(call check_defined,STATE)
+	@psql -v STATE="$${STATE}" -f ./sql/tmc_date_ranges/refreshStateTMCDateRangeTable.sql;
 
 db/drop-mpo-acronyms-table:
 	@if psql -c '\d us.mpo_acronyms' > /dev/null 2>&1; then\
