@@ -361,7 +361,7 @@ INSERT INTO :tbl_name (
       npmrds_shapefile.frc,
       npmrds_shapefile.border_set,
       npmrds_shapefile.f_system,
-      npmrds_shapefile.urban_code AS ua_code,
+      LPAD(npmrds_shapefile.urban_code::TEXT, 5, '0') AS ua_code,
       npmrds_shapefile.faciltype,
       npmrds_shapefile.structype,
       npmrds_shapefile.thrulanes,
