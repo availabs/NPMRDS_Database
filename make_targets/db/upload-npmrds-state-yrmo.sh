@@ -54,6 +54,8 @@ zcat "$DATA_FILE_PATH" |
 
 psql \
   -v STATE="$STATE" \
+  -f ../../sql/tmc_date_ranges/createRootTMCDateRangeTable.sql \
+  -f ../../sql/tmc_date_ranges/createStateTMCDateRangeTable.sql \
   -f ../../sql/tmc_date_ranges/refreshStateTMCDateRangeTable.sql
 
 popd >/dev/null

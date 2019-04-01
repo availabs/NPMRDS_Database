@@ -281,11 +281,7 @@ db/postprocess-npmrds-state-yrmo:
 db/create-state-tmc-date-ranges-table: db/create-schema-${STATE} db/create-root-tmc-date-ranges-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@if ! psql -c '\d "${STATE}".tmc_date_ranges' > /dev/null 2>&1; then\
-		psql -c "$$(\
-				sed "\
-					s/__STATE__/${STATE}/g;\
-				" ./sql/tmc_date_ranges/createStateTMCDateRangeTable.sql\
-			)";\
+		psql -v STATE="$${STATE}" -f ./sql/tmc_date_ranges/createStateTMCDateRangeTable.sql;\
 	fi
 
 db/refresh-state-tmc-date-ranges-table: db/create-state-tmc-date-ranges-table
