@@ -3,3 +3,4 @@ data*
 ./preprocessing*
 node_modules/
 package-lock.json
+spike/

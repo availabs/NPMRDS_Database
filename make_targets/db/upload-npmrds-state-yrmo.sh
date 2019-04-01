@@ -52,10 +52,12 @@ SQL="COPY $FULL_TABLE_NAME ($COLS) FROM STDIN CSV HEADER;"
 zcat "$DATA_FILE_PATH" |
   psql -c "$SQL" 
 
-psql \
-  -v STATE="$STATE" \
-  -f ../../sql/tmc_date_ranges/createRootTMCDateRangeTable.sql \
-  -f ../../sql/tmc_date_ranges/createStateTMCDateRangeTable.sql \
-  -f ../../sql/tmc_date_ranges/refreshStateTMCDateRangeTable.sql
+PROJECT_ROOT="$(realpath ../../ )"
+
+pushd "$PROJECT_ROOT" >/dev/null
+
+STATE="$STATE" make db/refresh-state-tmc-date-ranges-table
+
+popd >/dev/null
 
 popd >/dev/null
