@@ -779,7 +779,34 @@ db/archive-npmrds-state-yrmo:
 	@:$(call check_defined,ARCHIVE_DIRECTORY_PATH)
 	./make_targets/db/archive-npmrds-state-yrmo.sh;
 
+
+
 #####################################################
+
+db/create_pm3_calculator_metadata_table:
+	@if ! psql -c '\d public.pm3_calculator_metadata' > /dev/null 2>&1; then\
+		psql -f './sql/pm3_calculator_metadata/create_pm3_calculator_metadata_table.sql';\
+	fi
+
+db/create_pm3_measure_calculator_metadata_table: db/create_pm3_calculator_metadata_table
+	@if ! psql -c '\d public.pm3_measure_calculator_metadata' > /dev/null 2>&1; then\
+		psql -f './sql/pm3_measure_calculator_metadata/create_pm3_measure_calculator_metadata_table.sql';\
+	fi
+
+db/create_pm3_eav_append_only_table: db/create_pm3_measure_calculator_metadata_table
+	@if ! psql -c '\d public.pm3_eav_append_only' > /dev/null 2>&1; then\
+		psql -f './sql/pm3_eav_append_only/create_pm3_eav_append_only.sql';\
+	fi
+
+db/create_pm3_authorative_view: db/create_pm3_eav_append_only_table
+	@if ! psql -c '\d public.create_pm3_authorative_view' > /dev/null 2>&1; then\
+		psql -f './sql/pm3_authorative_view/create_pm3_authorative_view.sql';\
+	fi
+
+db/create_pm3_tables: db/create_pm3_authorative_view
+
+#####################################################
+
 
 ${_SPEEDLIMITS_DATA_DIR}:
 	mkdir -p ${_SPEEDLIMITS_DATA_DIR}
