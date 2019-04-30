@@ -1,8 +1,8 @@
 CREATE VIEW public.pm3_authorative_view
 AS 
   SELECT
-      metadata->'measure' AS measure,
-      metadata->'year' AS year,
+      (metadata->>'measure') AS measure,
+      (metadata->>'year')::SMALLINT AS year,
       metadata,
       tmc,
       attribute,

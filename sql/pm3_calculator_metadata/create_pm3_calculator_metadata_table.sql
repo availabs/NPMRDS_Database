@@ -9,5 +9,5 @@ CREATE TABLE public.pm3_calculator_metadata (
 );
 
 CREATE UNIQUE INDEX pm3_calculator_metadata_idx
-  ON pm3_calculator_metadata( (metadata->'timestamp'))
+  ON pm3_calculator_metadata( (metadata->'timestamp') )
 ;
