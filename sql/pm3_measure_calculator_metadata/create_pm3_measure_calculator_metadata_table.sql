@@ -7,13 +7,19 @@ CREATE TABLE public.pm3_measure_calculator_metadata (
 
   -- Check that metadata is an object containing both "measure" and "year" fields
   CHECK (
-    jsonb_typeof(metadata)='object'
+    ( jsonb_typeof(metadata)='object' )
     AND
-    jsonb_typeof(metadata->'measure') = 'string'
+    ( metadata->'measure' IS NOT NULL )
     AND
-    jsonb_typeof(metadata->'year') = 'number'
+    ( jsonb_typeof(metadata->'measure') = 'string' )
+    AND
+    ( metadata->'year' IS NOT NULL )
+    AND
+    ( jsonb_typeof(metadata->'year') = 'number' )
   )
 );
+
+/* This doesn't allow separate calculator runs per state. 
 
 -- Enforce "authorativeness" per measure calculator configuration.
 -- For each distinct metadata object, only one can be authorative.
@@ -25,3 +31,5 @@ CREATE UNIQUE INDEX pm3_measure_calculator_metadata_uniq
     (authorative_end IS NULL)
   )
 ;
+
+*/

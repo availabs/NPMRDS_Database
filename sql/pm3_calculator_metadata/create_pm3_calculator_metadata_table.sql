@@ -2,9 +2,11 @@ CREATE TABLE public.pm3_calculator_metadata (
   id          SERIAL PRIMARY KEY,
   metadata    JSONB,
   CHECK (
-    jsonb_typeof(metadata)='object'
+    ( jsonb_typeof(metadata)='object' )
     AND
-    metadata->'timestamp' IS NOT NULL
+    ( metadata->'timestamp' IS NOT NULL )
+    AND
+    ( jsonb_typeof(metadata->'timestamp') = 'string'  )
   )
 );
 
