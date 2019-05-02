@@ -48,10 +48,6 @@ _STATE_POPULATIONS_ZIP_PATH := ${_STATE_POPULATIONS_DIR}/state_populations.5-yea
 
 _NPMRDS_SHAPEFILES_DIR := ${_DATA_DIR}/shapefiles/npmrds_shapefile
 
-_SCRAPED_SPEEDLIMITS_DIR := "${_MKFILE_DIR}/src/speedlimitScraper/data"
-_PARSED_SPEEDLIMITS_DIR := "${_MKFILE_DIR}/src/speedlimitScraper/parsed-speedlimit-data"
-_SPEEDLIMITS_DATA_DIR := "${_DATA_DIR}/csv/speedlimits"
-
 # https://www.gnu.org/software/make/manual/make.html#Special-Targets
 # The targets which .SECONDARY depends on are treated as intermediate files,
 # 	except that they are never automatically deleted. See Chains of Implicit Rules.
@@ -556,17 +552,6 @@ db/create-traffic-distributions-table:
 		psql -f ./sql/traffic_distributions/createTrafficDistributionsTable.sql;\
 	fi
 
-db/drop-geography-level-to-states:
-	@if psql -c '\d public.geography_level_to_states' > /dev/null 2>&1; then\
-		psql -f './sql/geography_level_to_states/drop_geography_level_to_states.sql';\
-	fi
-
-db/create-geography-level-to-states:
-	@if ! psql -c '\d public.geography_level_to_states' > /dev/null 2>&1; then\
-		psql -f './sql/geography_level_to_states/create_geography_level_to_states.sql';\
-	fi
-
-
 db/drop-geography-level-attributes-view:
 	@if psql -c '\d public.geography_level_attributes_view' > /dev/null 2>&1; then\
 		psql -f './sql/geography_level_attributes_view/dropStateGeographyLevelAttributesView.sql';\
@@ -610,11 +595,6 @@ db/create-state-avg-speedlimits-table: db/create-root-avg-speedlimits-table
 	@if ! psql -c '\d "${STATE}".avg_speedlimits' > /dev/null 2>&1; then\
 		psql --quiet -v STATE="$${STATE}" -f ./sql/avg_speedlimits/create_state_avg_speedlimits.sql; \
 	fi
-
-db/upload-state-avg-speedlimits:
-	@:$(call check_defined,STATE)
-	@:$(call check_defined,AVG_SPEEDLIMITS_GZIP_PATH)
-	${_MKFILE_DIR}/make_targets/db/upload-state-avg-speedlimits
 
 db/drop-federal-holidays-table:
 	@if psql -c '\d public.federal_holidays' > /dev/null 2>&1; then\
@@ -808,20 +788,6 @@ db/create_pm3_tables: db/create_pm3_authorative_view
 #####################################################
 
 
-${_SPEEDLIMITS_DATA_DIR}:
-	mkdir -p ${_SPEEDLIMITS_DATA_DIR}
-
-scraping/scrape-speedlimits:
-	@:$(call check_defined,STATE)
-	@if [ ! -d "${_SCRAPED_SPEEDLIMITS_DIR}/${STATE}" ]; then\
-		echo 'Scraping speedlimits.';\
-		node ./src/speedlimitScraper/speedlimitsScraper.js --state=${STATE};\
-	fi
-	
-scraping/update-scraped-speedlimits-info:
-	@:$(call check_defined,STATE)
-	node ./src/speedlimitScraper/speedlimitsScraper.js --state=${STATE};\
-
 scraping/download-urban-area-boundaries-shapefile:
 	@:$(call check_defined,YEAR)
 	${_BIN_DIR}/scrapeCensusShapefiles.js --geographyType=urban_area --year=${YEAR}
@@ -842,18 +808,6 @@ scraping/download-fips-codes-csv:
 	${_BIN_DIR}/scrapeFipsCodesTable.sh
 
 
-preprocessing/create-speedlimits-csv: scraping/scrape-speedlimits
-	@:$(call check_defined,STATE)
-	@if [ ! -f "${_PARSED_SPEEDLIMITS_DIR}/${STATE}_avg_speedlimits.csv" ]; then\
-		node ./src/speedlimitScraper/createSpeedlimitsCSV.js --state=${STATE};\
-	fi
-
-data/move-speedlimits-csv-to-data-dir: ${_SPEEDLIMITS_DATA_DIR} preprocessing/create-speedlimits-csv
-	@:$(call check_defined,STATE)
-	@if [ ! -d "${_SPEEDLIMITS_DATA_DIR}/${STATE}_avg_speedlimits.csv" ]; then\
-		mv "${_PARSED_SPEEDLIMITS_DIR}/${STATE}_avg_speedlimits.csv" "${_SPEEDLIMITS_DATA_DIR}/${STATE}_avg_speedlimits.csv";\
-	fi
-	
 preprocessing:
 	mkdir -p ${_PREPROCESSING_DIR}
 
