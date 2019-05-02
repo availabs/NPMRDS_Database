@@ -1,4 +1,4 @@
-CREATE VIEW public.pm3_authorative_view
+CREATE VIEW public.pm3_authoritative_view
 AS 
   SELECT
       (a.metadata->>'state') AS state,
@@ -15,8 +15,8 @@ AS
       INNER JOIN pm3_eav_append_only AS c
         ON (b.id = c.pm3meacalc_id)
     WHERE (
-      (b.authorative_start IS NOT NULL)
+      (b.authoritative_start IS NOT NULL)
       AND
-      (b.authorative_end IS NULL)
+      (b.authoritative_end IS NULL)
     )
 ;
