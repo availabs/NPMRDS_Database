@@ -162,9 +162,9 @@ db/create-schema-%: db/create-database
 	else\
 		schema=$*;\
 		schema=$${schema,,};\
-		if ! psql -t -c "\dn $${schema}" | sed '/^$/d' > /dev/null 2>&1; then\
+		if ! psql -t -c "\dn $$schema" | sed '/^$/d' > /dev/null 2>&1; then\
 			echo "=== $$schema ===";\
-			psql -c "CREATE SCHEMA IF NOT EXISTS \"$${schema}\";";\
+			psql --quiet -c "CREATE SCHEMA IF NOT EXISTS \"$${schema}\";";\
 		fi;\
 	fi
 
@@ -453,18 +453,14 @@ db/create-root-year-tmc-metadata: \
 	db/create-root-fips-codes-table
 	@:$(call check_defined,YEAR)
 	@if ! psql -c '\d public.tmc_metadata_${YEAR}' > /dev/null 2>&1; then\
-		psql -v YEAR="$${YEAR}" -f ./sql/tmc_metadata/root/createRootYearTMCMetadataTable.sql;\
-	else\
-		echo "public.tmc_metadata_${YEAR} exists. Skipping db/create-root-year-tmc-metadata.";\
+		psql --quiet -v YEAR="$${YEAR}" -f ./sql/tmc_metadata/root/createRootYearTMCMetadataTable.sql;\
 	fi
 
 db/create-state-year-tmc-metadata: db/create-root-year-tmc-metadata
 	@:$(call check_defined,STATE)
 	@:$(call check_defined,YEAR)
 	@if ! psql -c '\d "${STATE}".tmc_metadata_${YEAR}' > /dev/null 2>&1; then\
-		psql -v STATE="$${STATE}" -v YEAR="$${YEAR}" -f ./sql/tmc_metadata/state/createStateYearTMCMetadataTable.sql;\
-	else\
-		echo "${STATE}.tmc_metadata_${YEAR} exists. Skipping db/create-state-tmc-metadata.";\
+		psql --quiet -v STATE="$${STATE}" -v YEAR="$${YEAR}" -f ./sql/tmc_metadata/state/createStateYearTMCMetadataTable.sql;\
 	fi
 
 db/load-state-year-tmc-metadata: \
