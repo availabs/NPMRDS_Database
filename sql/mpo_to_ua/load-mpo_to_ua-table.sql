@@ -4,8 +4,8 @@ DELETE FROM mpo_to_ua;
 
 INSERT INTO mpo_to_ua (mpo_code, ua_code)
   SELECT
-      mpo_code::VARCHAR,
-      ua_code::VARCHAR
+      mpo_code::VARCHAR,  -- zero-padded
+      ua_code::VARCHAR    -- zero-padded
     FROM (
       SELECT
           ROW_NUMBER() OVER (
@@ -35,3 +35,5 @@ INSERT INTO mpo_to_ua (mpo_code, ua_code)
 CLUSTER mpo_to_ua USING mpo_to_ua_pkey;
 
 COMMIT;
+
+ANALYZE mpo_to_ua;

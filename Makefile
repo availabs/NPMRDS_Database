@@ -29,22 +29,8 @@ _PREPROCESSING_DIR := ${_MKFILE_DIR}preprocessing
 _NPMRDS_SHAPEFILE_PREPROCESSING_DIR := ${_PREPROCESSING_DIR}/shapefiles/npmrds_shapefile
 
 _DATA_DIR := ${_MKFILE_DIR}data
-_DOWNLOAD_DIR := ${_DATA_DIR}/npmrds-downloads
 
 _FIPS_CODES_CSVS_DIR := ${_DATA_DIR}/csv/fip_codes/
-
-_MPOS_DIRS_SHAPEFILE_DIR := ${_DATA_DIR}/shapefiles/mpo_boundaries/us
-
-_URBAN_AREAS_SHAPEFILE_DIR := ${_DATA_DIR}/shapefiles/urban_area_boundaries/us
-
-_URBAN_AREA_POPULATIONS_DIR := ${_DATA_DIR}/csv/urban_area_populations/us/${YEAR}
-_URBAN_AREA_POPULATIONS_ZIP_PATH := ${_URBAN_AREA_POPULATIONS_DIR}/urban_area_populations.5-year-estimate.${YEAR}.us.gz
-
-_COUNTY_POPULATIONS_DIR :=  ${_DATA_DIR}/csv/county_populations/us/${YEAR}
-_COUNTY_POPULATIONS_ZIP_PATH := ${_COUNTY_POPULATIONS_DIR}/county_populations.5-year-estimate.${YEAR}.us.gz
-
-_STATE_POPULATIONS_DIR :=  ${_DATA_DIR}/csv/state_populations/us/${YEAR}
-_STATE_POPULATIONS_ZIP_PATH := ${_STATE_POPULATIONS_DIR}/state_populations.5-year-estimate.${YEAR}.us.gz
 
 _NPMRDS_SHAPEFILES_DIR := ${_DATA_DIR}/shapefiles/npmrds_shapefile
 
@@ -84,9 +70,6 @@ _NPMRDS_SHAPEFILES_DIR := ${_DATA_DIR}/shapefiles/npmrds_shapefile
 # .SECONDARY. When a file is secondary, make will not create the file merely
 # because it does not already exist, but make does not automatically delete the
 # file. Marking a file as secondary also marks it as intermediate.
-.INTERMEDIATE: \
-	${_DOWNLOAD_DIR}/**/* \
-	${_ETL_SORTED_DIR}/**/*
 
 # Define a macro that expands (splits on =) and
 #   exports (makes available to sub-shells) key-value arguments,
@@ -552,25 +535,9 @@ db/create-traffic-distributions-table:
 		psql -f ./sql/traffic_distributions/createTrafficDistributionsTable.sql;\
 	fi
 
-db/drop-geography-level-attributes-view:
-	@if psql -c '\d public.geography_level_attributes_view' > /dev/null 2>&1; then\
-		psql -f './sql/geography_level_attributes_view/dropStateGeographyLevelAttributesView.sql';\
-	fi
-
-db/create-geography-level-attributes-view: db/create-root-tmc-attributes
-	@if ! psql -c '\d public.geography_level_attributes_view' > /dev/null 2>&1; then\
-		psql -f './sql/geography_level_attributes_view/createStateGeographyAttributesView.sql';\
-	fi
-
-db/drop-geography-level-attributes-view-2:
-	@if psql -c '\d public.geography_level_attributes_view_2' > /dev/null 2>&1; then\
-		psql -f './sql/geography_level_attributes_view_2/dropStateGeographyLevelAttributesView2.sql';\
-	fi
-
-db/create-geography-level-attributes-view-2: db/create-root-tmc-attributes
-	@if ! psql -c '\d public.geography_level_attributes_view_2' > /dev/null 2>&1; then\
-		psql -f './sql/geography_level_attributes_view_2/createStateGeographyAttributesView2.sql';\
-	fi
+db/create-geography-metadata-view: db/create-root-year-tmc-metadata
+	@:$(call check_defined,YEAR)
+	@psql --quiet -v YEAR="${YEAR}" -f ./sql/geography_metadata/create_geography_metadata_year_view.sql;
 
 
 db/create-npmrds-year-fn:
@@ -604,107 +571,6 @@ db/drop-federal-holidays-table:
 db/create-federal-holidays-table: db/create-database
 	@if ! psql -c '\d public.federal_holidays' > /dev/null 2>&1; then\
 		psql -f './sql/federal_holidays/createFederalHolidaysTable.sql';\
-	fi
-
-
-db/drop-root-county-populations-table:
-	@if psql -c '\d public.county_populations' > /dev/null 2>&1; then\
-		psql -f './sql/county_populations/drop_root_county_populations_table.sql';\
-	fi
-
-db/drop-year-county-populations-table:
-	@:$(call check_defined,YEAR)
-	@if psql -c '\d us.county_populations_y${YEAR}' > /dev/null 2>&1; then\
-		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/county_populations/drop_year_county_populations_table.sql')";\
-	fi
-
-db/create-root-county-populations-table: db/create-database
-	@if ! psql -c '\d public.county_populations' > /dev/null 2>&1; then\
-		psql -f './sql/county_populations/create_root_county_populations_table.sql';\
-	fi
-
-db/create-year-county-populations-table: db/create-root-county-populations-table
-	@:$(call check_defined,YEAR)
-	@if ! psql -c '\d us.county_populations_y${YEAR}' > /dev/null 2>&1; then\
-		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/county_populations/create_year_county_populations_table.sql')";\
-	fi
-
-db/load-year-county-populations-table: db/create-year-county-populations-table
-	@:$(call check_defined,YEAR)
-	@set -e;\
-	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM us.county_populations_y${YEAR};" | tr -d " \t\n\r";);\
-	if [ $${COUNT} -eq 0 ]; then\
-		gunzip -c '${_COUNTY_POPULATIONS_ZIP_PATH}' | \
-		tail -n +2 | \
-			psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/county_populations/load_year_county_populations.sql)";\
-		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/county_populations/finish_year_county_populations.sql)";\
-	fi
-
-
-db/drop-root-urban-area-populations-table:
-	@if psql -c '\d public.urban_area_populations' > /dev/null 2>&1; then\
-		psql -f './sql/urban_area_populations/drop_root_urban_area_populations_table.sql';\
-	fi
-
-db/drop-year-urban-area-populations-table:
-	@:$(call check_defined,YEAR)
-	@if psql -c '\d us.urban_area_populations_y${YEAR}' > /dev/null 2>&1; then\
-		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/urban_area_populations/drop_year_urban_area_populations_table.sql')";\
-	fi
-
-db/create-root-urban-area-populations-table: db/create-database
-	@if ! psql -c '\d public.urban_area_populations' > /dev/null 2>&1; then\
-		psql -f './sql/urban_area_populations/create_root_urban_area_populations_table.sql';\
-	fi
-
-db/create-year-urban-area-populations-table: db/create-root-urban-area-populations-table
-	@:$(call check_defined,YEAR)
-	@if ! psql -c '\d us.urban_area_populations_y${YEAR}' > /dev/null 2>&1; then\
-		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/urban_area_populations/create_year_urban_area_populations_table.sql')";\
-	fi
-
-db/load-year-urban-area-populations-table: db/create-year-urban-area-populations-table
-	@:$(call check_defined,YEAR)
-	@set -e;\
-	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM us.urban_area_populations_y${YEAR};" | tr -d " \t\n\r";);\
-	if [ $${COUNT} -eq 0 ]; then\
-		gunzip -c '${_URBAN_AREA_POPULATIONS_ZIP_PATH}' | \
-			psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/urban_area_populations/load_year_urban_area_populations.sql)";\
-		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/urban_area_populations/finish_year_urban_area_populations.sql)";\
-	fi
-
-
-db/drop-root-state-populations-table:
-	@if psql -c '\d public.state_populations' > /dev/null 2>&1; then\
-		psql -f './sql/state_populations/drop_root_state_populations_table.sql';\
-	fi
-
-db/drop-year-state-populations-table:
-	@:$(call check_defined,YEAR)
-	@if psql -c '\d us.state_populations_y${YEAR}' > /dev/null 2>&1; then\
-		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/state_populations/drop_year_state_populations_table.sql')";\
-	fi
-
-db/create-root-state-populations-table: db/create-database
-	@if ! psql -c '\d public.state_populations' > /dev/null 2>&1; then\
-		psql -f './sql/state_populations/create_root_state_populations_table.sql';\
-	fi
-
-db/create-year-state-populations-table: db/create-root-state-populations-table
-	@:$(call check_defined,YEAR)
-	@if ! psql -c '\d us.state_populations_y${YEAR}' > /dev/null 2>&1; then\
-		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" './sql/state_populations/create_year_state_populations_table.sql')";\
-	fi
-
-db/load-year-state-populations-table: db/create-year-state-populations-table
-	@:$(call check_defined,YEAR)
-	@set -e;\
-	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM us.state_populations_y${YEAR};" | tr -d " \t\n\r";);\
-	if [ $${COUNT} -eq 0 ]; then\
-		gunzip -c '${_STATE_POPULATIONS_ZIP_PATH}' | \
-		tail -n +2 | \
-			psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/state_populations/load_year_state_populations.sql)";\
-		psql -c "$$(sed "s/__YEAR__/${YEAR}/g" ./sql/state_populations/finish_year_state_populations.sql)";\
 	fi
 
 
@@ -790,20 +656,10 @@ db/create_pm3_tables: db/create_pm3_authorative_view
 
 scraping/download-urban-area-boundaries-shapefile:
 	@:$(call check_defined,YEAR)
-	${_BIN_DIR}/scrapeCensusShapefiles.js --geographyType=urban_area --year=${YEAR}
+	@${_MKFILE_DIR}/make_targets/etl/download-urban-area-boundaries-shapefile.js \
+		--year=${YEAR} \
+		--downloadDir="${_MKFILE_DIR}etl/urban_area_boundaries/"
 	
-scraping/download-county-populations-csv-for-year:
-	@:$(call check_defined,YEAR)
-	${_BIN_DIR}/scrapeCensusPopulations.js --year=${YEAR} --geographyType=county
-
-scraping/download-urban-area-populations-csv-for-year:
-	@:$(call check_defined,YEAR)
-	${_BIN_DIR}/scrapeCensusPopulations.js --year=${YEAR} --geographyType=urban_area
-
-scraping/download-state-populations-csv-for-year:
-	@:$(call check_defined,YEAR)
-	${_BIN_DIR}/scrapeCensusPopulations.js --year=${YEAR} --geographyType=state
-
 scraping/download-fips-codes-csv:
 	${_BIN_DIR}/scrapeFipsCodesTable.sh
 
@@ -816,15 +672,11 @@ etl/download-and-partition-npmrds-shapefile:
 	@:$(call check_defined,YEAR)
 	@export COUNTRY;\
 	export YEAR;\
-	${_MKFILE_DIR}make_targets/etl/download-and-partition-npmrds-shapefile.sh
+	${_MKFILE_DIR}/make_targets/etl/download-and-partition-npmrds-shapefile.sh
 
 
 ${_NPMRDS_SHAPEFILES_DIR}:
 	@mkdir -p ${_NPMRDS_SHAPEFILES_DIR};
-
-data/copy-state-npmrds-shapefile-from-preprocessing-to-data: ${_NPMRDS_SHAPEFILES_DIR}
-	@:$(call check_defined,STATE)
-	@cp ${_PREPROCESSING_DIR}/shapefiles/npmrds_shapefile/states/${STATE}_*.zip ${_NPMRDS_SHAPEFILES_DIR}
 
 data/clean-shapefiles-dir:
 	$(shell find ./data/shapefiles \( -iname '*.shx' -o -iname '*.CPG' -o -iname '*.dbf' -o -iname '*.prj' -o -iname '*.sbn' -o -iname '*.sbx' -o -iname '*.shp' -o -iname '*.shp.xml' \) -type f -delete)

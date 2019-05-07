@@ -380,8 +380,8 @@ INSERT INTO :tbl_name (
 
       state_abbreviations.abbreviation AS state,
 
-      fips_codes.state_code AS state_code,
-      (fips_codes.state_code || fips_codes.county_code) AS county_code,
+      fips_codes_states.state_code AS state_code,
+      (fips_codes_counties.state_code || fips_codes_counties.county_code) AS county_code,
 
       (frc = 1) AS is_interstate,
       ((f_system = 1) OR (f_system = 2)) AS is_controlled_access,
@@ -450,7 +450,11 @@ INSERT INTO :tbl_name (
       USING (tmc)
     LEFT OUTER JOIN tmp_bounding_boxes
       USING (tmc)
-    LEFT OUTER JOIN fips_codes
+    LEFT OUTER JOIN fips_codes AS fips_codes_states
+      ON (
+        (state_abbreviations.abbreviation = fips_codes.state)
+      )
+    LEFT OUTER JOIN fips_codes AS fips_codes_counties
       ON (
         (state_abbreviations.abbreviation = fips_codes.state)
         AND
