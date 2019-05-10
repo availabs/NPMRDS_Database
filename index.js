@@ -15,7 +15,7 @@ yargs
     pg_env: {
       type: 'string',
       demand: false,
-      options: ['production', 'development'],
+      choices: ['production', 'development'],
       default: 'development'
     }
   })
@@ -65,6 +65,17 @@ yargs
         cwd: __dirname,
         stdio: 'inherit',
         env: { DOWNLOAD_LINKS: `${downloadLinks}` }
+      });
+    }
+  })
+  .command({
+    command: 'create_pm3_tables',
+    desc: 'Create the PM3 tables.',
+    handler: ({ pg_env }) => {
+      spawn('make', ['db/create_pm3_tables'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { PG_ENV: `${pg_env}` }
       });
     }
   })
