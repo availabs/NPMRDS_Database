@@ -663,6 +663,11 @@ scraping/download-fips-codes-csv:
 preprocessing:
 	mkdir -p ${_PREPROCESSING_DIR}
 
+etl/download-and-transform-npmrds-data:
+	@:$(call check_defined,DOWNLOAD_LINKS)
+	@export DOWNLOAD_LINKS;\
+	${_MKFILE_DIR}/src/etlPipeline/main
+
 etl/download-and-partition-npmrds-shapefile:
 	@:$(call check_defined,COUNTRY)
 	@:$(call check_defined,YEAR)

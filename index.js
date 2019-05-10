@@ -49,6 +49,25 @@ yargs
       });
     }
   })
+  .command({
+    command: 'download_npmrds_data',
+    desc:
+      'Download and transform the NPMRDS Data from the RITIS Massive Data Downloader',
+    builder: {
+      downloadLinks: {
+        type: 'array',
+        desc: 'The download links.',
+        demand: true
+      }
+    },
+    handler: ({ downloadLinks }) => {
+      spawn('make', ['etl/download-and-transform-npmrds-data'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { DOWNLOAD_LINKS: `${downloadLinks}` }
+      });
+    }
+  })
   .demandCommand()
   .recommendCommands()
   .strict()
