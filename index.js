@@ -20,6 +20,36 @@ yargs
     }
   })
   .command({
+    command: 'download_and_partition_npmrds_shapefile',
+    desc: "Download the specified country's shapefile for the specified conflation year",
+    builder: {
+      year: { type: 'number', demand: true },
+      country: { type: 'string', demand: true }
+    },
+    handler: ({ year, country, pg_env }) => {
+      spawn('make', ['etl/download-and-partition-npmrds-shapefile'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { YEAR: year, COUNTRY: country, PG_ENV: pg_env }
+      });
+    }
+  })
+  .command({
+    command: 'create_npmrds_state_yrmo_table',
+    desc: 'Create state npmrds table for the year and month',
+    builder: {
+      year: { type: 'number', demand: true },
+      month: { type: 'number', demand: true }
+    },
+    handler: ({ year, month, pg_env }) => {
+      spawn('make', ['db/create-npmrds-state-yrmo-table'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { YEAR: year, MONTH: month, PG_ENV: pg_env }
+      });
+    }
+  })
+  .command({
     command: 'create_geography_metadata',
     desc:
       'Create (or replace) the geography_metadata VIEW for the specified year',
