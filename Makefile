@@ -533,7 +533,7 @@ db/create-traffic-distributions-table:
 
 db/create-geography-metadata-view: db/create-root-year-tmc-metadata
 	@:$(call check_defined,YEAR)
-	@psql --quiet -v YEAR="${YEAR}" -f ./sql/geography_metadata/create_geography_metadata_year_view.sql;
+	@psql --quiet -v YEAR="${YEAR}" -f ./sql/geography_metadata/create_geography_metadata_view.sql
 
 
 db/create-npmrds-year-fn:

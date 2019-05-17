@@ -6,7 +6,6 @@ const { spawn } = require('child_process');
 
 const yargs = require('yargs');
 
-
 yargs
   .parserConfiguration({
     'camel-case-expansion': false,
@@ -16,14 +15,13 @@ yargs
     pg_env: {
       type: 'string',
       demand: false,
-      options: ['production', 'development'],
+      choices: ['production', 'development'],
       default: 'development'
     }
   })
   .command({
     command: 'load_state_year_tmc_metadata',
-    desc:
-      'Create the tmc_metadata table for the specified state and year',
+    desc: 'Create the tmc_metadata table for the specified state and year',
     builder: {
       year: { type: 'number', demand: true },
       state: { type: 'string', demand: true }
@@ -33,6 +31,37 @@ yargs
         cwd: __dirname,
         stdio: 'inherit',
         env: { YEAR: year, STATE: state, PG_ENV: pg_env }
+      });
+    }
+  })
+  .command({
+    command: 'download_and_partition_npmrds_shapefile',
+    desc:
+      "Download the specified country's shapefile for the specified conflation year",
+    builder: {
+      year: { type: 'number', demand: true },
+      country: { type: 'string', demand: true }
+    },
+    handler: ({ year, country, pg_env }) => {
+      spawn('make', ['etl/download-and-partition-npmrds-shapefile'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { YEAR: year, COUNTRY: country, PG_ENV: pg_env }
+      });
+    }
+  })
+  .command({
+    command: 'create_npmrds_state_yrmo_table',
+    desc: 'Create state npmrds table for the year and month',
+    builder: {
+      year: { type: 'number', demand: true },
+      month: { type: 'number', demand: true }
+    },
+    handler: ({ year, month, pg_env }) => {
+      spawn('make', ['db/create-npmrds-state-yrmo-table'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { YEAR: year, MONTH: month, PG_ENV: pg_env }
       });
     }
   })
@@ -82,6 +111,17 @@ yargs
         cwd: __dirname,
         stdio: 'inherit',
         env: { DOWNLOAD_LINKS: `${downloadLinks}` }
+      });
+    }
+  })
+  .command({
+    command: 'create_pm3_tables',
+    desc: 'Create the PM3 tables.',
+    handler: ({ pg_env }) => {
+      spawn('make', ['db/create_pm3_tables'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { PG_ENV: `${pg_env}` }
       });
     }
   })
