@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 
 const yargs = require('yargs');
 
+
 yargs
   .parserConfiguration({
     'camel-case-expansion': false,
@@ -17,6 +18,22 @@ yargs
       demand: false,
       options: ['production', 'development'],
       default: 'development'
+    }
+  })
+  .command({
+    command: 'load_state_year_tmc_metadata',
+    desc:
+      'Create the tmc_metadata table for the specified state and year',
+    builder: {
+      year: { type: 'number', demand: true },
+      state: { type: 'string', demand: true }
+    },
+    handler: ({ year, state, pg_env }) => {
+      spawn('make', ['db/load-state-year-tmc-metadata'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { YEAR: year, STATE: state, PG_ENV: pg_env }
+      });
     }
   })
   .command({
