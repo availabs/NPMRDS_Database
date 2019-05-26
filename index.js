@@ -109,6 +109,17 @@ yargs
       });
     }
   })
+  .command({
+    command: 'create_pm3_authoritative_geolevel_mview',
+    desc: 'Create the PM3 Geography Level Materialized View.',
+    handler: ({ pg_env }) => {
+      spawn('make', ['db/create_pm3_authoritative_geolevel_mview'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { PG_ENV: `${pg_env}` }
+      });
+    }
+  })
   .demandCommand()
   .recommendCommands()
   .strict()

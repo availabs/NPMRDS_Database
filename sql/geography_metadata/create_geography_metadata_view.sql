@@ -105,9 +105,13 @@ EXECUTE 'CREATE MATERIALIZED VIEW geography_metadata AS
       ST_Extent(wkb_geometry) AS bounding_box
     FROM cte_tmc_metadata
     WHERE (
-      (ua_code = ''99998'')
-      OR
-      (ua_code = ''99999'')
+      (ua_code IS NOT NULL)
+      AND
+      (
+        (ua_code = ''99998'')
+        OR
+        (ua_code = ''99999'')
+      )
     )
     GROUP BY ua_code, ua_name, state, state_code
   ;

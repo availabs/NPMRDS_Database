@@ -8,7 +8,7 @@ AS
       b.metadata,
       tmc,
       attribute,
-      value
+      NULLIF(value, 'null'::JSONB) AS value
     FROM pm3_calculator_metadata AS a
       INNER JOIN pm3_measure_calculator_metadata AS b
         ON (a.id = b.pm3calc_id)
