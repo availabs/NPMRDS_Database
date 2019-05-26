@@ -450,15 +450,19 @@ INSERT INTO :tbl_name (
       USING (tmc)
     LEFT OUTER JOIN tmp_bounding_boxes
       USING (tmc)
-    LEFT OUTER JOIN fips_codes AS fips_codes_states
-      ON (
-        (state_abbreviations.abbreviation = fips_codes.state)
+    LEFT OUTER JOIN (
+        SELECT DISTINCT
+            state,
+            state_code
+          FROM fips_codes 
+      ) AS fips_codes_states ON (
+        (state_abbreviations.abbreviation = fips_codes_states.state)
       )
     LEFT OUTER JOIN fips_codes AS fips_codes_counties
       ON (
-        (state_abbreviations.abbreviation = fips_codes.state)
+        (state_abbreviations.abbreviation = fips_codes_counties.state)
         AND
-        (npmrds_shapefile.county = fips_codes.county)
+        (npmrds_shapefile.county = fips_codes_counties.county)
       )
   WHERE (
     (state_abbreviations.abbreviation = :'STATE')
