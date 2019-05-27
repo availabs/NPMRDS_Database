@@ -4,3 +4,5 @@ CREATE TABLE public.pm3_eav_append_only (
   attribute      VARCHAR NOT NULL,
   value          JSONB
 );
+
+CREATE INDEX pm3_eav_append_only_idx ON pm3_eav_append_only (tmc);

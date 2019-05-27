@@ -640,6 +640,9 @@ db/create_pm3_eav_append_only_table: db/create_pm3_measure_calculator_metadata_t
 		psql -f './sql/pm3_eav_append_only/create_pm3_eav_append_only.sql';\
 	fi
 
+db/cluster_pm3_eav_append_only_table: db/create_pm3_eav_append_only_table
+	@psql --quiet -f './sql/pm3_eav_append_only/cluster_pm3_eav_append_only.sql'
+
 db/create_pm3_authoritative_view: db/create_pm3_eav_append_only_table
 	@if ! psql -c '\d public.pm3_authoritative_view' > /dev/null 2>&1; then\
 		psql -f './sql/pm3_authoritative_view/create_pm3_authoritative_view.sql';\

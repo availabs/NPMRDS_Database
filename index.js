@@ -136,6 +136,17 @@ yargs
       });
     }
   })
+  .command({
+    command: 'cluster_pm3_eav_append_only_table',
+    desc: 'Cluster the pm3_eav_append_only_table on the tmc column.',
+    handler: ({ pg_env }) => {
+      spawn('make', ['db/cluster_pm3_eav_append_only_table'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { PG_ENV: `${pg_env}` }
+      });
+    }
+  })
   .demandCommand()
   .recommendCommands()
   .strict()
