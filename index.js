@@ -147,6 +147,20 @@ yargs
       });
     }
   })
+  .command({
+    command: 'load_avgtt_table_for_state',
+    desc: 'Load the avgtt for the specified state. (Creates the table if necessary.)',
+    builder: {
+      state: { type: 'string', demand: true }
+    },
+    handler: ({ state, pg_env }) => {
+      spawn('make', ['db/load-state-avgtt-table'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { PG_ENV: `${pg_env}`, STATE: `${state}` }
+      });
+    }
+  })
   .demandCommand()
   .recommendCommands()
   .strict()

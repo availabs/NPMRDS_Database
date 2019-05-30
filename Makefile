@@ -658,6 +658,16 @@ db/create_pm3_tables: db/create_pm3_authoritative_view
 #####################################################
 
 
+db/create-root-avgtt-table: db/create-root-npmrds-table
+	@set -e;\
+	if ! psql -c '\d public.avgtt' > /dev/null 2>&1; then\
+		psql --quiet -f './sql/avgtt/root/create_avgtt_table.sql';\
+	fi
+
+db/load-state-avgtt-table: db/create-root-avgtt-table db/create-npmrds-state-table
+	@:$(call check_defined,STATE) 
+	@psql --quiet -v STATE="$${STATE}" -f ./sql/avgtt/state/create_state_avgtt_table.sql
+
 scraping/download-urban-area-boundaries-shapefile:
 	@:$(call check_defined,YEAR)
 	@${_MKFILE_DIR}/make_targets/etl/download-urban-area-boundaries-shapefile.js \
