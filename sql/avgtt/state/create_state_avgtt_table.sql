@@ -14,7 +14,8 @@ INSERT INTO :"STATE".avgtt (tmc, year, avg_day)
   SELECT
       tmc,
       year,
-      jsonb_object_agg(epoch, avgtt)
+      jsonb_object_agg(epoch, avgtt),
+      :'STATE' AS state
     FROM (
       SELECT
           tmc,
