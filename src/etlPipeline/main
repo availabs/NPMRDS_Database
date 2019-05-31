@@ -1,0 +1,80 @@
+#!/bin/bash
+
+set -e
+
+DOWNLOAD_LINKS="${1:-$DOWNLOAD_LINKS}"
+
+# We need to do this here to preserve relative paths.
+source "$( dirname "${BASH_SOURCE[0]}" )/setDefaultVariables" ''
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null
+
+if [ "$ETL_DOWNLOAD_ZIP_ARCHIVES" == true ]
+then
+  echo 'downloadZipArchive'
+  source ./downloadZipArchive ''
+else
+  echo 'Skipping downloadZipArchive.'
+fi
+
+if [ "$ETL_RENAME_DOWNLOADS_USING_CONTENTS_FILE" == true ]
+then
+  echo 'renameDownloadsUsingContentsFile'
+  source ./renameDownloadsUsingContentsFile ''
+else
+  echo 'Skipping renameDownloadsUsingContentsFile.'
+fi
+
+if [ "$ETL_VERIFY_ALL_DOWNLOADS_FOR_SAME_STATE" == true ]
+then
+  echo 'verifyAllDownloadFilesForSameState'
+  source ./verifyAllDownloadFilesForSameState ''
+else
+  if [[ -z "$STATE" ]]
+  then
+    echo "If the ETL_VERIFY_ALL_DOWNLOADS_FOR_SAME_STATE flag is set to false,"
+    echo "  the STATE flag must be set."
+    exit 1
+  fi
+  echo 'Skipping verifyAllDownloadFilesForSameState.'
+fi
+
+export STATE
+# Now that we have STATE, get more default variables
+source ./setDefaultVariables ''
+
+echo 'partitionDownloadedCSVsByMonth'
+./inrixSchemaDataStreamFromArchives \
+  "$(find "$ETL_WORK_DIR" -name "*${INRIX_DOWNLOAD_ZIP_EXTENSION}" -printf "%p ")" |\
+./partitionDownloadedCSVsByMonth
+
+echo 'sortInrixSchemaCSVs'
+source ./sortInrixSchemaCSVs ''
+
+if [ "$ETL_CHECK_DOWNLOAD_COMPLETENESS" == true ]
+then
+  echo 'checkDownloadCompleteness'
+  source ./checkDownloadCompleteness ''
+else
+  echo 'Skipping checkDownloadCompleteness.'
+fi
+
+if [ "${ETL_TRANSFORM_TO_CANONICAL_SCHEMA}" == true ]
+then
+  echo 'transformToCanonicalSchema'
+  source ./transformToCanonicalSchema ''
+fi
+
+if [ "${ETL_ARCHIVE}" == true ]
+then
+  echo 'rmINRIXSchemaCSVs' 
+  source ./rmINRIXSchemaCSVs ''
+
+  echo 'copyCanonicalSchemaFilesToArchive'
+  source ./copyCanonicalSchemaFilesToArchive ''
+
+  echo 'archiveETLWorkDirForColdStorage'
+  source ./archiveETLWorkDirForColdStorage ''
+fi
+
+popd > /dev/null

@@ -347,7 +347,7 @@ INSERT INTO :tbl_name (
       npmrds_shapefile.roadnumber,
       npmrds_shapefile.roadname,
       npmrds_shapefile.firstname,
-      npmrds_shapefile.tmclinear,
+      npmrds_shapefile.tmclinear::INTEGER,
       npmrds_shapefile.country,
       npmrds_shapefile.state AS state_name,
       npmrds_shapefile.county AS county_name,
@@ -358,30 +358,30 @@ INSERT INTO :tbl_name (
       npmrds_shapefile.endlat,
       npmrds_shapefile.endlong,
       npmrds_shapefile.miles,
-      npmrds_shapefile.frc,
+      npmrds_shapefile.frc::SMALLINT,
       npmrds_shapefile.border_set,
-      npmrds_shapefile.f_system,
+      npmrds_shapefile.f_system::SMALLINT,
       LPAD(npmrds_shapefile.urban_code::TEXT, 5, '0') AS ua_code,
-      npmrds_shapefile.faciltype,
-      npmrds_shapefile.structype,
-      npmrds_shapefile.thrulanes,
-      npmrds_shapefile.route_numb,
-      npmrds_shapefile.route_sign,
-      npmrds_shapefile.route_qual,
+      npmrds_shapefile.faciltype::SMALLINT,
+      npmrds_shapefile.structype::SMALLINT,
+      npmrds_shapefile.thrulanes::SMALLINT,
+      npmrds_shapefile.route_numb::INTEGER,
+      npmrds_shapefile.route_sign::SMALLINT,
+      npmrds_shapefile.route_qual::SMALLINT,
       npmrds_shapefile.altrtename,
-      npmrds_shapefile.aadt,
-      npmrds_shapefile.aadt_singl,
-      npmrds_shapefile.aadt_combi,
-      npmrds_shapefile.nhs,
-      npmrds_shapefile.nhs_pct,
-      npmrds_shapefile.strhnt_typ,
-      npmrds_shapefile.strhnt_pct,
-      npmrds_shapefile.truck,
+      npmrds_shapefile.aadt::INTEGER,
+      npmrds_shapefile.aadt_singl::INTEGER,
+      npmrds_shapefile.aadt_combi::INTEGER,
+      npmrds_shapefile.nhs::SMALLINT,
+      npmrds_shapefile.nhs_pct::SMALLINT,
+      npmrds_shapefile.strhnt_typ::SMALLINT,
+      npmrds_shapefile.strhnt_pct::SMALLINT,
+      npmrds_shapefile.truck::SMALLINT,
 
       state_abbreviations.abbreviation AS state,
 
-      fips_codes.state_code AS state_code,
-      (fips_codes.state_code || fips_codes.county_code) AS county_code,
+      fips_codes_states.state_code AS state_code,
+      (fips_codes_counties.state_code || fips_codes_counties.county_code) AS county_code,
 
       (frc = 1) AS is_interstate,
       ((f_system = 1) OR (f_system = 2)) AS is_controlled_access,
@@ -450,11 +450,19 @@ INSERT INTO :tbl_name (
       USING (tmc)
     LEFT OUTER JOIN tmp_bounding_boxes
       USING (tmc)
-    LEFT OUTER JOIN fips_codes
+    LEFT OUTER JOIN (
+        SELECT DISTINCT
+            state,
+            state_code
+          FROM fips_codes 
+      ) AS fips_codes_states ON (
+        (state_abbreviations.abbreviation = fips_codes_states.state)
+      )
+    LEFT OUTER JOIN fips_codes AS fips_codes_counties
       ON (
-        (state_abbreviations.abbreviation = fips_codes.state)
+        (state_abbreviations.abbreviation = fips_codes_counties.state)
         AND
-        (npmrds_shapefile.county = fips_codes.county)
+        (npmrds_shapefile.county = fips_codes_counties.county)
       )
   WHERE (
     (state_abbreviations.abbreviation = :'STATE')

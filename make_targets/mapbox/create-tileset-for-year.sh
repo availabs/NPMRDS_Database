@@ -29,8 +29,7 @@ NPMRDS_SHAPEFILE_VERSION="$(
   psql -c "
     COPY (
       SELECT MAX(npmrds_shapefile_version)
-        FROM npmrds_shapefile
-        WHERE (conflation_year = ${YEAR})
+        FROM npmrds_shapefile_${YEAR}
     ) TO STDOUT
   "
 )"
@@ -61,12 +60,13 @@ SQL="
             FROM (
                 SELECT
                     tmc,
-                    f_system
-                  FROM npmrds_shapefile
-                  WHERE (conflation_year = ${YEAR})
-            ) AS props
-              INNER JOIN npmrds_shapefile AS shp USING (tmc)
-            WHERE (shp.conflation_year = ${YEAR})
+                    f_system,
+                    state_code,
+                    county_code,
+                    mpo_code,
+                    ua_code
+                  FROM tmc_metadata_${YEAR}
+            ) AS props INNER JOIN npmrds_shapefile_${YEAR} AS shp USING (tmc)
         ) As f
     )  As fc;
 "
