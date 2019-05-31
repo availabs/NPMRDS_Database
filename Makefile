@@ -464,6 +464,7 @@ db/create-state-year-tmc-metadata: db/create-root-year-tmc-metadata
 	fi
 
 db/load-state-year-tmc-metadata: \
+	db/create-npmrds-state-table \
 	db/create-root-fips-codes-table \
 	db/create-state-avg-speedlimits-table \
 	db/create-state-year-tmc-metadata \
