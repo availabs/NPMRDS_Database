@@ -18,13 +18,9 @@ const outputCols = [
   'data_density_freight_trucks'
 ];
 
-async function doIt() {
-  process.stdin
-    .pipe(split())
-    .pipe(csvInputStream())
-    .pipe(dateEpochAggregator())
-    .pipe(csvOutputStream(outputCols))
-    .pipe(process.stdout);
-}
-
-doIt();
+process.stdin
+  .pipe(split())
+  .pipe(csvInputStream())
+  .pipe(dateEpochAggregator())
+  .pipe(csvOutputStream(outputCols))
+  .pipe(process.stdout);

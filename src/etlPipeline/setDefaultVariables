@@ -51,6 +51,10 @@ ETL_WORK_DIR="$(\
   readlink -m "${ETL_WORK_DIR:="${this_dir}/../../etl/${ETL_UUID}.etl-work-dir"}" \
 )"
 
+ETL_TMP_DIR="$(\
+  readlink -m "${ETL_TMP_DIR:="${this_dir}/../../etl/tmp"}" \
+)"
+
 INRIX_DOWNLOAD_ZIP_EXTENSION="${INRIX_DOWNLOAD_ZIP_EXTENSION:=.raw-inrix-download.zip}"
 
 CANONICAL_ARCHIVE_DIR="$(\
@@ -98,6 +102,8 @@ export ETL_ARCHIVE
 export ETL_CLEANUP
 
 export ETL_WORK_DIR
+export ETL_TMP_DIR
+
 export CANONICAL_ARCHIVE_DIR
 export COLD_STORAGE_ARCHIVE_DIR
 

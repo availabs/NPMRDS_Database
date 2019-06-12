@@ -9,6 +9,10 @@ source "$( dirname "${BASH_SOURCE[0]}" )/setDefaultVariables" ''
 
 mkdir -p "$ETL_WORK_DIR"
 
+# sort will create temporary files in TMPDIR
+export TMPDIR="$ETL_TMP_DIR"
+mkdir -p "$TMPDIR"
+
 pushd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null
 
 if [ "$ETL_DOWNLOAD_ZIP_ARCHIVES" == true ]
