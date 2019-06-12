@@ -7,6 +7,8 @@ DOWNLOAD_LINKS="${1:-$DOWNLOAD_LINKS}"
 # We need to do this here to preserve relative paths.
 source "$( dirname "${BASH_SOURCE[0]}" )/setDefaultVariables" ''
 
+mkdir -p "$ETL_WORK_DIR"
+
 pushd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null
 
 if [ "$ETL_DOWNLOAD_ZIP_ARCHIVES" == true ]

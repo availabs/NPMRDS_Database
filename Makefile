@@ -265,7 +265,7 @@ db/create-state-tmc-date-ranges-table: db/create-schema-${STATE} db/create-root-
 
 db/refresh-state-tmc-date-ranges-table: db/create-state-tmc-date-ranges-table
 	@:$(call check_defined,STATE)
-	@psql -v STATE="$${STATE}" -f ./sql/tmc_date_ranges/refreshStateTMCDateRangeTable.sql;
+	@psql --quiet -v STATE="$${STATE}" -f ./sql/tmc_date_ranges/refreshStateTMCDateRangeTable.sql;
 
 db/drop-mpo-acronyms-table:
 	@if psql -c '\d us.mpo_acronyms' > /dev/null 2>&1; then\
@@ -326,7 +326,7 @@ db/create-mpo-boundaries-view:
 db/create-root-year-npmrds-shapefile-table:
 	@:$(call check_defined,YEAR)
 	@if ! psql -c '\d public.npmrds_shapefile_${YEAR}' > /dev/null 2>&1; then\
-		psql -v YEAR="${YEAR}" -f ./sql/npmrds_shapefile/root/createRootYearNPMRDSShapefileTable.sql;\
+		psql -v YEAR="$${YEAR}" -f ./sql/npmrds_shapefile/root/createRootYearNPMRDSShapefileTable.sql;\
 	fi
 
 # NOTE: Here for convenience.
@@ -534,7 +534,7 @@ db/create-traffic-distributions-table:
 
 db/create-geography-metadata-view: db/create-root-year-tmc-metadata
 	@:$(call check_defined,YEAR)
-	@psql --quiet -v YEAR="${YEAR}" -f ./sql/geography_metadata/create_geography_metadata_view.sql
+	@psql --quiet -v YEAR="$${YEAR}" -f ./sql/geography_metadata/create_geography_metadata_view.sql
 
 
 db/create-npmrds-year-fn:
@@ -665,9 +665,10 @@ db/create-root-avgtt-table: db/create-root-npmrds-table
 		psql --quiet -f './sql/avgtt/root/create_avgtt_table.sql';\
 	fi
 
-db/load-state-avgtt-table: db/create-root-avgtt-table db/create-npmrds-state-table
+db/load-state-year-avgtt-table: db/create-root-avgtt-table db/create-npmrds-state-table
 	@:$(call check_defined,STATE) 
-	@psql --quiet -v STATE="$${STATE}" -f ./sql/avgtt/state/create_state_avgtt_table.sql
+	@:$(call check_defined,YEAR) 
+	@psql --quiet -v STATE="$${STATE}" -v YEAR="$${YEAR}" -f ./sql/avgtt/state/create_state_year_avgtt_table.sql
 
 scraping/download-urban-area-boundaries-shapefile:
 	@:$(call check_defined,YEAR)

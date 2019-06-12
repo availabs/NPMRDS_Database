@@ -35,6 +35,21 @@ yargs
     }
   })
   .command({
+    command: 'refresh_state_tmc_date_ranges_table',
+    desc:
+      'Refresh the tmc data date ranges table for the specified state (creating the table if necessary).',
+    builder: {
+      state: { type: 'string', demand: true }
+    },
+    handler: ({ state, pg_env }) => {
+      spawn('make', ['db/refresh-state-tmc-date-ranges-table'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { STATE: state, PG_ENV: pg_env }
+      });
+    }
+  })
+  .command({
     command: 'download_and_partition_npmrds_shapefile',
     desc:
       "Download the specified country's shapefile for the specified conflation year",
@@ -101,8 +116,8 @@ yargs
       'Download and transform the NPMRDS Data from the RITIS Massive Data Downloader',
     builder: {
       downloadLinks: {
-        type: 'array',
-        desc: 'The download links.',
+        type: 'string',
+        desc: 'The download links as a comma-separated list.',
         demand: true
       }
     },
@@ -110,7 +125,41 @@ yargs
       spawn('make', ['etl/download-and-transform-npmrds-data'], {
         cwd: __dirname,
         stdio: 'inherit',
-        env: { DOWNLOAD_LINKS: `${downloadLinks}` }
+        env: { DOWNLOAD_LINKS: downloadLinks }
+      });
+    }
+  })
+  /*
+db/upload-npmrds-state-yrmo: db/create-npmrds-state-yrmo-table
+	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,MONTH)
+	@:$(call check_defined,DATA_FILE_PATH)
+	@if [[ ! $$(psql -t -c 'SELECT * FROM "${STATE}".npmrds_y${YEAR}m${MONTH} LIMIT 1;' | tr -d " \t\n\r";) ]]; then\
+		./make_targets/db/upload-npmrds-state-yrmo.sh;\
+	fi
+*/
+  // TODO: Make dataFilePath an absolute path before passing to make.
+  .command({
+    command: 'upload_npmrds_state_yrmo',
+    desc: "Load the specified state's month of NPMRDS data into the database",
+    builder: {
+      state: { type: 'string', demand: true },
+      year: { type: 'number', demand: true },
+      month: { type: 'number', demand: true },
+      dataFilePath: { type: 'string', demand: true }
+    },
+    handler: ({ pg_env, state, year, month, dataFilePath }) => {
+      spawn('make', ['db/upload-npmrds-state-yrmo'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: {
+          PG_ENV: pg_env,
+          STATE: state,
+          YEAR: year,
+          MONTH: month,
+          DATA_FILE_PATH: dataFilePath
+        }
       });
     }
   })
@@ -148,16 +197,18 @@ yargs
     }
   })
   .command({
-    command: 'load_avgtt_table_for_state',
-    desc: 'Load the avgtt for the specified state. (Creates the table if necessary.)',
+    command: 'load_avgtt_table_for_state_year',
+    desc:
+      'Load the avgtt for the specified state and year of data. (Creates the table if necessary.)',
     builder: {
-      state: { type: 'string', demand: true }
+      state: { type: 'string', demand: true },
+      year: { type: 'number', demand: true }
     },
-    handler: ({ state, pg_env }) => {
-      spawn('make', ['db/load-state-avgtt-table'], {
+    handler: ({ state, year, pg_env }) => {
+      spawn('make', ['db/load-state-year-avgtt-table'], {
         cwd: __dirname,
         stdio: 'inherit',
-        env: { PG_ENV: `${pg_env}`, STATE: `${state}` }
+        env: { PG_ENV: pg_env, STATE: state, YEAR: year }
       });
     }
   })
