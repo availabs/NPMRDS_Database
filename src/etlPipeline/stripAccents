@@ -1,0 +1,15 @@
+#!/usr/bin/env node
+
+const { split } = require('event-stream');
+const through2 = require('through2');
+const removeAccents = require('remove-accents');
+
+process.stdin
+  .pipe(split())
+  .pipe(
+    through2(function accentStripper(d, _, cb) {
+      this.push(Buffer.from(`${removeAccents(d.toString())}\n`));
+      cb();
+    })
+  )
+  .pipe(process.stdout);

@@ -56,7 +56,7 @@ PROJECT_ROOT="$(realpath ../../ )"
 
 pushd "$PROJECT_ROOT" >/dev/null
 
-STATE="$STATE" make db/refresh-state-tmc-date-ranges-table
+# STATE="$STATE" make db/refresh-state-tmc-date-ranges-table
 
 popd >/dev/null
 
