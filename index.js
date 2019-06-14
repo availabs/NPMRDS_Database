@@ -212,6 +212,18 @@ db/upload-npmrds-state-yrmo: db/create-npmrds-state-yrmo-table
       });
     }
   })
+  .command({
+    command: 'create_pm3_authoritative_view',
+    desc:
+      'Create the pm3_authoritative_view materialized view. (Updates the view if it exists.)',
+    handler: ({ pg_env }) => {
+      spawn('make', ['db/create_pm3_authoritative_view'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { PG_ENV: pg_env }
+      });
+    }
+  })
   .demandCommand()
   .recommendCommands()
   .strict()

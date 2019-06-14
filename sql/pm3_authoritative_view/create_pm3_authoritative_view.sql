@@ -27,7 +27,7 @@ CREATE MATERIALIZED VIEW public.pm3_authoritative_view
   ;
 
 CREATE INDEX pm3_authoritative_view_idx
-  ON public.pm3_authoritative_view (tmc)
+  ON public.pm3_authoritative_view (year, tmc)
 ;
 
 CLUSTER public.pm3_authoritative_view USING pm3_authoritative_view_idx;

@@ -645,9 +645,7 @@ db/cluster_pm3_eav_append_only_table: db/create_pm3_eav_append_only_table
 	@psql --quiet -f './sql/pm3_eav_append_only/cluster_pm3_eav_append_only.sql'
 
 db/create_pm3_authoritative_view: db/create_pm3_eav_append_only_table
-	@if ! psql -c '\d public.pm3_authoritative_view' > /dev/null 2>&1; then\
-		psql -f './sql/pm3_authoritative_view/create_pm3_authoritative_view.sql';\
-	fi
+		psql -f './sql/pm3_authoritative_view/create_pm3_authoritative_view.sql';
 
 db/create_pm3_authoritative_geolevel_mview: db/create_pm3_authoritative_view
 	@if ! psql -c '\d public.pm3_authoritative_geolevel_mview' > /dev/null 2>&1; then\
