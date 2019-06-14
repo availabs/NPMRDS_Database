@@ -23,12 +23,25 @@ EXECUTE 'CREATE MATERIALIZED VIEW pm3_authoritative_geolevel_mview AS
           ',
           ' UNION ALL '
         )
-      FROM information_schema.tables
-      WHERE (
-        (table_schema = 'public')
-        AND
-        (table_name LIKE 'tmc_metadata_%')
-      )
+      FROM (
+        SELECT
+            table_name
+          FROM information_schema.tables
+          WHERE (
+            (table_schema = 'public')
+            AND
+            (table_name LIKE 'tmc_metadata_%')
+          )
+        UNION
+        SELECT
+            table_name
+          FROM information_schema.views
+          WHERE (
+            (table_schema = 'public')
+            AND
+            (table_name LIKE 'tmc_metadata_%')
+          )
+      ) AS t
   ) || '), cte_tmc_level_pm3 AS (
       SELECT
           split_part(tmc_year, ''_'', 1) AS tmc,
