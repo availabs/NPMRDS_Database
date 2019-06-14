@@ -18,7 +18,7 @@ EXECUTE 'CREATE MATERIALIZED VIEW pm3_authoritative_geolevel_mview AS
               county_code,
               mpo_code,
               ua_code,
-              conflation_year AS year
+              ' || right(table_name, 4) || '::INT AS year
             FROM public.' || table_name || '
           ',
           ' UNION ALL '
