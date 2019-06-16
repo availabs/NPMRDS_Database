@@ -66,6 +66,22 @@ yargs
     }
   })
   .command({
+    command: 'upload_state_npmrds_shapefile_from_country_tar',
+    desc:
+      "Load the specified state's shapefile from the specified tar archive. (NOTE: For Canada, state=cn. Provinces created automatically.)",
+    builder: {
+      tarArchivePath: { type: 'string', demand: true },
+      state: { type: 'string', demand: true }
+    },
+    handler: ({ tarArchivePath, state, pg_env }) => {
+      spawn('make', ['db/upload-state-npmrds-shapefile-from-country-tar'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { TAR_ARCHIVE_PATH: tarArchivePath, STATE: state, PG_ENV: pg_env }
+      });
+    }
+  })
+  .command({
     command: 'create_npmrds_state_yrmo_table',
     desc: 'Create state npmrds table for the year and month',
     builder: {

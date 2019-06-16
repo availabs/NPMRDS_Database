@@ -163,7 +163,6 @@ db/create-schema-%: db/create-database
 		schema=$*;\
 		schema=$${schema,,};\
 		if ! psql -t -c "\dn $$schema" | sed '/^$/d' > /dev/null 2>&1; then\
-			echo "=== $$schema ===";\
 			psql --quiet -c "CREATE SCHEMA IF NOT EXISTS \"$${schema}\";";\
 		fi;\
 	fi
