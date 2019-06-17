@@ -665,6 +665,15 @@ db/load-state-year-avgtt-table: db/create-root-avgtt-table db/create-npmrds-stat
 	@:$(call check_defined,YEAR) 
 	@psql --quiet -v STATE="$${STATE}" -v YEAR="$${YEAR}" -f ./sql/avgtt/state/create_state_year_avgtt_table.sql
 
+
+db/create-routing-tables-and-funcitons-for-year: db/create-root-year-npmrds-shapefile-table
+	@:$(call check_defined,YEAR)
+	@psql --quiet -c "$$(\
+		sed "s/__YEAR__/${YEAR}/g;" \
+			./sql/routing/create_routing_tables_and_functions_for_year.sql\
+	)";
+
+
 scraping/download-urban-area-boundaries-shapefile:
 	@:$(call check_defined,YEAR)
 	@${_MKFILE_DIR}/make_targets/etl/download-urban-area-boundaries-shapefile.js \

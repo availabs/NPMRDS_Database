@@ -240,6 +240,22 @@ db/upload-npmrds-state-yrmo: db/create-npmrds-state-yrmo-table
       });
     }
   })
+// db/create-routing-tables-and-funcitons-for-year
+  .command({
+    command: 'create-routing-tables-and-funcitons-for-year',
+    desc:
+      'Create the tables and functions used for creating routes. (Drops & re-creates the tables if they exist.)',
+    builder: {
+      year: { type: 'number', demand: true }
+    },
+    handler: ({ year, pg_env }) => {
+      spawn('make', ['db/create-routing-tables-and-funcitons-for-year'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { PG_ENV: pg_env, YEAR: year }
+      });
+    }
+  })
   .demandCommand()
   .recommendCommands()
   .strict()
