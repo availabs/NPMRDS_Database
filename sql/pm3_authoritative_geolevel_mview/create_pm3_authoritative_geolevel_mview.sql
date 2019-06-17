@@ -20,8 +20,11 @@ EXECUTE 'CREATE MATERIALIZED VIEW pm3_authoritative_geolevel_mview AS
               ua_code,
               ' || right(table_name, 4) || '::INT AS year
             FROM public.' || table_name || '
+            WHERE (
+              country = ''United States''
+            )
           ',
-          ' UNION ALL '
+          ' UNION '
         )
       FROM (
         SELECT
