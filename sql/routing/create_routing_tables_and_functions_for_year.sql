@@ -302,7 +302,7 @@ ALTER TABLE tmc_routable___YEAR__
   ADD COLUMN source int4,
   ADD COLUMN target int4;
 
-DROP TABLE IF EXISTS tmc_routable_vertices___YEAR___pgr;
+DROP TABLE IF EXISTS tmc_routable___YEAR___vertices_pgr;
 SELECT pgr_createTopology('tmc_routable___YEAR__', 0.0000001);
 
 --play with tolerance till the vertices all touch their tmcs at least relatively
@@ -361,7 +361,7 @@ CREATE OR REPLACE FUNCTION get_closest_id___YEAR__(p1 float8, p2 float8)
       )
       SELECT
           pgr.id::int4
-        FROM tmc_routable_vertices_pgr AS pgr
+        FROM tmc_routable___YEAR___vertices_pgr AS pgr
           JOIN cte_tmp_tmcvertices
             USING(id)
           CROSS JOIN the_tmc AS tt
@@ -396,8 +396,8 @@ CREATE OR REPLACE FUNCTION route_from_tmc___YEAR__ (waypoints float8[])
         RETURN QUERY
           WITH cte_t AS (
             SELECT
-                t.seq + lastsq,
-                t.id2,
+                sub_route.seq + lastsq,
+                sub_route.id2,
                 tss.tmc
               FROM (
                 SELECT
@@ -405,21 +405,21 @@ CREATE OR REPLACE FUNCTION route_from_tmc___YEAR__ (waypoints float8[])
                     pgr.id2
                   FROM (
                     SELECT
-                        t1.id AS st,
-                        t2.id AS en
+                        t1.id AS start_pt,
+                        t2.id AS end_pt
                       FROM get_closest_id___YEAR__(waypoints[ix], waypoints[ix+1]) AS t1
                         CROSS JOIN get_closest_id___YEAR__(waypoints[ix+2], waypoints[ix+3]) AS t2
-                  ) AS t
+                  ) AS sub_path
                     CROSS JOIN pgr_dijkstra(
                       'SELECT id, source, target, cost FROM tmc_routable___YEAR__',
-                      t.st::int4,
-                      t.en::int4,
+                      sub_path.start_pt::int4,
+                      sub_path.end_pt::int4,
                       true,
                       false
                     ) AS pgr
-              ) AS t
+              ) AS sub_route
               JOIN tmc_routable___YEAR__ AS tss
-                ON (t.id2 = tss.id)
+                ON (sub_route.id2 = tss.id)
           )
           SELECT * FROM cte_t;
 
