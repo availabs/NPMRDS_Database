@@ -346,6 +346,18 @@ db/upload-state-npmrds-shapefile-from-country-tar: db/create-schema-${STATE}
 	export STATE;\
 	${_MKFILE_DIR}/make_targets/db/upload-state-npmrds-shapefile-from-country-tar.sh
 
+
+####################################################
+# Uploading the versioned tmc_identification files #
+####################################################
+
+# NOTE: make_targets/db/upload-state-year-tmc-identification-from-etl-tar
+# 			takes care of creating the ancestor tables in the inheritance hierarchy.
+db/upload-state-year-tmc-identification-from-etl-tar:
+	@:$(call check_defined,TAR_ARCHIVE_PATH)
+	@${_MKFILE_DIR}/make_targets/db/upload-state-year-tmc-identification-from-etl-tar "$$TAR_ARCHIVE_PATH"
+
+
 db/upload-urban-area-boundaries-shapefile:
 	@:$(call check_defined,UA_SHAPEFILE_ZIP_PATH)
 	${_MKFILE_DIR}/make_targets/db/upload-urban-area-boundaries-shapefile

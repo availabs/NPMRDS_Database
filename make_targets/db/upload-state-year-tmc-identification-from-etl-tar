@@ -1,0 +1,173 @@
+#!/bin/bash
+
+set -e
+set -a
+
+if [[ -z "$1" ]]; then
+  echo "ERROR: Pass the ETL tar archive path as the first & only CLI variable."
+  exit 1
+fi
+
+TAR_ARCHIVE_PATH="$1"
+
+if [[ ! -f "$TAR_ARCHIVE_PATH" ]]; then
+  echo "ERROR: The specified TAR_ARCHIVE_PATH does not exist."
+  exit 1
+fi
+
+TMP_WORK_DIR="$( mktemp -d )";
+TMP_TMC_IDENTIFICATION_FILE_PATH="$( mktemp )"
+
+# Delete the TMP_WORK_DIR when script finishes
+function finish {
+  rm -f "$TMP_TMC_IDENTIFICATION_FILE_PATH"
+  rm -rf "$TMP_WORK_DIR"
+}
+trap finish EXIT
+
+cp "$TAR_ARCHIVE_PATH" "$TMP_WORK_DIR"
+
+# Get the DB Connection Creds
+pushd "$TMP_WORK_DIR" >/dev/null
+
+ARCHIVE_BASE_NAME="$( basename "$TAR_ARCHIVE_PATH" )"
+
+echo "$ARCHIVE_BASE_NAME"
+
+STATE="$( grep -o '^[a-z]\{2\}' <<< "$ARCHIVE_BASE_NAME" )"
+YEAR="$( grep -o '[0-9]\{4\}' <<< "$ARCHIVE_BASE_NAME" | head -1 )"
+DOWNLOAD_TIMESTAMP="$(
+  sed '
+    s/.*npmrds-etl\.//;
+    s/\.tar$//;
+    s/./&T/8
+  '  <<< "$ARCHIVE_BASE_NAME"
+)"
+
+tar xf "$ARCHIVE_BASE_NAME"
+
+find "${ARCHIVE_BASE_NAME/.tar/}" -type f -name '*raw-inrix*' |
+  sort |
+  while read -r zip_archive_path; do
+    if [[ -z $wrote_file ]]; then
+      unzip -p "$zip_archive_path" TMC_Identification.csv |
+        sed 's/\r//' |
+        gzip -9 > "$TMP_TMC_IDENTIFICATION_FILE_PATH"
+      wrote_file=1
+      checksum="$( zcat "$TMP_TMC_IDENTIFICATION_FILE_PATH" | md5sum | cut -d' ' -f1 )"
+    else
+      new_checksum="$(
+        unzip -p "$zip_archive_path" TMC_Identification.csv |
+          sed 's/\r//' |
+          md5sum |
+          cut -d' ' -f1
+      )"
+      if  [[ "$new_checksum" != "$checksum" ]]; then
+        echo "ERROR: The TMC_Identification files within the ETL archive are not identical."
+        exit 1
+      fi
+    fi
+  done
+
+popd >/dev/null
+
+rm -rf "$TMP_WORK_DIR"
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )/../../" >/dev/null
+
+# source the database connection config.
+if [ "$PG_ENV" = "production" ]; then
+. config/postgres.env.prod
+else
+. config/postgres.env.dev
+fi
+
+# \set tbl_name :"STATE"'.tmc_identification_':YEAR'_v':DOWNLOAD_TIMESTAMP
+ROOT_TABLE_NAME="tmc_identification_${YEAR}"
+FULL_ROOT_TABLE_NAME="public.${ROOT_TABLE_NAME}"
+
+PARENT_TABLE_NAME="${ROOT_TABLE_NAME}"
+FULL_PARENT_TABLE_NAME="\"${STATE}\".${PARENT_TABLE_NAME}"
+
+# If the root table does not exist, create it.
+if ! psql -c "\d $FULL_ROOT_TABLE_NAME" > /dev/null 2>&1; then
+  psql \
+    --quiet \
+    -v YEAR="$YEAR" \
+    -c "BEGIN;" \
+    -f ./sql/tmc_identification/root/create_root_year_tmc_identification_table.sql \
+    -c "COMMIT;"
+fi
+
+# If the parent table does not exist, create it.
+if ! psql -c "\d $FULL_PARENT_TABLE_NAME" > /dev/null 2>&1; then
+  psql \
+    --quiet \
+    -v STATE="$STATE" -v YEAR="$YEAR" \
+    -c "BEGIN;" \
+    -f ./sql/tmc_identification/state/create_state_year_tmc_identification_table.sql \
+    -c "COMMIT;"
+fi
+
+TABLE_NAME="${PARENT_TABLE_NAME}_v${DOWNLOAD_TIMESTAMP}"
+FULL_TABLE_NAME="\"${STATE}\".${TABLE_NAME}"
+
+# If the table does not exist, create it and load it.
+
+CSV_HEADER="$( zcat "$TMP_TMC_IDENTIFICATION_FILE_PATH" | head -1 )"
+
+if ! psql -c "\d $FULL_TABLE_NAME" > /dev/null 2>&1; then
+  psql \
+    --quiet \
+    -v STATE="$STATE" -v YEAR="$YEAR" -v DOWNLOAD_TIMESTAMP="$DOWNLOAD_TIMESTAMP" \
+    -c "BEGIN;" \
+    -f ./sql/tmc_identification/state/create_state_year_month_tmc_identification_version_table.sql \
+    -f <(
+      echo "
+        COPY $FULL_TABLE_NAME ($CSV_HEADER)
+          FROM STDIN CSV HEADER;" &&
+      zcat "$TMP_TMC_IDENTIFICATION_FILE_PATH" &&
+      echo '\.'
+    ) \
+    -c "COMMIT;"
+fi
+
+# Which table in this schema currently inherits public.tmc_identification_:YEAR?
+#   We need this info to potentially uninherit that table, and
+#   set the newly created table as the default for the YEAR.
+CUR_DEFAULT="$(psql -t -c "
+  SELECT c.relname
+    FROM pg_inherits
+      JOIN pg_class AS c ON (inhrelid=c.oid)
+      JOIN pg_class as p ON (inhparent=p.oid)
+      JOIN pg_namespace pn ON pn.oid = p.relnamespace
+      JOIN pg_namespace cn ON cn.oid = c.relnamespace
+    WHERE (
+      (pn.nspname = '${STATE}')
+      AND
+      (p.relname = '${PARENT_TABLE_NAME}')
+    );
+" | sed '/^$/d; s/^\s*//g')"
+
+echo "$CUR_DEFAULT"
+echo "$FULL_TABLE_NAME"
+
+# If the newly uploaded table is a newer version than the current default version,
+#   set the newly uploaded table as the default for the given state/year.
+if [ -z "${CUR_DEFAULT}" ] || [[ "${TABLE_NAME}" > "${CUR_DEFAULT}" ]]; then
+  if ! [ -z "${CUR_DEFAULT}" ]; then
+    UNINHERIT_OLD="ALTER TABLE \"${STATE}\".${CUR_DEFAULT} NO INHERIT ${FULL_PARENT_TABLE_NAME};"
+  fi
+  INHERIT_NEW="ALTER TABLE ${FULL_TABLE_NAME} INHERIT ${FULL_PARENT_TABLE_NAME};"
+
+  psql \
+    --quiet \
+    -c 'BEGIN;' \
+    -c "$UNINHERIT_OLD" \
+    -c "$INHERIT_NEW" \
+    -c 'COMMIT;'
+
+  echo "$FULL_TABLE_NAME set as the default for $FULL_PARENT_TABLE_NAME"
+fi
+
+popd >/dev/null

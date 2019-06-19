@@ -82,6 +82,28 @@ yargs
     }
   })
   .command({
+    command: 'upload-state-year-tmc-identification-from-etl-tar',
+    desc:
+      `The ZIP archives from RITIS' Massive Data Downloader include a file named TMC_Identification.
+        This file includes TMCs metadata. Normally, we use the NPMRDS Shapefile as the database's
+        TMC metadata source, however this shapefile is not released until Summer of the given year.
+        The TMC_Identification data can be used as a temporary placeholder.
+
+      NOTE: This command creates all required tables and loads the TMC_Identification from the
+        specified tarArchivePath. If the specified archive is newer than the current default
+        database TMC_Identification file, it will  become the default.`,
+    builder: {
+      tarArchivePath: { type: 'string', demand: true },
+    },
+    handler: ({ tarArchivePath, pg_env }) => {
+      spawn('make', ['db/upload-state-year-tmc-identification-from-etl-tar'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { TAR_ARCHIVE_PATH: tarArchivePath, PG_ENV: pg_env }
+      });
+    }
+  })
+  .command({
     command: 'create_npmrds_state_yrmo_table',
     desc: 'Create state npmrds table for the year and month',
     builder: {
@@ -145,16 +167,6 @@ yargs
       });
     }
   })
-  /*
-db/upload-npmrds-state-yrmo: db/create-npmrds-state-yrmo-table
-	@:$(call check_defined,STATE) #redundant, since source target calls the same.
-	@:$(call check_defined,YEAR)
-	@:$(call check_defined,MONTH)
-	@:$(call check_defined,DATA_FILE_PATH)
-	@if [[ ! $$(psql -t -c 'SELECT * FROM "${STATE}".npmrds_y${YEAR}m${MONTH} LIMIT 1;' | tr -d " \t\n\r";) ]]; then\
-		./make_targets/db/upload-npmrds-state-yrmo.sh;\
-	fi
-*/
   // TODO: Make dataFilePath an absolute path before passing to make.
   .command({
     command: 'upload_npmrds_state_yrmo',
