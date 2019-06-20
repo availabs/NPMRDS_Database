@@ -346,6 +346,11 @@ db/upload-state-npmrds-shapefile-from-country-tar: db/create-schema-${STATE}
 	export STATE;\
 	${_MKFILE_DIR}/make_targets/db/upload-state-npmrds-shapefile-from-country-tar.sh
 
+db/create-placeholder-npmrds-shapefile-view:
+	@:$(call check_defined,YEAR)
+	psql --quiet -v YEAR="$${YEAR}" -v SHP_YEAR="$$((YEAR - 1))" \
+		-f ./sql/placeholder_npmrds_shapefile_view/create_placeholder_npmrds_shapefile.sql
+
 
 ####################################################
 # Uploading the versioned tmc_identification files #
@@ -487,6 +492,12 @@ db/load-state-year-tmc-metadata: \
 		export STATE;\
 		export YEAR;\
 		./make_targets/db/load-state-year-tmc-metadata.js
+
+db/create-placeholder-tmc-metadata-view:
+	@:$(call check_defined,YEAR)
+	@psql --quiet -v YEAR="$${YEAR}" -v METADATA_YEAR="$$((YEAR - 1))" \
+		-f ./sql/placeholder_tmc_metadata_view/create_placeholder_tmc_metadata.sql
+
 
 db/drop-tmc-level-pm3-all-tables-for-version-fn:
 	@psql -f './sql/tmc_level_pm3_all_tables_for_version_fn/drop_tmc_level_pm3_all_tables_for_version_fn.sql'
@@ -656,10 +667,10 @@ db/cluster_pm3_eav_append_only_table: db/create_pm3_eav_append_only_table
 	@psql --quiet -f './sql/pm3_eav_append_only/cluster_pm3_eav_append_only.sql'
 
 db/create_pm3_authoritative_view: db/create_pm3_eav_append_only_table
-		psql --quiet -f './sql/pm3_authoritative_view/create_pm3_authoritative_view.sql';
+	@psql --quiet -f './sql/pm3_authoritative_view/create_pm3_authoritative_view.sql';
 
 db/create_pm3_authoritative_geolevel_mview: db/create_pm3_authoritative_view
-	psql --quiet -f './sql/pm3_authoritative_geolevel_mview/create_pm3_authoritative_geolevel_mview.sql';
+	@psql --quiet -f './sql/pm3_authoritative_geolevel_mview/create_pm3_authoritative_geolevel_mview.sql';
 
 db/create_pm3_tables: db/create_pm3_authoritative_view
 

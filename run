@@ -35,6 +35,21 @@ yargs
     }
   })
   .command({
+    command: 'create_year_tmc_metadata_placeholder_view',
+    desc: `Create the a placeholder tmc_metadata view for the specified year using
+      the previous year's tmc_metadata and the current year's npmrds_shapefile placeholder.`,
+    builder: {
+      year: { type: 'number', demand: true },
+    },
+    handler: ({ year, pg_env }) => {
+      spawn('make', ['db/create-placeholder-tmc-metadata-view'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { YEAR: year, PG_ENV: pg_env }
+      });
+    }
+  })
+  .command({
     command: 'refresh_state_tmc_date_ranges_table',
     desc:
       'Refresh the tmc data date ranges table for the specified state (creating the table if necessary).',
@@ -78,6 +93,21 @@ yargs
         cwd: __dirname,
         stdio: 'inherit',
         env: { TAR_ARCHIVE_PATH: tarArchivePath, STATE: state, PG_ENV: pg_env }
+      });
+    }
+  })
+  .command({
+    command: 'create_placeholder_npmrds_shapefile_view',
+    desc: `Create the a placeholder npmrds_shapefile view for the specified year using
+      the previous year's npmrds_shapefile and the current year's tmc_identification table.`,
+    builder: {
+      year: { type: 'number', demand: true },
+    },
+    handler: ({ year, pg_env }) => {
+      spawn('make', ['db/create-placeholder-npmrds-shapefile-view'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { YEAR: year, PG_ENV: pg_env }
       });
     }
   })
