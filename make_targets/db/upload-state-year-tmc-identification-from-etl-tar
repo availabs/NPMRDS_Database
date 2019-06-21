@@ -129,6 +129,7 @@ if ! psql -c "\d $FULL_TABLE_NAME" > /dev/null 2>&1; then
       zcat "$TMP_TMC_IDENTIFICATION_FILE_PATH" &&
       echo '\.'
     ) \
+    -f ./sql/tmc_identification/state/optimize_state_year_month_tmc_identification_version_table.sql \
     -c "COMMIT;"
 fi
 

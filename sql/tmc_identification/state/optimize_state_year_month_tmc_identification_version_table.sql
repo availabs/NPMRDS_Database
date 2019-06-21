@@ -1,9 +1,5 @@
-\set tbl_name 'tmc_identification_':YEAR'_v':DOWNLOAD_TIMESTAMP
-\set idx_name :tbl_name'_geom_idx'
+\set tbl_name :"STATE"'.tmc_identification_':YEAR'_v':DOWNLOAD_TIMESTAMP
+\set idx_name 'tmc_identification_':YEAR'_v':DOWNLOAD_TIMESTAMP'_pkey'
 
-CREATE INDEX :idx_name
-  ON :"STATE".:tbl_name
-  USING GIST (wkb_geometry);
-
-CLUSTER :"STATE".:tbl_name
+CLUSTER :tbl_name
   USING :idx_name;
