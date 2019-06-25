@@ -1,0 +1,69 @@
+#!/bin/bash
+
+set -e
+set -a
+
+# Get the path to, and verify the MPO shapefile zip archive.
+TRANSCOM_ETL_TAR_ARCHIVE_PATH="${1:-$TRANSCOM_ETL_TAR_ARCHIVE_PATH}"
+
+if [[ -z "$TRANSCOM_ETL_TAR_ARCHIVE_PATH" ]]; then
+  ( >&2 echo "ERROR: Specify the TRANSCOM_ETL_TAR_ARCHIVE_PATH as the 1st cli argument or as an ENV variable." )
+  exit 1
+fi
+
+TRANSCOM_ETL_TAR_ARCHIVE_PATH="$(realpath "$TRANSCOM_ETL_TAR_ARCHIVE_PATH")"
+
+if [[ ! -f "$TRANSCOM_ETL_TAR_ARCHIVE_PATH" ]]; then
+  ( >&2 echo "ERROR: No file found at TRANSCOM_ETL_TAR_ARCHIVE_PATH." )
+  exit 1
+fi
+
+if ! tar -tf "$TRANSCOM_ETL_TAR_ARCHIVE_PATH" &>/dev/null ; then
+  ( >&2 echo "ERROR: INVALID TAR Archive at $TRANSCOM_ETL_TAR_ARCHIVE_PATH" )
+  exit 1
+fi
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+# source the database connection config.
+if [ "$PG_ENV" = "production" ]; then
+  . ../../config/postgres.env.prod
+else
+  . ../../config/postgres.env.dev
+fi
+
+YEAR="${START_DATE:0:4}"
+COLUMNS="$(
+  tar xfO "$TRANSCOM_ETL_TAR_ARCHIVE_PATH" \
+    --wildcards '*/transcom-events*csv.gz' |
+    gunzip |
+    head -1
+)"
+
+
+psql --quiet -v YEAR="$YEAR" \
+  -c 'BEGIN;' \
+  -c "
+    CREATE TEMPORARY TABLE tmp_new_transcom_events (
+        LIKE transcom.transcom_events,
+        CHECK (EXTRACT(YEAR FROM creation) = $YEAR)
+      ) ON COMMIT DROP
+    ;
+  " \
+  -f <(
+        # Create the tmp transcom_events table & load the new data
+        echo "
+          COPY tmp_new_transcom_events ($COLUMNS)
+            FROM STDIN WITH CSV HEADER;" &&
+
+        tar xfO "$TRANSCOM_ETL_TAR_ARCHIVE_PATH" \
+          --wildcards '*/transcom-events*csv.gz' |
+          gunzip &&
+
+        echo
+        echo '\.'
+    ) \
+  -f ./loadData.sql \
+  -c 'COMMIT;'
+
+popd >/dev/null

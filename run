@@ -6,6 +6,16 @@ const { spawn } = require('child_process');
 
 const yargs = require('yargs');
 
+const singleYearInvariantMessage =
+  'The requested startDate and endDate MUST be within a single calendar year.';
+
+const verifySingleYear = (startDate, endDate) => {
+  if (startDate.slice(0, 4) !== endDate.slice(0, 4)) {
+    console.error(`ERROR: ${singleYearInvariantMessage}`);
+    process.exit(1);
+  }
+};
+
 yargs
   .parserConfiguration({
     'camel-case-expansion': false,
@@ -295,6 +305,35 @@ yargs
         cwd: __dirname,
         stdio: 'inherit',
         env: { PG_ENV: pg_env, YEAR: year }
+      });
+    }
+  })
+  .command({
+    command: 'transcom_events_etl',
+    desc: `Creates a tar archive with the
+        * gzipped NDJSON with events downloaded from the TransCom API
+        * gzipped CSV with the downloaded events transformed for loading into the database.
+
+      NOTE: The requested startDate and endDate MUST be within a single calendar year.
+    `,
+    builder: {
+      startDate: {
+        type: 'string',
+        demand: true,
+        describe: 'Data start date. (Format YYYYMMDD)'
+      },
+      endDate: {
+        type: 'string',
+        demand: true,
+        describe: 'Data end date, inclusive. (Format YYYYMMDD)'
+      }
+    },
+    handler: ({ startDate, endDate, pg_env }) => {
+      verifySingleYear(startDate, endDate);
+      spawn('make', ['etl/transcom_events'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { START_DATE: startDate, END_DATE: endDate, PG_ENV: pg_env }
       });
     }
   })

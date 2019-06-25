@@ -1,0 +1,52 @@
+#!/usr/bin/env node
+
+const ndjson = require('ndjson');
+const through = require('through2');
+const csv = require('fast-csv');
+
+const eventTypes2Categories = require('./eventTypes2Categories.json');
+
+const colMappings = new Map([
+  ['event_id', 'id'],
+  ['event_type', 'eventType'],
+  ['facility', 'facility'],
+  ['creation', 'startDateTime'],
+  ['open_time', 'lastUpdate'],
+  ['close_time', 'manualCloseDate'],
+  ['duration', 'eventDuration'],
+  ['description', 'summaryDescription'],
+  ['from_city', 'FromCity'],
+  ['from_count', 'county'],
+  ['to_city', 'ToCity'],
+  ['state', 'state'],
+  ['from_mile_marker', 'PrimaryMarker'],
+  ['to_mile_marker', 'secondaryMarker'],
+  ['latitude', 'pointLAT'],
+  ['longitude', 'pointLON']
+]);
+
+const columns = [...colMappings.keys()];
+
+process.stdin
+  .pipe(ndjson.parse())
+  .pipe(
+    through.obj(function transformer(d, _, cb) {
+      const row = columns.reduce((acc, col) => {
+        const dField = colMappings.get(col);
+
+        acc[col] = d[dField];
+
+        if (col === 'event_type') {
+          const eType = d[dField] && d[dField].toLowerCase();
+          acc.event_category = eventTypes2Categories[eType] || 'other';
+        }
+
+        return acc;
+      }, {});
+
+      this.push(row);
+      cb();
+    })
+  )
+  .pipe(csv.format({ headers: [...columns, 'event_category'] }))
+  .pipe(process.stdout);
