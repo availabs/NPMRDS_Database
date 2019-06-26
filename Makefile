@@ -563,9 +563,8 @@ db/create-traffic-distributions-table:
 		psql -f ./sql/traffic_distributions/createTrafficDistributionsTable.sql;\
 	fi
 
-db/create-geography-metadata-view: db/create-root-year-tmc-metadata
-	@:$(call check_defined,YEAR)
-	@psql --quiet -v YEAR="$${YEAR}" -f ./sql/geography_metadata/create_geography_metadata_view.sql
+db/create-geography-metadata-view:
+	@PGOPTIONS='--client-min-messages=warning' psql --quiet -f ./sql/geography_metadata/create_geography_metadata_view.sql
 
 
 db/create-npmrds-year-fn:

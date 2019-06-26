@@ -160,15 +160,12 @@ yargs
   .command({
     command: 'create_geography_metadata',
     desc:
-      'Create (or replace) the geography_metadata VIEW for the specified year',
-    builder: {
-      year: { type: 'number', demand: true }
-    },
-    handler: ({ year, pg_env }) => {
+      'Create (or replace) the geography_metadata VIEW.',
+    handler: ({ pg_env }) => {
       spawn('make', ['db/create-geography-metadata-view'], {
         cwd: __dirname,
         stdio: 'inherit',
-        env: { YEAR: year, PG_ENV: pg_env }
+        env: { PG_ENV: pg_env }
       });
     }
   })
