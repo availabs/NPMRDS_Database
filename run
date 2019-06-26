@@ -49,7 +49,7 @@ yargs
     desc: `Create the a placeholder tmc_metadata view for the specified year using
       the previous year's tmc_metadata and the current year's npmrds_shapefile placeholder.`,
     builder: {
-      year: { type: 'number', demand: true },
+      year: { type: 'number', demand: true }
     },
     handler: ({ year, pg_env }) => {
       spawn('make', ['db/create-placeholder-tmc-metadata-view'], {
@@ -111,7 +111,7 @@ yargs
     desc: `Create the a placeholder npmrds_shapefile view for the specified year using
       the previous year's npmrds_shapefile and the current year's tmc_identification table.`,
     builder: {
-      year: { type: 'number', demand: true },
+      year: { type: 'number', demand: true }
     },
     handler: ({ year, pg_env }) => {
       spawn('make', ['db/create-placeholder-npmrds-shapefile-view'], {
@@ -123,8 +123,7 @@ yargs
   })
   .command({
     command: 'upload-state-year-tmc-identification-from-etl-tar',
-    desc:
-      `The ZIP archives from RITIS' Massive Data Downloader include a file named TMC_Identification.
+    desc: `The ZIP archives from RITIS' Massive Data Downloader include a file named TMC_Identification.
         This file includes TMCs metadata. Normally, we use the NPMRDS Shapefile as the database's
         TMC metadata source, however this shapefile is not released until Summer of the given year.
         The TMC_Identification data can be used as a temporary placeholder.
@@ -133,7 +132,7 @@ yargs
         specified tarArchivePath. If the specified archive is newer than the current default
         database TMC_Identification file, it will  become the default.`,
     builder: {
-      tarArchivePath: { type: 'string', demand: true },
+      tarArchivePath: { type: 'string', demand: true }
     },
     handler: ({ tarArchivePath, pg_env }) => {
       spawn('make', ['db/upload-state-year-tmc-identification-from-etl-tar'], {
@@ -292,7 +291,7 @@ yargs
       });
     }
   })
-// db/create-routing-tables-and-funcitons-for-year
+  // db/create-routing-tables-and-funcitons-for-year
   .command({
     command: 'create-routing-tables-and-funcitons-for-year',
     desc:
@@ -310,11 +309,15 @@ yargs
   })
   .command({
     command: 'transcom_events_etl',
-    desc: `Creates a tar archive with the
-        * gzipped NDJSON with events downloaded from the TransCom API
-        * gzipped CSV with the downloaded events transformed for loading into the database.
+    desc: `Transcom Events ETL Pipeline
 
+      * Creates a tar archive with raw events download from the TransCom API as a gzipped NDJSON file, and a gzipped CSV with the downloaded events transformed for loading into the database.
+
+      * Loads the downloaded events into the specified (via pg_env flag) database.
+      
       NOTE: The requested startDate and endDate MUST be within a single calendar year.
+
+      NOTE: Does not CLUSTER transcom.transcom_events. Must be manually done after loading.
     `,
     builder: {
       startDate: {
