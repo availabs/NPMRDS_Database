@@ -346,6 +346,13 @@ db/upload-state-npmrds-shapefile-from-country-tar: db/create-schema-${STATE}
 	export STATE;\
 	${_MKFILE_DIR}/make_targets/db/upload-state-npmrds-shapefile-from-country-tar.sh
 
+db/upload-extended-npmrds-shapefile-for-year: db/create-schema-ny
+	@:$(call check_defined,SHP_ZIP_PATH)
+	@:$(call check_defined,YEAR)
+	@export SHP_ZIP_PATH;\
+	export YEAR;\
+	${_MKFILE_DIR}/make_targets/db/upload-extended-npmrds-shapefile
+
 db/create-placeholder-npmrds-shapefile-view:
 	@:$(call check_defined,YEAR)
 	psql --quiet -v YEAR="$${YEAR}" -v SHP_YEAR="$$((YEAR - 1))" \

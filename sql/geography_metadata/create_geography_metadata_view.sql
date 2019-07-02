@@ -12,19 +12,17 @@ EXECUTE 'CREATE MATERIALIZED VIEW geography_metadata AS
     SELECT
         string_agg('
           SELECT
-              m.state,
-              m.state_code,
-              m.county_name,
-              m.county_code,
-              m.mpo_acrony,
-              m.mpo_name,
-              m.mpo_code,
-              m.ua_name,
-              m.ua_code,
-              s.wkb_geometry
+              state,
+              state_code,
+              county_name,
+              county_code,
+              mpo_acrony,
+              mpo_name,
+              mpo_code,
+              ua_name,
+              ua_code,
+              bounding_box
             FROM public.' || table_name || ' AS m
-              INNER JOIN ' || REGEXP_REPLACE(table_name, '.*_', 'npmrds_shapefile_') || ' AS s
-                USING (tmc)
           ',
           ' UNION ALL '
         )
@@ -41,7 +39,7 @@ EXECUTE 'CREATE MATERIALIZED VIEW geography_metadata AS
       state AS geography_level_name, -- Using abbreviation rather than full name
       ARRAY[state]::TEXT[] AS states,
       ARRAY[state_code]::TEXT[] AS state_codes,
-      ST_Extent(wkb_geometry) AS bounding_box
+      ST_Extent(bounding_box) AS bounding_box
     FROM cte_tmc_metadata
     WHERE state IS NOT NULL
     GROUP BY state_code, state
@@ -54,7 +52,7 @@ EXECUTE 'CREATE MATERIALIZED VIEW geography_metadata AS
       county_name AS geography_level_name,
       ARRAY[state]::TEXT[] AS states,
       ARRAY[state_code]::TEXT[] AS state_codes,
-      ST_Extent(wkb_geometry) AS bounding_box
+      ST_Extent(bounding_box) AS bounding_box
     FROM cte_tmc_metadata
     WHERE county_name IS NOT NULL
     GROUP BY county_code, county_name, state, state_code
@@ -67,7 +65,7 @@ EXECUTE 'CREATE MATERIALIZED VIEW geography_metadata AS
       COALESCE(mpo_acrony, mpo_name) AS geography_level_name,
       array_agg(DISTINCT state ORDER BY state)::TEXT[] AS states,
       array_agg(DISTINCT state_code ORDER BY state_code)::TEXT[] AS state_codes,
-      ST_Extent(wkb_geometry) AS bounding_box
+      ST_Extent(bounding_box) AS bounding_box
     FROM cte_tmc_metadata
     WHERE mpo_code IS NOT NULL
     GROUP BY mpo_code, mpo_acrony, mpo_name
@@ -80,7 +78,7 @@ EXECUTE 'CREATE MATERIALIZED VIEW geography_metadata AS
       ua_name AS geography_level_name,
       array_agg(DISTINCT state ORDER BY state)::TEXT[] AS states,
       array_agg(DISTINCT state_code ORDER BY state_code)::TEXT[] AS state_codes,
-      ST_Extent(wkb_geometry) AS bounding_box
+      ST_Extent(bounding_box) AS bounding_box
     FROM cte_tmc_metadata
     WHERE (
       (ua_code IS NOT NULL)
@@ -102,7 +100,7 @@ EXECUTE 'CREATE MATERIALIZED VIEW geography_metadata AS
       END AS geography_level_name,
       ARRAY[state]::TEXT[] AS states,
       ARRAY[state_code]::TEXT[] AS state_codes,
-      ST_Extent(wkb_geometry) AS bounding_box
+      ST_Extent(bounding_box) AS bounding_box
     FROM cte_tmc_metadata
     WHERE (
       (ua_code IS NOT NULL)
