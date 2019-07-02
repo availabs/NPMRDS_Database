@@ -2,46 +2,14 @@
 REQUIRED VARIABLES:
   STATE
   YEAR
-  NPMRDS_SHAPEFILE_VERSION
   TMC_METADATA_VERSION
 */
 
 BEGIN;
 
-\set tbl_name :"STATE"'.tmc_metadata_':YEAR'_shpver':NPMRDS_SHAPEFILE_VERSION'_v':TMC_METADATA_VERSION
-\set idx_name 'tmc_metadata_':YEAR'_shpver':NPMRDS_SHAPEFILE_VERSION'_v':TMC_METADATA_VERSION'_pkey'
-
--- NOTE: May be a VIEW if STATE is a Canadian Province.
-\set shp_tbl_name :"STATE"'.npmrds_shapefile_':YEAR'_v':NPMRDS_SHAPEFILE_VERSION
-
--- tmc -> mpo using spatial join
-CREATE TEMPORARY TABLE tmp_tmc_to_mpo
-  ON COMMIT DROP
-  AS
-    SELECT DISTINCT
-        tmc,
-        mpo_id AS mpo_code,
-        mpo_acrony,
-        mpo_name
-      FROM :shp_tbl_name AS sub_tmc_shp
-        INNER JOIN state_abbreviations
-          ON (sub_tmc_shp.state = state_abbreviations.state_name)
-        INNER JOIN mpo_boundaries_view AS sub_mpo_shp
-        ON (
-          ST_Contains(
-            sub_mpo_shp.wkb_geometry,
-            sub_tmc_shp.wkb_geometry
-          )
-        )
-      WHERE (
-        (state_abbreviations.abbreviation = :'STATE')
-        AND
-        (sub_tmc_shp.conflation_year = :YEAR)
-      )
-;
-
-ALTER TABLE tmp_tmc_to_mpo ADD PRIMARY KEY (tmc);
-
+\set tbl_name :"STATE"'.tmc_metadata_':YEAR'_v':TMC_METADATA_VERSION
+\set idx_name 'tmc_metadata_':YEAR'_v':TMC_METADATA_VERSION'_pkey'
+\set tmc_ident_tbl :"STATE"'.tmc_identification_':YEAR
 
 CREATE TEMPORARY TABLE tmp_speed_reduction_factor
   ON COMMIT DROP
@@ -59,15 +27,15 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
 
         CASE 
           WHEN (
-            (sub_tmc_shp.f_system = 0)
+            (tmc_ident.f_system = 0)
             OR
-            (sub_tmc_shp.f_system = 1)
+            (tmc_ident.f_system = 1)
           ) THEN 'FREEWAY'::traffic_dist_functional_class_type
           ELSE 'NONFREEWAY'::traffic_dist_functional_class_type
         END AS functional_class,
 
         (
-          sub_tmc_shp.miles
+          tmc_ident.miles
           /
           (
             avg_free_flow_travel_time
@@ -77,7 +45,7 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
         )::REAL AS avg_free_flow_speed_mph,
 
         (
-          sub_tmc_shp.miles
+          tmc_ident.miles
           /
           (
             avg_peak_period_travel_time
@@ -130,9 +98,8 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
             )
             GROUP BY tmc
         ) AS free_flow
-        FULL OUTER JOIN :shp_tbl_name AS sub_tmc_shp
+        FULL OUTER JOIN :tmc_ident_tbl AS tmc_ident
           USING (tmc)
-      WHERE (sub_tmc_shp.conflation_year = :YEAR)
 ;
 
 ALTER TABLE tmp_speed_reduction_factor ADD PRIMARY KEY (tmc);
@@ -146,7 +113,7 @@ CREATE TEMPORARY TABLE tmp_directionality_factors
         avg_am_peak_travel_time, 
         avg_pm_peak_travel_time,
         (
-          sub_tmc_shp.miles
+          tmc_ident.miles
           /
           (
             avg_am_peak_travel_time
@@ -155,7 +122,7 @@ CREATE TEMPORARY TABLE tmp_directionality_factors
           )
         )::REAL AS avg_am_peak_speed_mph, 
         (
-          sub_tmc_shp.miles
+          tmc_ident.miles
           /
           (
             avg_pm_peak_travel_time
@@ -204,9 +171,8 @@ CREATE TEMPORARY TABLE tmp_directionality_factors
             )
             GROUP BY tmc
         ) AS pm_peak
-        FULL OUTER JOIN :shp_tbl_name AS sub_tmc_shp
+        FULL OUTER JOIN :tmc_ident_tbl AS tmc_ident
           USING (tmc)
-      WHERE (sub_tmc_shp.conflation_year = :YEAR)
 ;
 
 ALTER TABLE tmp_directionality_factors ADD PRIMARY KEY (tmc);
@@ -264,25 +230,6 @@ CREATE TEMPORARY TABLE tmp_traffic_distribution_factors
 ALTER TABLE tmp_traffic_distribution_factors ADD PRIMARY KEY (tmc);
     
 
-CREATE TEMPORARY TABLE tmp_bounding_boxes
-  ON COMMIT DROP
-  AS
-    SELECT
-        tmc,
-        ST_Extent(npmrds_shapefile.wkb_geometry) AS bounding_box
-      FROM :shp_tbl_name AS npmrds_shapefile
-        INNER JOIN state_abbreviations
-        ON (npmrds_shapefile.state = state_abbreviations.state_name)
-      WHERE (
-        (npmrds_shapefile.conflation_year = :YEAR)
-        AND
-        (state_abbreviations.abbreviation = :'STATE')
-      )
-      GROUP BY tmc
-;
-
-ALTER TABLE tmp_bounding_boxes ADD PRIMARY KEY (tmc);
-
 CREATE TABLE :tbl_name (
   LIKE :"STATE".tmc_metadata_:YEAR INCLUDING ALL,
   PRIMARY KEY (tmc)
@@ -290,7 +237,6 @@ CREATE TABLE :tbl_name (
 
 INSERT INTO :tbl_name (
     tmc,
-    tmctype,
     roadnumber,
     roadname,
     firstname,
@@ -337,50 +283,57 @@ INSERT INTO :tbl_name (
     ua_name,
     congestion_level,
     directionality,
-    bounding_box,
-    conflation_year,
-    npmrds_shapefile_version
+    bounding_box
   ) 
   SELECT
-      npmrds_shapefile.tmc,
-      npmrds_shapefile.tmctype,
-      npmrds_shapefile.roadnumber,
-      npmrds_shapefile.roadname,
-      npmrds_shapefile.firstname,
-      npmrds_shapefile.tmclinear::INTEGER,
-      npmrds_shapefile.country,
-      npmrds_shapefile.state AS state_name,
-      npmrds_shapefile.county AS county_name,
-      npmrds_shapefile.zip,
-      npmrds_shapefile.direction,
-      npmrds_shapefile.startlat,
-      npmrds_shapefile.startlong,
-      npmrds_shapefile.endlat,
-      npmrds_shapefile.endlong,
-      npmrds_shapefile.miles,
-      npmrds_shapefile.frc::SMALLINT,
-      npmrds_shapefile.border_set,
-      npmrds_shapefile.f_system::SMALLINT,
-      LPAD(npmrds_shapefile.urban_code::TEXT, 5, '0') AS ua_code,
-      npmrds_shapefile.faciltype::SMALLINT,
-      npmrds_shapefile.structype::SMALLINT,
-      npmrds_shapefile.thrulanes::SMALLINT,
-      npmrds_shapefile.route_numb::INTEGER,
-      npmrds_shapefile.route_sign::SMALLINT,
-      npmrds_shapefile.route_qual::SMALLINT,
-      npmrds_shapefile.altrtename,
-      npmrds_shapefile.aadt::INTEGER,
-      npmrds_shapefile.aadt_singl::INTEGER,
-      npmrds_shapefile.aadt_combi::INTEGER,
-      npmrds_shapefile.nhs::SMALLINT,
-      npmrds_shapefile.nhs_pct::SMALLINT,
-      npmrds_shapefile.strhnt_typ::SMALLINT,
-      npmrds_shapefile.strhnt_pct::SMALLINT,
-      npmrds_shapefile.truck::SMALLINT,
+      tmc_identification.tmc,
+      tmc_identification.route_numb AS roadnumber,
+      tmc_identification.road AS roadname,
+      tmc_identification.intersection AS firstname,
+      tmc_identification.tmclinear,
+      tmc_identification.country,
+      tmc_identification.state AS state_name,
+      INITCAP(tmc_identification.county) AS county_name,
+      tmc_identification.zip,
+      substring(
+        substring(
+          direction FROM 'NORTH|NB|EAST|EB|SOUTH|SB|WEST|WB'
+        )
+        FROM 1 FOR 1
+      ) AS direction,
+      tmc_identification.start_latitude AS startlat,
+      tmc_identification.start_longitude AS startlong,
+      tmc_identification.end_latitude AS endlat,
+      tmc_identification.end_longitude AS endlong,
+      tmc_identification.miles,
+      tmc_identification.frc,
+      tmc_identification.border_set,
+      tmc_identification.f_system,
+      LPAD(
+        tmc_identification.urban_code::TEXT,
+        5,
+        '0'
+      ) AS ua_code,
+      tmc_identification.faciltype,
+      tmc_identification.structype,
+      tmc_identification.thrulanes,
+      tmc_identification.route_numb,
+      tmc_identification.route_sign,
+      tmc_identification.route_qual,
+      tmc_identification.altrtename,
+      tmc_identification.aadt,
+      tmc_identification.aadt_singl,
+      tmc_identification.aadt_combi,
+      tmc_identification.nhs,
+      tmc_identification.nhs_pct,
+      tmc_identification.strhnt_typ,
+      tmc_identification.strhnt_pct,
+      tmc_identification.truck,
 
-      state_abbreviations.abbreviation AS state,
+      LOWER(tmc_identification.state) AS state,
 
       fips_codes_states.state_code AS state_code,
+
       (fips_codes_counties.state_code || fips_codes_counties.county_code) AS county_code,
 
       (frc = 1) AS is_interstate,
@@ -394,37 +347,46 @@ INSERT INTO :tbl_name (
             1.55 
             * 
             (
-              npmrds_shapefile.aadt
+              tmc_identification.aadt
               -
               (
-                npmrds_shapefile.aadt_singl
+                tmc_identification.aadt_singl
                 +
-                npmrds_shapefile.aadt_combi
+                tmc_identification.aadt_combi
               )
             )
           ) -- cars
-          + (10.25 * npmrds_shapefile.aadt_singl) -- buses
-          + (1.11 * npmrds_shapefile.aadt_combi) -- combination trucks
-        ) / NULLIF(npmrds_shapefile.aadt, 0)
+          + (10.25 * tmc_identification.aadt_singl) -- buses
+          + (1.11 * tmc_identification.aadt_combi) -- combination trucks
+        ) / NULLIF(tmc_identification.aadt, 0)
       ) AS avg_vehicle_occupancy,
 
-      tmp_tmc_to_mpo.mpo_code,
-      tmp_tmc_to_mpo.mpo_acrony,
-      tmp_tmc_to_mpo.mpo_name,
+      NULL AS mpo_code,
+      NULL AS mpo_acrony,
+      NULL AS mpo_name,
 
       urban_area_boundaries.name10 AS ua_name,
 
       traffic_dist_factors.congestion_level,
       traffic_dist_factors.directionality,
 
-      tmp_bounding_boxes.bounding_box AS bounding_box,
+      ST_Envelope(
+        ST_SetSRID(
+          ST_MakeLine(
+            ST_MakePoint(
+              tmc_identification.start_longitude,
+              tmc_identification.start_latitude
+            ),
+            ST_MakePoint(
+              tmc_identification.end_longitude,
+              tmc_identification.end_latitude
+            )
+          ),
+          4326
+        )
+      ) AS bounding_box
 
-      npmrds_shapefile.conflation_year,
-      npmrds_shapefile.npmrds_shapefile_version
-
-  FROM :shp_tbl_name AS npmrds_shapefile
-    LEFT OUTER JOIN state_abbreviations
-      ON (npmrds_shapefile.state = state_abbreviations.state_name)
+  FROM :tmc_ident_tbl AS tmc_identification
     LEFT OUTER JOIN (
       SELECT
           tmc,
@@ -434,12 +396,10 @@ INSERT INTO :tbl_name (
         GROUP BY tmc
     ) AS avg_speedlimits
       USING (tmc)
-    LEFT OUTER JOIN tmp_tmc_to_mpo
-      USING (tmc)
     LEFT OUTER JOIN urban_area_boundaries
       ON (
         lpad(
-          npmrds_shapefile.urban_code::TEXT,
+          tmc_identification.urban_code::TEXT,
           5,
           '0'
         )
@@ -448,26 +408,30 @@ INSERT INTO :tbl_name (
       )
     LEFT OUTER JOIN tmp_traffic_distribution_factors AS traffic_dist_factors
       USING (tmc)
-    LEFT OUTER JOIN tmp_bounding_boxes
-      USING (tmc)
     LEFT OUTER JOIN (
         SELECT DISTINCT
             state,
             state_code
           FROM fips_codes 
       ) AS fips_codes_states ON (
-        (state_abbreviations.abbreviation = fips_codes_states.state)
+        LOWER(tmc_identification.state) = LOWER(fips_codes_states.state)
       )
     LEFT OUTER JOIN fips_codes AS fips_codes_counties
       ON (
-        (state_abbreviations.abbreviation = fips_codes_counties.state)
+        (LOWER(tmc_identification.state) = LOWER(fips_codes_counties.state))
         AND
-        (npmrds_shapefile.county = fips_codes_counties.county)
+        (
+          LOWER(
+            regexp_replace(tmc_identification.county, '[^\w]+','')
+          )
+          =
+          LOWER(
+            regexp_replace(fips_codes_counties.county, '[^\w]+','')
+          )
       )
+    )
   WHERE (
-    (state_abbreviations.abbreviation = :'STATE')
-    AND
-    (npmrds_shapefile.conflation_year = :YEAR)
+    (LOWER(tmc_identification.state) = LOWER(:'STATE'))
   )
 ;
 

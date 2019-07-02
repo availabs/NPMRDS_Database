@@ -6,8 +6,6 @@ const { join } = require('path');
 
 const envFile = require('node-env-file');
 
-const extractRequiredRelations = require('../../src/extractRequiredRelations');
-
 const { PG_ENV, STATE, YEAR, NPMRDS_SHAPEFILE_VERSION } = process.env;
 
 if (NPMRDS_SHAPEFILE_VERSION && !Number.isFinite(+NPMRDS_SHAPEFILE_VERSION)) {
@@ -35,7 +33,7 @@ envFile(configPath);
 
 const client = new Client();
 
-const getDefaultNpmrdsShapefileVersion = async (state, year) => {
+const getDefaultNpmrdsShapefileVersion = async (state) => {
   const sql = `
     SELECT
         MAX(s.npmrds_shapefile_version) AS ver
@@ -44,12 +42,10 @@ const getDefaultNpmrdsShapefileVersion = async (state, year) => {
         ON (s.state = a.state_name)
       WHERE (
         (a.abbreviation = $1)
-        AND
-        (s.conflation_year = $2)
       )
   `;
 
-  const { rows } = await client.query(sql, [state, year]);
+  const { rows } = await client.query(sql, [state]);
   const [{ ver }] = rows;
 
   return ver;
@@ -85,70 +81,6 @@ const createTMCMetadataTable = (npmrdsShapefileVer, tmcMetadataVersion) => {
   return createTableSQL;
 };
 
-const getDependencies = async requiredRelations => {
-  const sql = `select relation_dependencies_fn($1::JSON) AS dependencies;`;
-
-  const {
-    rows: [{ dependencies }]
-  } = await client.query(sql, [JSON.stringify(requiredRelations)]);
-
-  return dependencies;
-};
-
-const getClassOID = async tableName => {
-  const queryOID = `
-		SELECT pg_class.oid AS oid
-			FROM pg_class JOIN pg_namespace 
-				ON (pg_class.relnamespace = pg_namespace.oid)	
-			WHERE (
-				(pg_class.relname = $1)
-				AND
-				(pg_namespace.nspname = $2)
-			)
-	`;
-
-  const {
-    rows: [{ oid = null }]
-  } = await client.query(queryOID, [tableName, STATE]);
-
-  return oid;
-};
-
-const insertRowInAvailMetadataTable = async ({
-  npmrdsShapefileVer,
-  createdTimestamp,
-  tmcMetadataVersion,
-  createTableSQL
-}) => {
-  const tableName = `tmc_metadata_${YEAR}_shpver${npmrdsShapefileVer}_v${tmcMetadataVersion}`;
-
-  const classOID = await getClassOID(tableName);
-
-  if (!classOID) {
-    throw new Error(
-      `Unable to find "${STATE}".${tableName} in pg_class system catalog.`
-    );
-  }
-
-  const requiredRelations = extractRequiredRelations(createTableSQL);
-  const dependencies = await getDependencies(requiredRelations);
-
-  const metadata = {
-    schemaname: STATE,
-    relname: tableName,
-    npmrdsShapefileVer,
-    createdTimestamp,
-    dependencies
-  };
-
-  const sql = `
-		INSERT INTO avail_table_metadata (class_oid, metadata, sql)
-			VALUES ($1, $2, $3);
-	`;
-
-  await client.query(sql, [classOID, metadata, createTableSQL]);
-};
-
 const doIt = async () => {
   try {
     await client.connect();
@@ -157,27 +89,12 @@ const doIt = async () => {
       NPMRDS_SHAPEFILE_VERSION ||
       (await getDefaultNpmrdsShapefileVersion(STATE, YEAR));
 
-    if (!npmrdsShapefileVer) {
-      throw new Error(
-        `ERROR: no shapefiles for ${STATE} conflation year ${YEAR}`
-      );
-    }
-
     const tmcMetadataVersion = getTMCMetadataVersion();
 
-    const createTableSQL = createTMCMetadataTable(
+    createTMCMetadataTable(
       npmrdsShapefileVer,
       tmcMetadataVersion
     );
-
-    const createdTimestamp = new Date();
-
-    await insertRowInAvailMetadataTable({
-      npmrdsShapefileVer,
-      createdTimestamp,
-      tmcMetadataVersion,
-      createTableSQL
-    });
   } catch (err) {
     console.error(err);
   } finally {
