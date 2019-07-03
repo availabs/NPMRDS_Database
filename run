@@ -108,8 +108,7 @@ yargs
   })
   .command({
     command: 'upload_extended_npmrds_shapefile',
-    desc:
-      'Load the specified shapefile zip archive.',
+    desc: 'Load the specified shapefile zip archive.',
     builder: {
       shpZipPath: { type: 'string', demand: true },
       year: { type: 'number', demand: true }
@@ -175,8 +174,7 @@ yargs
   })
   .command({
     command: 'create_geography_metadata',
-    desc:
-      'Create (or replace) the geography_metadata VIEW.',
+    desc: 'Create (or replace) the geography_metadata VIEW.',
     handler: ({ pg_env }) => {
       spawn('make', ['db/create-geography-metadata-view'], {
         cwd: __dirname,
@@ -350,6 +348,24 @@ yargs
         cwd: __dirname,
         stdio: 'inherit',
         env: { START_DATE: startDate, END_DATE: endDate, PG_ENV: pg_env }
+      });
+    }
+  })
+  .command({
+    command: 'create-mabox-tileset-for-year',
+    desc: "Create mbtiles file from the year's shapfile.",
+    builder: {
+      year: {
+        type: 'string',
+        demand: true,
+        describe: 'Data start date. (Format YYYYMMDD)'
+      }
+    },
+    handler: ({ year, pg_env }) => {
+      spawn('make', ['mapbox/create-tileset-for-year'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { YEAR: year, PG_ENV: pg_env }
       });
     }
   })
