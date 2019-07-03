@@ -21,7 +21,9 @@ EXECUTE 'CREATE MATERIALIZED VIEW pm3_authoritative_geolevel_mview AS
               ' || right(table_name, 4) || '::INT AS year
             FROM public.' || table_name || '
             WHERE (
-              country = ''United States''
+              ( UPPER(country) = ''UNITED STATES'' )
+              OR
+              ( UPPER(country) = ''USA'' ) 
             )
           ',
           ' UNION '
