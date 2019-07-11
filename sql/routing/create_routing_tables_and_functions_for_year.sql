@@ -1,49 +1,49 @@
 BEGIN;
 
-CREATE TEMPORARY TABLE tmp_normaltable
+-- Get the start and end points of each TMC
+CREATE TEMPORARY TABLE tmp_tmc_cleaned_geometries_with_terminal_points
   ON COMMIT DROP
   AS
     SELECT
         tmc,
+        ST_Buffer(
+          GEOGRAPHY(
+            wkb_geometry
+          ),
+          15--meters
+        ) AS line_buffer,
         ST_LineMerge(wkb_geometry) AS wkb_geometry,
-        ST_LineInterpolatePoint(
-          ST_LineMerge(wkb_geometry),
-          ST_LineLocatePoint(
-            ST_LineMerge(wkb_geometry),
-            ST_SetSRID(
-              ST_MakePoint(
-                startlong,
-                startlat
-              ),
-              4326
-            )
-          )
+        ST_SetSRID(
+          ST_PointN(
+            ST_LineMerge(
+              wkb_geometry
+            ),
+            1
+          ), 4326
         ) AS startp,
-        ST_LineInterpolatePoint(
-          ST_LineMerge(wkb_geometry),
-          ST_LineLocatePoint(
-            ST_LineMerge(wkb_geometry),
-            ST_SetSRID(
-              ST_MakePoint(
-                endlong,
-                endlat
-              ),
-              4326
-            )
-          )
+        ST_SetSRID(
+          ST_PointN(
+            ST_LineMerge(
+              wkb_geometry
+            ),
+            -1
+          ), 4326
         ) AS endp
-      FROM npmrds_shapefile___YEAR__
+      FROM npmrds_shapefile___YEAR__ AS shp
       WHERE (
-        ST_NumGeometries(wkb_geometry) = 1
+        (ST_NumGeometries(wkb_geometry) = 1)
+        AND
+        (county = 'RENSSELAER')
       )
 ;
 
 CREATE INDEX tmp_normaltable_gix
-  ON tmp_normaltable
-  USING GIST (wkb_geometry)
+  ON tmp_tmc_cleaned_geometries_with_terminal_points
+  USING GIST (line_buffer)
 ;
 
-CREATE TEMPORARY TABLE tmc_normalintersects
+-- Get the geometries of TMCs intersection.
+CREATE TEMPORARY TABLE tmp_tmc_intersection_geometries
   ON COMMIT DROP
   AS
     SELECT
@@ -57,9 +57,9 @@ CREATE TEMPORARY TABLE tmc_normalintersects
             )
           )
         ).geom
-      FROM tmp_normaltable AS p1
-        JOIN tmp_normaltable AS p2
-          ON (p1.wkb_geometry && p2.wkb_geometry)
+      FROM tmp_tmc_cleaned_geometries_with_terminal_points AS p1
+        JOIN tmp_tmc_cleaned_geometries_with_terminal_points AS p2
+          ON (p1.line_buffer && p2.line_buffer)
       WHERE (
         (
           ST_NumGeometries(
@@ -77,7 +77,7 @@ CREATE TEMPORARY TABLE tmc_normalintersects
   ;
 
 CREATE INDEX normalintersects_gix
-  ON tmc_normalintersects
+  ON tmp_tmc_intersection_geometries
   USING GIST (geom);
 
 DROP TABLE IF EXISTS tmc_children___YEAR__;
@@ -88,83 +88,133 @@ CREATE TABLE tmc_children___YEAR__
         p1.tmc AS base,
         p2.tmc AS child,
         p2.startp
-      FROM tmp_normaltable AS p1
-        JOIN tmp_normaltable AS p2
-          ON (p1.wkb_geometry && p2.wkb_geometry) -- geometries in same bbox
-        LEFT OUTER JOIN tmc_normalintersects AS p3
+      FROM tmp_tmc_cleaned_geometries_with_terminal_points AS p1
+        JOIN tmp_tmc_cleaned_geometries_with_terminal_points AS p2
+          ON (p1.line_buffer && p2.line_buffer) -- geometries in same bbox
+        LEFT OUTER JOIN tmp_tmc_intersection_geometries AS p3
           ON (
-            (p1.tmc = tmc1)
+            (p1.tmc = p3.tmc1)
             AND
-            (p2.tmc = tmc2)
+            (p2.tmc = p3.tmc2)
           )
       WHERE (
         -- differnet tmcs
         (p1.tmc != p2.tmc)
         AND
-        -- The starting point of the child tmc must originate within the parent tmc
-        --   OR the end point of the parent tmc must land within the child tmc
         (
-          (
-            ST_DWithin(
-              GEOGRAPHY(
-                ST_Transform(
-                  p2.startp,
-                  4326
-                )
-              ),
-              GEOGRAPHY(
-                ST_Transform(
-                  p1.wkb_geometry,
-                  4326
-                )
-              ),
-              10
+          ( -- BEGIN parentTail->childHead
+            (
+              ST_Buffer(
+                GEOGRAPHY(
+                  ST_Transform(
+                    p2.startp,
+                    4326
+                  )
+                ),
+                10
+              )
+              &&
+              ST_Buffer(
+                GEOGRAPHY(
+                  ST_Transform(
+                    p1.endp,
+                    4326
+                  )
+                ),
+                10
+              )
             )
-          )
+            AND
+            (
+              (
+                ABS(
+                  ST_Azimuth(
+                    ST_SetSRID(
+                      ST_PointN(
+                        p2.wkb_geometry,
+                        1
+                      ),
+                      4326
+                    ),
+                    ST_SetSRID(
+                      ST_PointN(
+                        p2.wkb_geometry,
+                        2
+                      ), 4326
+                    )
+                  )
+                  -
+                  ST_Azimuth(
+                    ST_SetSRID(
+                      ST_PointN(
+                        p1.wkb_geometry,
+                        -2
+                      ), 4326
+                    ),
+                    ST_SetSRID(
+                      ST_PointN(
+                        p1.wkb_geometry,
+                        -1
+                      ), 4326
+                    )
+                  )
+                ) / ( 2* pi() ) * 360
+              ) NOT BETWEEN 160 and 200
+            )
+          ) -- END parentTail->childHead
           OR
-          (
-            ST_DWITHIN(
-              GEOGRAPHY(
-                ST_Transform(p1.endp, 4326)
-              ),
-              GEOGRAPHY(
-                ST_Transform(p2.wkb_geometry, 4326)
-              ),
-              10
-            )
+          ( -- BEGIN: child oringinates within parent, flowing in same direction
+           ( -- child startpoint is within 10meters of any point along the parent
+             ST_DWithin(
+               GEOGRAPHY(
+                 ST_Transform(
+                   p2.startp,
+                   4326
+                 )
+               ),
+               GEOGRAPHY(
+                 ST_Transform(
+                   p1.wkb_geometry,
+                   4326
+                 )
+               ),
+               10
+             )
+           )
+           AND
+           ( p3.geom IS NOT NULL ) -- The two lines intersected, more than pointwise
+           AND
+           (  --the intersections flow the same way along both geometries (correct orientation)
+             SIGN(
+               -- The ratio of the intersection's end point along the parent
+               ST_LineLocatePoint( 
+                 ST_LineMerge(p1.wkb_geometry),
+                 ST_EndPoint(p3.geom)
+               )
+               -
+               -- The ratio of the intersection's start point along the parent
+               ST_LineLocatePoint(
+                 ST_LineMerge(p1.wkb_geometry),
+                 ST_StartPoint(p3.geom)
+               )
+             )
+             =
+             SIGN(
+               -- The ratio of the intersection's end point along the child
+               ST_LineLocatePoint(
+                 ST_LineMerge(p2.wkb_geometry),
+                 ST_EndPoint(p3.geom)
+               )
+               -
+               -- The ratio of the intersection's start point along the child
+               ST_LineLocatePoint(
+                 ST_LineMerge(p2.wkb_geometry),
+                 ST_StartPoint(p3.geom)
+               )
+             )
+           )
           )
-        )
-      )
-      AND
-      (
-        -- and if they intersected more than pointwise
-        CASE
-          WHEN p3.geom is NULL THEN true -- didn't intersect
-          ELSE --the intersections flow the same way along both geometries (correct orientation)
-            SIGN(
-              ST_LineLocatePoint(
-                ST_LineMerge(p1.wkb_geometry),
-                ST_EndPoint(p3.geom)
-              )
-              -
-              ST_LineLocatePoint(
-                ST_LineMerge(p1.wkb_geometry),
-                ST_StartPoint(p3.geom)
-              )
-            )
-            =
-            SIGN(
-              ST_LineLocatePoint(
-                ST_LineMerge(p2.wkb_geometry),
-                ST_EndPoint(p3.geom)
-              )
-              -
-              ST_LineLocatePoint(
-                ST_LineMerge(p2.wkb_geometry),
-                ST_StartPoint(p3.geom)
-              )
-            )
-        END
+        ) 
     )
 ;
 
@@ -174,9 +224,9 @@ CREATE TEMPORARY TABLE tmp_tmc_touching_terminals
     SELECT
         p1.tmc,
         ST_LineLocatePoint(p1.wkb_geometry, p2.startp) AS dalong
-      FROM tmp_normaltable AS p1
-        JOIN tmp_normaltable AS p2
-          ON (p1.wkb_geometry && p2.wkb_geometry)
+      FROM tmp_tmc_cleaned_geometries_with_terminal_points AS p1
+        JOIN tmp_tmc_cleaned_geometries_with_terminal_points AS p2
+          ON (p1.line_buffer && p2.line_buffer)
       WHERE (
         (p1.tmc != p2.tmc)
         AND
@@ -186,7 +236,7 @@ CREATE TEMPORARY TABLE tmp_tmc_touching_terminals
               ST_Transform(p2.startp,4326)
             ),
             GEOGRAPHY(
-              ST_Transform(p1.wkb_geometry, 4326)
+              ST_Transform(p1.endp, 4326)
             ),
             20
           )
@@ -196,8 +246,8 @@ CREATE TEMPORARY TABLE tmp_tmc_touching_terminals
     SELECT
         p1.tmc,
         ST_LineLocatePoint(p1.wkb_geometry, p2.startp) AS dalong
-      FROM tmp_normaltable AS p1
-        JOIN tmp_normaltable AS p2
+      FROM tmp_tmc_cleaned_geometries_with_terminal_points AS p1
+        JOIN tmp_tmc_cleaned_geometries_with_terminal_points AS p2
           ON (p1.wkb_geometry && p2.wkb_geometry)
       WHERE (
         (p1.tmc != p2.tmc)
@@ -208,7 +258,7 @@ CREATE TEMPORARY TABLE tmp_tmc_touching_terminals
               ST_Transform(p2.endp,4326)
             ),
             GEOGRAPHY(
-              ST_Transform(p1.wkb_geometry, 4326)
+              ST_Transform(p1.startp, 4326)
             ),
             20
           )
@@ -257,7 +307,7 @@ AS
         generate_series(1, cte_juncts.njuncts-1) AS st,
         generate_series(1, cte_juncts.njuncts-1)+1 AS en,
         cte_juncts.ds AS locs
-    FROM tmp_normaltable AS tnt
+    FROM tmp_tmc_cleaned_geometries_with_terminal_points AS tnt
       JOIN cte_juncts
       USING (tmc)
   )
@@ -272,7 +322,7 @@ AS
           )
         ELSE p1.wkb_geometry
       END AS the_geom
-  FROM tmp_normaltable AS p1
+  FROM tmp_tmc_cleaned_geometries_with_terminal_points AS p1
     LEFT OUTER JOIN cte_indxs AS i
     USING (tmc)
   WHERE (
@@ -336,6 +386,7 @@ CREATE OR REPLACE FUNCTION get_closest_id___YEAR__(p1 float8, p2 float8)
             ) AS d
           FROM npmrds_shapefile___YEAR__
             CROSS JOIN cte_tmppnt
+          WHERE (county = 'RENSSELAER')
           ORDER BY (wkb_geometry <-> cte_tmppnt.pnt)
           LIMIT 10
       ), the_tmc AS (
