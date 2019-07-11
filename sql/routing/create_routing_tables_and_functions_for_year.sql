@@ -32,8 +32,6 @@ CREATE TEMPORARY TABLE tmp_tmc_cleaned_geometries_with_terminal_points
       FROM npmrds_shapefile___YEAR__ AS shp
       WHERE (
         (ST_NumGeometries(wkb_geometry) = 1)
-        AND
-        (county = 'RENSSELAER')
       )
 ;
 
@@ -386,7 +384,6 @@ CREATE OR REPLACE FUNCTION get_closest_id___YEAR__(p1 float8, p2 float8)
             ) AS d
           FROM npmrds_shapefile___YEAR__
             CROSS JOIN cte_tmppnt
-          WHERE (county = 'RENSSELAER')
           ORDER BY (wkb_geometry <-> cte_tmppnt.pnt)
           LIMIT 10
       ), the_tmc AS (
