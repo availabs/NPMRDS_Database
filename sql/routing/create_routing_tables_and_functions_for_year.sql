@@ -1,5 +1,7 @@
 BEGIN;
 
+CREATE SCHEMA IF NOT EXISTS deprecated;
+
 -- Get the start and end points of each TMC
 CREATE TEMPORARY TABLE tmp_tmc_cleaned_geometries_with_terminal_points
   ON COMMIT DROP
@@ -78,9 +80,9 @@ CREATE INDEX normalintersects_gix
   ON tmp_tmc_intersection_geometries
   USING GIST (geom);
 
-DROP TABLE IF EXISTS tmc_children___YEAR__;
+DROP TABLE IF EXISTS deprecated.tmc_children___YEAR__;
 
-CREATE TABLE tmc_children___YEAR__
+CREATE TABLE deprecated.tmc_children___YEAR__
   AS
     SELECT DISTINCT
         p1.tmc AS base,
@@ -264,9 +266,9 @@ CREATE TEMPORARY TABLE tmp_tmc_touching_terminals
       )
 ;
 
-DROP TABLE IF EXISTS tmc_routable___YEAR__ CASCADE;
+DROP TABLE IF EXISTS deprecated.tmc_routable___YEAR__ CASCADE;
 
-CREATE TABLE tmc_routable___YEAR__
+CREATE TABLE deprecated.tmc_routable___YEAR__
 AS
   WITH cte_juncts AS (
     SELECT
@@ -341,26 +343,26 @@ AS
 ;
 
 CREATE INDEX tmc_routable___YEAR___gix
-  ON tmc_routable___YEAR__
+  ON deprecated.tmc_routable___YEAR__
   USING GIST (the_geom)
 ;
 
-ALTER TABLE tmc_routable___YEAR__
+ALTER TABLE deprecated.tmc_routable___YEAR__
   ADD COLUMN id serial,
   ADD COLUMN source int4,
   ADD COLUMN target int4;
 
-DROP TABLE IF EXISTS tmc_routable___YEAR___vertices_pgr;
-SELECT pgr_createTopology('tmc_routable___YEAR__', 0.0000001);
+DROP TABLE IF EXISTS deprecated.tmc_routable___YEAR___vertices_pgr;
+SELECT pgr_createTopology('deprecated.tmc_routable___YEAR__', 0.0000001);
 
 --play with tolerance till the vertices all touch their tmcs at least relatively
-ALTER TABLE tmc_routable___YEAR__ ADD COLUMN cost float8;
+ALTER TABLE deprecated.tmc_routable___YEAR__ ADD COLUMN cost float8;
 
-UPDATE tmc_routable___YEAR__
+UPDATE deprecated.tmc_routable___YEAR__
   SET cost = ST_Length(the_geom);
 
 -- TODO: move to own SQL script file
-CREATE OR REPLACE FUNCTION get_closest_id___YEAR__(p1 float8, p2 float8)
+CREATE OR REPLACE FUNCTION deprecated.get_closest_id___YEAR__(p1 float8, p2 float8)
   RETURNS Table (id int4) 
   AS $$
     BEGIN
@@ -395,21 +397,21 @@ CREATE OR REPLACE FUNCTION get_closest_id___YEAR__(p1 float8, p2 float8)
       ), cte_tmp_tmcvertices AS (
         SELECT
             source AS id
-          FROM tmc_routable___YEAR__
+          FROM deprecated.tmc_routable___YEAR__
           WHERE (
             tmc IN (SELECT the_tmc.tmc FROM the_tmc)
           )
         UNION
         SELECT
             target AS id
-          FROM tmc_routable___YEAR__
+          FROM deprecated.tmc_routable___YEAR__
           WHERE (
             tmc IN (SELECT the_tmc.tmc FROM the_tmc)
           )
       )
       SELECT
           pgr.id::int4
-        FROM tmc_routable___YEAR___vertices_pgr AS pgr
+        FROM deprecated.tmc_routable___YEAR___vertices_pgr AS pgr
           JOIN cte_tmp_tmcvertices
             USING(id)
           CROSS JOIN the_tmc AS tt
@@ -421,7 +423,7 @@ CREATE OR REPLACE FUNCTION get_closest_id___YEAR__(p1 float8, p2 float8)
 
 
 -- TODO: move to own SQL script file
-CREATE OR REPLACE FUNCTION route_from_tmc___YEAR__ (waypoints float8[])
+CREATE OR REPLACE FUNCTION deprecated.route_from_tmc___YEAR__ (waypoints float8[])
   RETURNS Table(seq int4, nid int4, tmc character varying)
   AS $$
     DECLARE
@@ -455,18 +457,18 @@ CREATE OR REPLACE FUNCTION route_from_tmc___YEAR__ (waypoints float8[])
                     SELECT
                         t1.id AS start_pt,
                         t2.id AS end_pt
-                      FROM get_closest_id___YEAR__(waypoints[ix], waypoints[ix+1]) AS t1
-                        CROSS JOIN get_closest_id___YEAR__(waypoints[ix+2], waypoints[ix+3]) AS t2
+                      FROM deprecated.get_closest_id___YEAR__(waypoints[ix], waypoints[ix+1]) AS t1
+                        CROSS JOIN deprecated.get_closest_id___YEAR__(waypoints[ix+2], waypoints[ix+3]) AS t2
                   ) AS sub_path
                     CROSS JOIN pgr_dijkstra(
-                      'SELECT id, source, target, cost FROM tmc_routable___YEAR__',
+                      'SELECT id, source, target, cost FROM deprecated.tmc_routable___YEAR__',
                       sub_path.start_pt::int4,
                       sub_path.end_pt::int4,
                       true,
                       false
                     ) AS pgr
               ) AS sub_route
-              JOIN tmc_routable___YEAR__ AS tss
+              JOIN deprecated.tmc_routable___YEAR__ AS tss
                 ON (sub_route.id2 = tss.id)
           )
           SELECT * FROM cte_t;
