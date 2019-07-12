@@ -3,7 +3,7 @@ BEGIN;
 CREATE SCHEMA IF NOT EXISTS transcom;
 
 CREATE TABLE IF NOT EXISTS transcom.transcom_events (
-  event_id          VARCHAR NOT NULL,
+  event_id          VARCHAR PRIMARY KEY,
   event_type        VARCHAR,
   facility          VARCHAR,
   creation          TIMESTAMP WITHOUT TIME ZONE,
@@ -21,8 +21,7 @@ CREATE TABLE IF NOT EXISTS transcom.transcom_events (
   longitude         DOUBLE PRECISION,
   event_category    VARCHAR,
   point_geom        public.Geometry(Point,4326),
-  tmc               VARCHAR,
-  PRIMARY KEY(event_id)
+  tmc               VARCHAR
 );
 
 CREATE INDEX IF NOT EXISTS transcom_events_date_index

@@ -45,8 +45,7 @@ psql --quiet -v YEAR="$YEAR" \
   -c 'BEGIN;' \
   -c "
     CREATE TEMPORARY TABLE tmp_new_transcom_events (
-        LIKE transcom.transcom_events,
-        CHECK (EXTRACT(YEAR FROM creation) = $YEAR)
+        LIKE transcom.transcom_events
       ) ON COMMIT DROP
     ;
   " \

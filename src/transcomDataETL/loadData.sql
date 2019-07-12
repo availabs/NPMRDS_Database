@@ -41,7 +41,7 @@ CREATE TEMPORARY TABLE tmp_buffered_tmcs
           GEOGRAPHY(wkb_geometry),
           75
         ) AS buffered_tmc
-      FROM npmrds_shapefile_:YEAR
+      FROM npmrds_shapefile_2019
 ;
 
 CREATE INDEX tmp_buffered_tmcs_idx
