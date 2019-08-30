@@ -31,7 +31,7 @@ fi
 DATA_FILE_PATH="$(realpath "$DATA_FILE_PATH")"
 
 if ! [ -f "${DATA_FILE_PATH}" ]; then
-  echo "ERROR: DATA_FILE_PATH ${DATA_FILE_PATH} directory found."
+  echo "ERROR: DATA_FILE_PATH ${DATA_FILE_PATH} file not found."
   exit 1
 fi
 
