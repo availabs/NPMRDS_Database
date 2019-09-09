@@ -33,24 +33,6 @@ envFile(configPath);
 
 const client = new Client();
 
-const getDefaultNpmrdsShapefileVersion = async (state) => {
-  const sql = `
-    SELECT
-        MAX(s.npmrds_shapefile_version) AS ver
-      FROM npmrds_shapefile_${YEAR} AS s
-        INNER JOIN state_abbreviations AS a
-        ON (s.state = a.state_name)
-      WHERE (
-        (a.abbreviation = $1)
-      )
-  `;
-
-  const { rows } = await client.query(sql, [state]);
-  const [{ ver }] = rows;
-
-  return ver;
-};
-
 const getTMCMetadataVersion = () => {
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -63,7 +45,7 @@ const getTMCMetadataVersion = () => {
   return `${yyyy}${mm}${dd}${HH}${MM}${SS}`;
 };
 
-const createTMCMetadataTable = (npmrdsShapefileVer, tmcMetadataVersion) => {
+const createTMCMetadataTable = tmcMetadataVersion => {
   const cmd = `
     psql \
       --quiet \
@@ -71,7 +53,6 @@ const createTMCMetadataTable = (npmrdsShapefileVer, tmcMetadataVersion) => {
       -v ON_ERROR_STOP=1 \
       -v STATE=${STATE} \
       -v YEAR=${YEAR} \
-      -v NPMRDS_SHAPEFILE_VERSION=${npmrdsShapefileVer} \
       -v TMC_METADATA_VERSION=${tmcMetadataVersion} \
       -f '${sqlFilePath}'
   `;
@@ -85,16 +66,9 @@ const doIt = async () => {
   try {
     await client.connect();
 
-    const npmrdsShapefileVer =
-      NPMRDS_SHAPEFILE_VERSION ||
-      (await getDefaultNpmrdsShapefileVersion(STATE, YEAR));
-
     const tmcMetadataVersion = getTMCMetadataVersion();
 
-    createTMCMetadataTable(
-      npmrdsShapefileVer,
-      tmcMetadataVersion
-    );
+    createTMCMetadataTable(tmcMetadataVersion);
   } catch (err) {
     console.error(err);
   } finally {

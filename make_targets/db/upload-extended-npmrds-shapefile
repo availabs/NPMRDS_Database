@@ -42,9 +42,6 @@ trap finish EXIT
 # Change to the work dir
 pushd "$TMP_WORK_DIR" >/dev/null
 
-# Get the last update info from the state's shapfile
-NPMRDS_SHAPEFILE_VERSION=$(ogrinfo -ro -so -al . | grep 'DBF_DATE_LAST_UPDATE' | sed 's/.*=//g; s/-//g');
-
 # Change back to the previous CWD
 popd >/dev/null
 

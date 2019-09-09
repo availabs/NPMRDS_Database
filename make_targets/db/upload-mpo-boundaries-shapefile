@@ -78,7 +78,7 @@ psql --quiet \
   -c 'COMMIT;'
 
 # Upload the data
-ogr2ogr -append -update -t_srs EPSG:4326 -f \
+ogr2ogr -append -update -t_srs 'EPSG:4326' -f \
   PostgreSQL "PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}" \
   -preserve_fid "$PWD" -nlt PROMOTE_TO_MULTI -nln "$FULL_TABLE_NAME";
 

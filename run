@@ -45,21 +45,6 @@ yargs
     }
   })
   .command({
-    command: 'create_placeholder_year_tmc_metadata_view',
-    desc: `Create the a placeholder tmc_metadata view for the specified year using
-      the previous year's tmc_metadata and the current year's npmrds_shapefile placeholder.`,
-    builder: {
-      year: { type: 'number', demand: true }
-    },
-    handler: ({ year, pg_env }) => {
-      spawn('make', ['db/create-placeholder-tmc-metadata-view'], {
-        cwd: __dirname,
-        stdio: 'inherit',
-        env: { YEAR: year, PG_ENV: pg_env }
-      });
-    }
-  })
-  .command({
     command: 'refresh_state_tmc_date_ranges_table',
     desc:
       'Refresh the tmc data date ranges table for the specified state (creating the table if necessary).',
@@ -107,42 +92,51 @@ yargs
     }
   })
   .command({
-    command: 'upload_extended_npmrds_shapefile',
+    command: 'upload_zipped_state_npmrds_shapefile',
     desc: 'Load the specified shapefile zip archive.',
     builder: {
       shpZipPath: { type: 'string', demand: true },
-      year: { type: 'number', demand: true }
+      year: { type: 'number', demand: true },
+      state: { type: 'string', demand: true }
     },
-    handler: ({ shpZipPath, year, pg_env }) => {
-      spawn('make', ['db/upload-extended-npmrds-shapefile-for-year'], {
+    handler: ({ shpZipPath, year, state, pg_env }) => {
+      spawn('make', ['db/upload-zipped-npmrds-shapefile'], {
         cwd: __dirname,
         stdio: 'inherit',
-        env: { SHP_ZIP_PATH: shpZipPath, YEAR: year, PG_ENV: pg_env }
+        env: {
+          STATE: state,
+          SHP_ZIP_PATH: shpZipPath,
+          YEAR: year,
+          PG_ENV: pg_env
+        }
       });
     }
   })
   .command({
-    command: 'create_placeholder_npmrds_shapefile_view',
-    desc: `Create the a placeholder npmrds_shapefile view for the specified year using
-      the previous year's npmrds_shapefile and the current year's tmc_identification table.`,
+    command: 'create_state_placeholder_npmrds_shapefile',
+    desc:
+      "Create a placeholder npmrds_shapefile table for the placeholderYear using the sourceYear's npmrds_shapefile table.",
     builder: {
-      year: { type: 'number', demand: true }
+      placeholderYear: { type: 'number', demand: true },
+      sourceYear: { type: 'number', demand: true },
+      state: { type: 'string', demand: true }
     },
-    handler: ({ year, pg_env }) => {
-      spawn('make', ['db/create-placeholder-npmrds-shapefile-view'], {
+    handler: ({ placeholderYear, sourceYear, state, pg_env }) => {
+      spawn('make', ['db/create-state-placeholder-npmrds-shapefile'], {
         cwd: __dirname,
         stdio: 'inherit',
-        env: { YEAR: year, PG_ENV: pg_env }
+        env: {
+          STATE: state,
+          PLACEHOLDER_YEAR: placeholderYear,
+          SOURCE_YEAR: sourceYear,
+          PG_ENV: pg_env
+        }
       });
     }
   })
   .command({
     command: 'upload-state-year-tmc-identification-from-etl-tar',
     desc: `The ZIP archives from RITIS' Massive Data Downloader include a file named TMC_Identification.
-        This file includes TMCs metadata. Normally, we use the NPMRDS Shapefile as the database's
-        TMC metadata source, however this shapefile is not released until Summer of the given year.
-        The TMC_Identification data can be used as a temporary placeholder.
-
       NOTE: This command creates all required tables and loads the TMC_Identification from the
         specified tarArchivePath. If the specified archive is newer than the current default
         database TMC_Identification file, it will  become the default.`,

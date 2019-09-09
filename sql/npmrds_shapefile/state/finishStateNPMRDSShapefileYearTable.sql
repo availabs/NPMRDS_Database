@@ -1,5 +1,7 @@
-\set tbl_name 'npmrds_extended_shapefile_':YEAR'_v':NPMRDS_SHAPEFILE_VERSION
+\set tbl_name 'npmrds_shapefile_':YEAR
 \set idx_name :tbl_name'_geom_idx'
+
+UPDATE :"STATE".:tbl_name SET state = UPPER(state);
 
 CREATE INDEX :idx_name
   ON :"STATE".:tbl_name

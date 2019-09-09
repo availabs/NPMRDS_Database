@@ -1,7 +1,6 @@
 #!/bin/bash
 
 set -e
-set -a
 
 TAR_ARCHIVE_PATH="${1:-$TAR_ARCHIVE_PATH}"
 STATE="${2:-$STATE}"
@@ -38,11 +37,17 @@ LOADER_SCRIPT_PATH="$(readlink -f "./upload-npmrds-shapefile-for-state-year.sh")
 
 popd >/dev/null
 
-WORK_DIR="$(mktemp -d)"
+TMP_WORK_DIR="$( mktemp -d )";
+# Delete the TMP_WORK_DIR when script finishes
+function finish {
+  rm -rf "$TMP_WORK_DIR"
+}
+trap finish EXIT
 
-tar xOf "$TAR_ARCHIVE_PATH" "$STATE_SHP_ARCHIVE_PATH" > "${WORK_DIR}/${STATE}.zip"
 
-cd "$WORK_DIR"
+tar xOf "$TAR_ARCHIVE_PATH" "$STATE_SHP_ARCHIVE_PATH" > "${TMP_WORK_DIR}/${STATE}.zip"
+
+cd "$TMP_WORK_DIR"
 
 7za x "${STATE}.zip" -y > /dev/null && rm "${STATE}.zip" 
 
@@ -56,19 +61,9 @@ fi
 
 YEAR="$(cat ./CONFLATION_YEAR)"
 
-if [ ! -f ./NPMRDS_SHAPEFILE_VERSION ]; then
-  (>&2 echo "ERROR: The ${DATA_DIR}/NPMRDS_SHAPEFILE_VERSION file is missing")
-  exit 1
-fi
-
-NPMRDS_SHAPEFILE_VERSION="$(cat ./NPMRDS_SHAPEFILE_VERSION)"
-
 export STATE
 export DATA_DIR
 export YEAR
-export NPMRDS_SHAPEFILE_VERSION
 export PG_ENV
 
 bash "$LOADER_SCRIPT_PATH"
-
-rm -rf "$WORK_DIR"

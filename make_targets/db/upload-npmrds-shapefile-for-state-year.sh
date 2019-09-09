@@ -3,6 +3,7 @@
 set -e
 set -a
 
+# shellcheck disable=SC2153
 if [[ -z "$STATE" ]]; then
   (>&2 echo "ERROR: You must specify the STATE as an ENV variable.")
   exit 1
@@ -13,13 +14,9 @@ if [[ -z "$YEAR" ]]; then
   exit 1
 fi
 
-if [[ -z "$NPMRDS_SHAPEFILE_VERSION" ]]; then
-  (>&2 echo "ERROR: You must specify the NPMRDS_SHAPEFILE_VERSION as an ENV variable.")
-  exit 1
-fi
-
 # Variables to store the new table's name and its parent table's name.
-TABLE_NAME="npmrds_shapefile_${YEAR}_v${NPMRDS_SHAPEFILE_VERSION}"
+TABLE_NAME="npmrds_shapefile_${YEAR}"
+FULL_ROOT_TABLE_NAME="public.${TABLE_NAME}"
 FULL_TABLE_NAME="\"${STATE}\".${TABLE_NAME}"
 
 # If the table already exists, exit.
@@ -27,7 +24,6 @@ if psql -c "\d $FULL_TABLE_NAME" > /dev/null 2>&1; then
   echo "$FULL_TABLE_NAME already exists. Skipping table creation and shapefile loading."
   exit
 fi
-
 
 DATA_DIR=${1:-$DATA_DIR}
 
@@ -58,11 +54,6 @@ fi
 (>&2 echo "PostgreSQL Server: ${PGHOST}:${PGPORT}")
 sleep 3
 
-ROOT_TABLE_NAME="npmrds_shapefile_${YEAR}"
-FULL_ROOT_TABLE_NAME="public.${ROOT_TABLE_NAME}"
-
-PARENT_TABLE_NAME="${ROOT_TABLE_NAME}"
-FULL_PARENT_TABLE_NAME="\"${STATE}\".${PARENT_TABLE_NAME}"
 
 # If the root table does not exist, create it.
 if ! psql -c "\d $FULL_ROOT_TABLE_NAME" > /dev/null 2>&1; then
@@ -74,8 +65,8 @@ if ! psql -c "\d $FULL_ROOT_TABLE_NAME" > /dev/null 2>&1; then
     -c "COMMIT;"
 fi
 
-# If the parent table does not exist, create it.
-if ! psql -c "\d $FULL_PARENT_TABLE_NAME" > /dev/null 2>&1; then
+# If the table does not exist, create it.
+if ! psql -c "\d $FULL_TABLE_NAME" > /dev/null 2>&1; then
   psql \
     --quiet \
     -v STATE="$STATE" -v YEAR="$YEAR" \
@@ -84,23 +75,11 @@ if ! psql -c "\d $FULL_PARENT_TABLE_NAME" > /dev/null 2>&1; then
     -c "COMMIT;"
 fi
 
-# Get the absolute paths to the required SQL scripts before changing directory.
-CREATE_TABLE_SQL_FILE_PATH="$(
-  realpath ../../sql/npmrds_shapefile/state/createStateNPMRDSShapefileYearVersionTable.sql
-)"
-OPTIMIZE_TABLE_SQL_FILE_PATH="$(
-  realpath ../../sql/npmrds_shapefile/state/optimizeStateNPMRDSShapefileYearVersionTable.sql
+FINISH_UP="$(
+  realpath ../../sql/npmrds_shapefile/state/finishStateNPMRDSShapefileYearTable.sql
 )"
 
 cd "${DATA_DIR}" || exit
-
-# Create the table into which we will upload the data
-psql \
-  --quiet \
-  -v STATE="$STATE" -v YEAR="$YEAR" -v NPMRDS_SHAPEFILE_VERSION="$NPMRDS_SHAPEFILE_VERSION" \
-  -c "BEGIN;" \
-  -f "${CREATE_TABLE_SQL_FILE_PATH}" \
-  -c "COMMIT;"
 
 # Upload the data
 ogr2ogr -append -update -t_srs EPSG:4326 -f \
@@ -110,49 +89,15 @@ ogr2ogr -append -update -t_srs EPSG:4326 -f \
 # Create spatial index and cluster the table using it.
 psql \
   --quiet \
-  -v STATE="$STATE" -v YEAR="$YEAR" -v NPMRDS_SHAPEFILE_VERSION="$NPMRDS_SHAPEFILE_VERSION" \
+  -v STATE="$STATE" -v YEAR="$YEAR" \
   -c "BEGIN;" \
-  -f "${OPTIMIZE_TABLE_SQL_FILE_PATH}" \
+  -f "${FINISH_UP}" \
   -c "COMMIT;" \
   -c "VACUUM ANALYZE ${FULL_TABLE_NAME};"
 
 echo "$FULL_TABLE_NAME"
 
-# Which table in this schema currently inherits public.npmrds_shapefile_:YEAR?
-#   We need this info to potentially uninherit that table, and
-#   set the newly created table as the default for the YEAR.
-CUR_DEFAULT="$(psql -t -c "
-  SELECT c.relname
-    FROM pg_inherits 
-      JOIN pg_class AS c ON (inhrelid=c.oid)
-      JOIN pg_class as p ON (inhparent=p.oid)
-      JOIN pg_namespace pn ON pn.oid = p.relnamespace
-      JOIN pg_namespace cn ON cn.oid = c.relnamespace
-    WHERE (
-      (pn.nspname = '${STATE}')
-      AND
-      (p.relname = '${PARENT_TABLE_NAME}')
-    );
-" | sed '/^$/d; s/^\s*//g')"
-
-# If the newly uploaded table is a newer version than the current default version,
-#   set the newly uploaded table as the default for the given state/year.
-if [ -z "${CUR_DEFAULT}" ] || [[ "${TABLE_NAME}" > "${CUR_DEFAULT}" ]]; then
-  if ! [ -z "${CUR_DEFAULT}" ]; then
-    UNINHERIT_OLD="ALTER TABLE \"${STATE}\".${CUR_DEFAULT} NO INHERIT ${FULL_PARENT_TABLE_NAME};"
-  fi
-  INHERIT_NEW="ALTER TABLE ${FULL_TABLE_NAME} INHERIT ${FULL_PARENT_TABLE_NAME};"
-
-  psql \
-    --quiet \
-    -c 'BEGIN;' \
-    -c "$UNINHERIT_OLD" \
-    -c "$INHERIT_NEW" \
-    -c 'COMMIT;'
-
-  echo "$FULL_TABLE_NAME set as the default for $FULL_PARENT_TABLE_NAME"
-fi
-
+# The following applies only when loading Canada's shapefile.
 STATES_IN_SHAPEFILE="$(psql -t -c "
   SELECT DISTINCT state
     FROM ${FULL_TABLE_NAME}
@@ -185,6 +130,5 @@ while read -r state_name; do
     fi
   fi
 done <<< "$STATES_IN_SHAPEFILE"
-
 
 popd >/dev/null

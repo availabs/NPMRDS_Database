@@ -11,6 +11,38 @@ BEGIN;
 \set idx_name 'tmc_metadata_':YEAR'_v':TMC_METADATA_VERSION'_pkey'
 \set tmc_ident_tbl :"STATE"'.tmc_identification_':YEAR
 
+
+CREATE TEMPORARY TABLE tmp_tmc2mpo
+  ON COMMIT DROP
+  AS
+    SELECT DISTINCT ON (tmc)
+        tmc,
+        mpo_id AS mpo_code,
+        mpo_name,
+        mpo_acrony
+      FROM (
+          SELECT
+              tmc,
+              wkb_geometry
+            FROM public.npmrds_shapefile_:YEAR AS shp
+              INNER JOIN state_abbreviations AS abbr
+              ON (UPPER(shp.state) = UPPER(abbr.state_name))
+            WHERE ( abbr.abbreviation = :'STATE')
+        ) AS state_shp
+        INNER JOIN mpo_boundaries_view AS mpob
+          ON (
+            ST_Contains(
+              mpob.wkb_geometry,
+              ST_ClosestPoint(
+                state_shp.wkb_geometry,
+                ST_Centroid(state_shp.wkb_geometry)
+              )
+            )
+          )
+      ORDER BY tmc, mpo_id
+;
+
+
 CREATE TEMPORARY TABLE tmp_speed_reduction_factor
   ON COMMIT DROP
   AS
@@ -25,7 +57,7 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
           avg_peak_period_travel_time
         )::REAL AS speed_reduction_factor,
 
-        CASE 
+        CASE
           WHEN (
             (tmc_ident.f_system = 0)
             OR
@@ -55,7 +87,7 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
         )::REAL AS avg_peak_period_speed_mph
 
       FROM (
-          SELECT 
+          SELECT
               tmc,
               AVG(travel_time_all_vehicles)::REAL AS avg_peak_period_travel_time
             FROM :"STATE".npmrds
@@ -65,7 +97,7 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
                 OR
                 (epoch BETWEEN (12 * (3+12)) AND ((12 * (7+12)) - 1)) /* 3am til 7pm */
               )
-              AND 
+              AND
               (travel_time_all_vehicles > 0)
               AND
               (
@@ -76,7 +108,7 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
             )
          GROUP BY tmc
         ) AS peak NATURAL FULL OUTER JOIN (
-          SELECT 
+          SELECT
               tmc,
               AVG(travel_time_all_vehicles)::REAL AS avg_free_flow_travel_time
             FROM :"STATE".npmrds
@@ -103,14 +135,14 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
 ;
 
 ALTER TABLE tmp_speed_reduction_factor ADD PRIMARY KEY (tmc);
-    
+
 
 CREATE TEMPORARY TABLE tmp_directionality_factors
   ON COMMIT DROP
   AS
     SELECT DISTINCT
         tmc,
-        avg_am_peak_travel_time, 
+        avg_am_peak_travel_time,
         avg_pm_peak_travel_time,
         (
           tmc_ident.miles
@@ -120,7 +152,7 @@ CREATE TEMPORARY TABLE tmp_directionality_factors
             /
             (60*60)
           )
-        )::REAL AS avg_am_peak_speed_mph, 
+        )::REAL AS avg_am_peak_speed_mph,
         (
           tmc_ident.miles
           /
@@ -131,7 +163,7 @@ CREATE TEMPORARY TABLE tmp_directionality_factors
           )
         )::REAL AS avg_pm_peak_speed_mph
       FROM (
-          SELECT 
+          SELECT
               tmc,
               AVG(travel_time_all_vehicles)::REAL AS avg_am_peak_travel_time
             FROM npmrds
@@ -152,7 +184,7 @@ CREATE TEMPORARY TABLE tmp_directionality_factors
             )
             GROUP BY tmc
         ) AS am_peak NATURAL FULL OUTER JOIN (
-          SELECT 
+          SELECT
               tmc,
               AVG(travel_time_all_vehicles)::REAL AS avg_pm_peak_travel_time
             FROM npmrds
@@ -176,7 +208,7 @@ CREATE TEMPORARY TABLE tmp_directionality_factors
 ;
 
 ALTER TABLE tmp_directionality_factors ADD PRIMARY KEY (tmc);
-    
+
 
 CREATE TEMPORARY TABLE tmp_traffic_distribution_factors
   ON COMMIT DROP
@@ -190,7 +222,7 @@ CREATE TEMPORARY TABLE tmp_traffic_distribution_factors
                 THEN NULL::traffic_dist_congestion_level_type
               WHEN (speed_reduction_factor < 0.75)
                 THEN 'SEVERE_CONGESTION'::traffic_dist_congestion_level_type
-              WHEN (speed_reduction_factor < 0.9) 
+              WHEN (speed_reduction_factor < 0.9)
                 THEN 'MODERATE_CONGESTION'::traffic_dist_congestion_level_type
               ELSE 'NO2LOW_CONGESTION'::traffic_dist_congestion_level_type
             END
@@ -200,7 +232,7 @@ CREATE TEMPORARY TABLE tmp_traffic_distribution_factors
                 THEN NULL::traffic_dist_congestion_level_type
               WHEN (speed_reduction_factor < 0.65)
                 THEN 'SEVERE_CONGESTION'::traffic_dist_congestion_level_type
-              WHEN (speed_reduction_factor < 0.8) 
+              WHEN (speed_reduction_factor < 0.8)
                 THEN 'MODERATE_CONGESTION'::traffic_dist_congestion_level_type
               ELSE 'NO2LOW_CONGESTION'::traffic_dist_congestion_level_type
             END
@@ -228,7 +260,6 @@ CREATE TEMPORARY TABLE tmp_traffic_distribution_factors
 ;
 
 ALTER TABLE tmp_traffic_distribution_factors ADD PRIMARY KEY (tmc);
-    
 
 CREATE TABLE :tbl_name (
   LIKE :"STATE".tmc_metadata_:YEAR INCLUDING ALL,
@@ -284,7 +315,7 @@ INSERT INTO :tbl_name (
     congestion_level,
     directionality,
     bounding_box
-  ) 
+  )
   SELECT
       tmc_identification.tmc,
       tmc_identification.route_numb AS roadnumber,
@@ -344,8 +375,8 @@ INSERT INTO :tbl_name (
       (
         (
           (
-            1.55 
-            * 
+            1.55
+            *
             (
               tmc_identification.aadt
               -
@@ -361,9 +392,9 @@ INSERT INTO :tbl_name (
         ) / NULLIF(tmc_identification.aadt, 0)
       ) AS avg_vehicle_occupancy,
 
-      NULL AS mpo_code,
-      NULL AS mpo_acrony,
-      NULL AS mpo_name,
+      tmp_tmc2mpo.mpo_code,
+      tmp_tmc2mpo.mpo_acrony,
+      tmp_tmc2mpo.mpo_name,
 
       urban_area_boundaries.name10 AS ua_name,
 
@@ -396,6 +427,8 @@ INSERT INTO :tbl_name (
         GROUP BY tmc
     ) AS avg_speedlimits
       USING (tmc)
+    LEFT OUTER JOIN tmp_tmc2mpo
+      USING (tmc)
     LEFT OUTER JOIN urban_area_boundaries
       ON (
         lpad(
@@ -412,7 +445,7 @@ INSERT INTO :tbl_name (
         SELECT DISTINCT
             state,
             state_code
-          FROM fips_codes 
+          FROM fips_codes
       ) AS fips_codes_states ON (
         LOWER(tmc_identification.state) = LOWER(fips_codes_states.state)
       )

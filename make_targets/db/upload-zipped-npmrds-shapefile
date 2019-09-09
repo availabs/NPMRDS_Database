@@ -1,0 +1,60 @@
+#!/bin/bash
+
+set -e
+
+
+if ! [ -x "$(command -v 7za)" ]; then
+  echo 'The 7za program is required to extract the RITIS shapefiles.'
+  echo 'See: https://unix.stackexchange.com/a/183453'
+  exit 1
+fi;
+
+if [[ -z "$YEAR" ]]; then
+  (>&2 echo "ERROR: You must specify the YEAR as an ENV variable.")
+  exit 1
+fi
+
+if [[ -z "$STATE" ]]; then
+  (>&2 echo "ERROR: You must specify the STATE as an ENV variable.")
+  exit 1
+fi
+
+if [[ -z "$SHP_ZIP_PATH" ]]; then
+  (>&2 echo "ERROR: You must specify the SHP_ZIP_PATH as an ENV variable.")
+  exit 1
+fi
+
+if ! [[ -f "${SHP_ZIP_PATH}" ]]; then
+  (>&2 echo "ERROR: SHP_ZIP_PATH ${SHP_ZIP_PATH} file found.")
+  exit 1
+fi
+
+STATE="${STATE,,}"
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )/" >/dev/null
+
+LOADER_SCRIPT_PATH="$(readlink -f "./upload-npmrds-shapefile-for-state-year.sh")"
+
+popd >/dev/null
+
+TMP_WORK_DIR="$( mktemp -d )";
+# Delete the TMP_WORK_DIR when script finishes
+function finish {
+  rm -rf "$TMP_WORK_DIR"
+}
+trap finish EXIT
+
+echo "$TMP_WORK_DIR"
+
+echo 'test 1'
+7za x "$SHP_ZIP_PATH" -y -o"$TMP_WORK_DIR" > /dev/null
+echo 'test 2'
+
+DATA_DIR="$( find "$TMP_WORK_DIR" -type f -exec dirname {} \; -quit )"
+
+export STATE
+export DATA_DIR
+export YEAR
+export PG_ENV
+
+bash "$LOADER_SCRIPT_PATH"

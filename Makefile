@@ -346,18 +346,26 @@ db/upload-state-npmrds-shapefile-from-country-tar: db/create-schema-${STATE}
 	export STATE;\
 	${_MKFILE_DIR}/make_targets/db/upload-state-npmrds-shapefile-from-country-tar.sh
 
-db/upload-extended-npmrds-shapefile-for-year: db/create-schema-ny
+db/upload-zipped-npmrds-shapefile: db/create-schema-${STATE}
 	@:$(call check_defined,SHP_ZIP_PATH)
 	@:$(call check_defined,YEAR)
+	@:$(call check_defined,STATE)
 	@export SHP_ZIP_PATH;\
 	export YEAR;\
-	${_MKFILE_DIR}/make_targets/db/upload-extended-npmrds-shapefile
+	export STATE;\
+	${_MKFILE_DIR}/make_targets/db/upload-zipped-npmrds-shapefile
 
-db/create-placeholder-npmrds-shapefile-view:
-	@:$(call check_defined,YEAR)
-	psql --quiet -v YEAR="$${YEAR}" -v SHP_YEAR="$$((YEAR - 1))" \
-		-f ./sql/placeholder_npmrds_shapefile_view/create_placeholder_npmrds_shapefile.sql
-
+db/create-state-placeholder-npmrds-shapefile: db/create-schema-${STATE}
+	@:$(call check_defined,PLACEHOLDER_YEAR)
+	@:$(call check_defined,SOURCE_YEAR)
+	@:$(call check_defined,STATE)
+	@if ! psql -c "\d \"${STATE}\".placeholder_npmrds_shapefile_${PLACEHOLDER_YEAR}" > /dev/null 2>&1; then\
+		psql \
+			-v PLACEHOLDER_YEAR="${PLACEHOLDER_YEAR}" \
+			-v SOURCE_YEAR="${SOURCE_YEAR}" \
+			-v STATE="${STATE}" \
+			-f './sql/placeholder_npmrds_shapefile/createPlaceholderStateNPMRDSShapefileYearTable.sql';\
+	fi
 
 ####################################################
 # Uploading the versioned tmc_identification files #
@@ -508,12 +516,6 @@ db/load-state-year-tmc-metadata: \
 		export STATE;\
 		export YEAR;\
 		./make_targets/db/load-state-year-tmc-metadata.js
-
-db/create-placeholder-tmc-metadata-view:
-	@:$(call check_defined,YEAR)
-	@psql --quiet -v YEAR="$${YEAR}" -v METADATA_YEAR="$$((YEAR - 1))" \
-		-f ./sql/placeholder_tmc_metadata_view/create_placeholder_tmc_metadata.sql
-
 
 db/drop-tmc-level-pm3-all-tables-for-version-fn:
 	@psql -f './sql/tmc_level_pm3_all_tables_for_version_fn/drop_tmc_level_pm3_all_tables_for_version_fn.sql'

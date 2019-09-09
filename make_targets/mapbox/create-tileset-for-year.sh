@@ -24,17 +24,9 @@ fi
 
 popd >/dev/null
 
+DATESTAMP="$(date '+%Y%m%dT%H%M%S')"
 
-NPMRDS_SHAPEFILE_VERSION="$(
-  psql -c "
-    COPY (
-      SELECT MAX(npmrds_shapefile_version)
-        FROM npmrds_shapefile_${YEAR}
-    ) TO STDOUT
-  "
-)"
-
-LAYER_NAME="tmc_metadata_${YEAR}_shpver${NPMRDS_SHAPEFILE_VERSION}"
+LAYER_NAME="tmc_metadata_${YEAR}_${DATESTAMP}"
 
 if [[ -z "$OUTPUT_FILE_PATH" ]]; then
   OUTPUT_FILE_PATH="${LAYER_NAME}_$(date +%Y%m%dT%H%M%S).mbtiles"
