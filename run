@@ -346,6 +346,28 @@ yargs
     }
   })
   .command({
+    command: 'load_ris_geodatabase_for_year',
+    desc: "Load the NYS Road Inventory System Geodatabase ZIP archive into PostgreSQL.",
+    builder: {
+      year: {
+        type: 'number',
+        demand: true,
+      },
+      risGeodatabaseZip: {
+        type: 'string',
+        demand: true,
+        describe: 'Path to the RIS Geodatabase ZIP archive.'
+      }
+    },
+    handler: ({ year, risGeodatabaseZip, pg_env }) => {
+      spawn('make', ['db/load-ris-geodatabase-for-year'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { YEAR: year, RIS_GEODATABASE_ZIP: risGeodatabaseZip, PG_ENV: pg_env }
+      });
+    }
+  })
+  .command({
     command: 'create-mabox-tileset-for-year',
     desc: "Create mbtiles file from the year's shapfile.",
     builder: {

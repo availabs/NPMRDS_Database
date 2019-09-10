@@ -367,6 +367,13 @@ db/create-state-placeholder-npmrds-shapefile: db/create-schema-${STATE}
 			-f './sql/placeholder_npmrds_shapefile/createPlaceholderStateNPMRDSShapefileYearTable.sql';\
 	fi
 
+db/load-ris-geodatabase-for-year:
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,RIS_GEODATABASE_ZIP)
+	@export YEAR;\
+	export RIS_GEODATABASE_ZIP;\
+	${_MKFILE_DIR}/make_targets/db/load-ris-geodatabase
+
 ####################################################
 # Uploading the versioned tmc_identification files #
 ####################################################
