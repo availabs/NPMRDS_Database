@@ -511,6 +511,7 @@ EXECUTE 'CREATE MATERIALIZED VIEW pm3_authoritative_geolevel_mview AS
 
   UNION ALL
 
+  -- Because of GROUP BY, each individual state's portion of the UA
   SELECT
     ''UA'' AS geolevel,
     ua_code AS geocode,
