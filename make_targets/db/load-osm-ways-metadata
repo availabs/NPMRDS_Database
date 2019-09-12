@@ -106,7 +106,8 @@ execSync(
     dbCopyStream.end();
   });
 
-  dbCopyStream.on('end', () => {
+  dbCopyStream.on('end', async () => {
+    await client.query(`CLUSTER osm.ways_metadata_${year};`);
     client.end();
   });
 })();

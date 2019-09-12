@@ -141,7 +141,8 @@ execSync(
     csvStream.end();
   });
 
-  dbCopyStream.on('end', () => {
+  dbCopyStream.on('end', async () => {
+    await client.query(`CLUSTER shst.conflation_metadata_${year};`);
     client.end();
   });
 
