@@ -91,7 +91,6 @@ execSync(
   );
 
   csvStream.pipe(dbCopyStream);
-  csvStream.pipe(process.stdout);
 
   const loadWay = async d => {
     const {
