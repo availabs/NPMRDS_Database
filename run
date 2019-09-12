@@ -347,11 +347,12 @@ yargs
   })
   .command({
     command: 'load_ris_geodatabase_for_year',
-    desc: "Load the NYS Road Inventory System Geodatabase ZIP archive into PostgreSQL.",
+    desc:
+      'Load the NYS Road Inventory System Geodatabase ZIP archive into PostgreSQL.',
     builder: {
       year: {
         type: 'number',
-        demand: true,
+        demand: true
       },
       risGeodatabaseZip: {
         type: 'string',
@@ -363,7 +364,11 @@ yargs
       spawn('make', ['db/load-ris-geodatabase-for-year'], {
         cwd: __dirname,
         stdio: 'inherit',
-        env: { YEAR: year, RIS_GEODATABASE_ZIP: risGeodatabaseZip, PG_ENV: pg_env }
+        env: {
+          YEAR: year,
+          RIS_GEODATABASE_ZIP: risGeodatabaseZip,
+          PG_ENV: pg_env
+        }
       });
     }
   })
@@ -382,6 +387,32 @@ yargs
         cwd: __dirname,
         stdio: 'inherit',
         env: { YEAR: year, PG_ENV: pg_env }
+      });
+    }
+  })
+  .command({
+    command: 'load-conflation-metadata',
+    desc: 'Load the conflation metadata into PostgreSQL.',
+    builder: {
+      year: {
+        type: 'string',
+        demand: true
+      },
+      osmFile: {
+        type: 'string',
+        demand: true
+      }
+    },
+    handler: ({ year, osmFile, pg_env }) => {
+      spawn('make', ['db/load-conflation-metadata'], {
+        cwd: __dirname,
+        shell: '/bin/bash',
+        stdio: 'inherit',
+        env: Object.assign({}, process.env, {
+          YEAR: year,
+          OSM_FILE: osmFile,
+          PG_ENV: pg_env
+        })
       });
     }
   })

@@ -81,6 +81,7 @@ endef
 # Read .env (squelching error messages if one doesn't exist) and pass each
 # environment pair to EXPAND\_EXPORTS to make it available to commands in
 # targets.
+PG_ENV ?= development
 $(foreach a,$(shell if [ "$${PG_ENV}" = "production" ]; then cat ./config/postgres.env.prod; else cat ./config/postgres.env.dev; fi | sed -e '/\s*#.*$$/d' -e '/^\s*$$/d' 2> /dev/null),$(eval $(call EXPAND_EXPORTS,$(a))))
 
 # https://stackoverflow.com/a/10858332/3970755
@@ -373,6 +374,12 @@ db/load-ris-geodatabase-for-year:
 	@export YEAR;\
 	export RIS_GEODATABASE_ZIP;\
 	${_MKFILE_DIR}/make_targets/db/load-ris-geodatabase
+
+db/load-conflation-metadata:
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,OSM_FILE)
+	${_MKFILE_DIR}/make_targets/db/load-conflation-metadata \
+		--year="${YEAR}" --osmFile="${OSM_FILE}" --pg_env="${PG_ENV}"
 
 ####################################################
 # Uploading the versioned tmc_identification files #

@@ -1,0 +1,138 @@
+#!/usr/bin/env node
+
+// https://wiki.openstreetmap.org/wiki/Way#Examples
+//   The nodes defining the geometry of the way are enumerated in the correct order,
+//     and indicated only by reference using their unique identifier.
+//   These nodes must have been already defined separately with their coordinates.
+//
+// https://wiki.openstreetmap.org/wiki/Relation:restriction
+
+const { execSync } = require('child_process');
+const { createReadStream } = require('fs');
+
+const yargs = require('yargs');
+const XmlStream = require('xml-stream');
+const csv = require('fast-csv');
+
+const { join } = require('path');
+const envFile = require('node-env-file');
+
+const { Client } = require('pg');
+const { from: copyFrom } = require('pg-copy-streams');
+
+const cliArgsSpec = {
+  year: { type: 'number', demand: true },
+  osmFile: {
+    demand: true,
+    type: 'string'
+  },
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    default: 'development'
+  },
+};
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const { osmFile, year, pg_env } = argv;
+
+const configPath = join(
+  __dirname,
+  pg_env === 'production'
+    ? '../../config/postgres.env.prod'
+    : '../../config/postgres.env.dev'
+);
+envFile(configPath);
+
+const headers = [
+  'id',
+  'osm',
+  'tmc',
+  'ris',
+  'shst_geometry_id',
+  'shst_reference_id',
+  'shst_from_intersection_id',
+  'shst_to_intersection_id',
+  'shst_reversed',
+  'shst_total_segments',
+  'shst_segment_index',
+  'shst_start_dist',
+  'shst_end_dist'
+];
+
+execSync(
+  `psql -v YEAR=${year} -f ${join(
+    __dirname,
+    '../../sql/conflation_metadata/createConflationMetadataTable.sql'
+  )}`
+);
+
+(async () => {
+  const csvStream = csv.format({ headers });
+
+  const client = new Client();
+  await client.connect();
+
+  await client.query(`TRUNCATE shst.conflation_metadata_${year};`);
+
+  const dbCopyStream = client.query(
+    copyFrom(
+      `COPY shst.conflation_metadata_${year}(${headers}) FROM STDIN WITH (FORMAT CSV, NULL 'null', HEADER, FORCE_NULL(tmc, ris))`
+    )
+  );
+
+  csvStream.pipe(dbCopyStream);
+  csvStream.pipe(process.stdout);
+
+  const loadWay = async d => {
+    const {
+      $: { id },
+      tag
+    } = d;
+
+    const tags = Array.isArray(tag)
+      ? tag.reduce((acc, { $: { k, v } }) => {
+          acc[k] = v;
+          return acc;
+        }, {})
+      : null;
+
+    if (!tags) {
+      return;
+    }
+
+    const wayMetadata = {
+      id,
+      osm: tags.OSM,
+      tmc: tags.NPMRDS,
+      ris: tags.RIS,
+      shst_geometry_id: tags['sharedstreets:geometryId'],
+      shst_reference_id: tags['sharedstreets:referenceId'],
+      shst_from_intersection_id: tags['sharedstreets:fromIntersectionId'],
+      shst_to_intersection_id: tags['sharedstreets:toIntersectionId'],
+      shst_reversed: tags['sharedstreets:reversed'],
+      shst_total_segments: tags['sharedstreets:totalSegments'],
+      shst_segment_index: tags['sharedstreets:segmentIndex'],
+      shst_start_dist: tags['sharedstreets:startDist'],
+      shst_end_dist: tags['sharedstreets:endDist']
+    };
+
+    csvStream.write(wayMetadata);
+  };
+
+  const osmStream = createReadStream(osmFile);
+
+  const xml = new XmlStream(osmStream);
+
+  xml.collect('way tag');
+  xml.on('endElement: way', loadWay);
+})();
