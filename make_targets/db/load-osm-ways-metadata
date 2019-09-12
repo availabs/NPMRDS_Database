@@ -12,7 +12,6 @@ const { createReadStream } = require('fs');
 
 const yargs = require('yargs');
 const XmlStream = require('xml-stream');
-const csv = require('fast-csv');
 
 const { join } = require('path');
 const envFile = require('node-env-file');
@@ -22,7 +21,7 @@ const { from: copyFrom } = require('pg-copy-streams');
 
 const cliArgsSpec = {
   year: { type: 'number', demand: true },
-  conflationOsmFile: {
+  osmFile: {
     demand: true,
     type: 'string'
   },
@@ -43,7 +42,7 @@ const { argv } = yargs
   .wrap(yargs.terminalWidth() / 1.618)
   .option(cliArgsSpec);
 
-const { conflationOsmFile, year, pg_env } = argv;
+const { osmFile, year, pg_env } = argv;
 
 const configPath = join(
   __dirname,
@@ -51,52 +50,27 @@ const configPath = join(
     ? '../../config/postgres.env.prod'
     : '../../config/postgres.env.dev'
 );
-envFile(configPath);
 
-const headers = [
-  'id',
-  'osm',
-  'tmc',
-  'ris',
-  'shst_geometry_id',
-  'shst_reference_id',
-  'shst_from_intersection_id',
-  'shst_to_intersection_id',
-  'shst_reversed',
-  'shst_total_segments',
-  'shst_segment_index',
-  'shst_start_dist',
-  'shst_end_dist'
-];
+envFile(configPath);
 
 execSync(
   `psql -v YEAR=${year} -f ${join(
     __dirname,
-    '../../sql/conflation_metadata/createConflationMetadataTable.sql'
+    '../../sql/osm_ways_metadata/createOSMWaysMetadataTable.sql'
   )}`
 );
 
 (async () => {
-  const csvStream = csv.format({ headers });
-
   const client = new Client();
   await client.connect();
 
-  await client.query(`TRUNCATE shst.conflation_metadata_${year};`);
+  await client.query(`TRUNCATE osm.ways_metadata_${year};`);
 
   const dbCopyStream = client.query(
     copyFrom(
-      `COPY shst.conflation_metadata_${year}(${headers})
-        FROM STDIN WITH (
-          FORMAT CSV,
-          NULL 'null',
-          HEADER,
-          FORCE_NULL(tmc, ris)
-        )`
+      `COPY osm.ways_metadata_${year}(id, metadata) FROM STDIN WITH (FORMAT CSV)`
     )
   );
-
-  csvStream.pipe(dbCopyStream);
 
   const loadWay = d => {
     const {
@@ -111,40 +85,28 @@ execSync(
         }, {})
       : null;
 
-    if (!tags) {
+    if (!(tags && tags.highway)) {
       return;
     }
 
-    const wayMetadata = {
-      id,
-      osm: tags.OSM,
-      tmc: tags.NPMRDS,
-      ris: tags.RIS,
-      shst_geometry_id: tags['sharedstreets:geometryId'],
-      shst_reference_id: tags['sharedstreets:referenceId'],
-      shst_from_intersection_id: tags['sharedstreets:fromIntersectionId'],
-      shst_to_intersection_id: tags['sharedstreets:toIntersectionId'],
-      shst_reversed: tags['sharedstreets:reversed'],
-      shst_total_segments: tags['sharedstreets:totalSegments'],
-      shst_segment_index: tags['sharedstreets:segmentIndex'],
-      shst_start_dist: tags['sharedstreets:startDist'],
-      shst_end_dist: tags['sharedstreets:endDist']
-    };
+    const metadata = JSON.stringify(tags).replace(/"/g, '""');
 
-    csvStream.write(wayMetadata);
+    const row = `"${id}","${metadata}"\n`;
+
+    dbCopyStream.write(row);
   };
 
-  const osmStream = createReadStream(conflationOsmFile);
+  const osmStream = createReadStream(osmFile);
   const xml = new XmlStream(osmStream);
 
-  osmStream.on('close', () => {
-    csvStream.end();
+  xml.collect('way tag');
+  xml.on('endElement: way', loadWay);
+
+  osmStream.on('end', () => {
+    dbCopyStream.end();
   });
 
   dbCopyStream.on('end', () => {
     client.end();
   });
-
-  xml.collect('way tag');
-  xml.on('endElement: way', loadWay);
 })();

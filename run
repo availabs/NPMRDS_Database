@@ -398,13 +398,39 @@ yargs
         type: 'string',
         demand: true
       },
+      conflationOsmFile: {
+        type: 'string',
+        demand: true
+      }
+    },
+    handler: ({ year, conflationOsmFile, pg_env }) => {
+      spawn('make', ['db/load-conflation-metadata'], {
+        cwd: __dirname,
+        shell: '/bin/bash',
+        stdio: 'inherit',
+        env: Object.assign({}, process.env, {
+          YEAR: year,
+          CONFLATION_OSM_FILE: conflationOsmFile,
+          PG_ENV: pg_env
+        })
+      });
+    }
+  })
+  .command({
+    command: 'load-osm-ways-metadata',
+    desc: 'Load the OSM Ways metadata into PostgreSQL.',
+    builder: {
+      year: {
+        type: 'string',
+        demand: true
+      },
       osmFile: {
         type: 'string',
         demand: true
       }
     },
     handler: ({ year, osmFile, pg_env }) => {
-      spawn('make', ['db/load-conflation-metadata'], {
+      spawn('make', ['db/load-osm-ways-metadata'], {
         cwd: __dirname,
         shell: '/bin/bash',
         stdio: 'inherit',

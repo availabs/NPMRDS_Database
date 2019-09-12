@@ -377,8 +377,14 @@ db/load-ris-geodatabase-for-year:
 
 db/load-conflation-metadata:
 	@:$(call check_defined,YEAR)
-	@:$(call check_defined,OSM_FILE)
+	@:$(call check_defined,CONFLATION_OSM_FILE)
 	${_MKFILE_DIR}/make_targets/db/load-conflation-metadata \
+		--year="${YEAR}" --conflationOsmFile="${CONFLATION_OSM_FILE}" --pg_env="${PG_ENV}"
+
+db/load-osm-ways-metadata:
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,OSM_FILE)
+	${_MKFILE_DIR}/make_targets/db/load-osm-ways-metadata \
 		--year="${YEAR}" --osmFile="${OSM_FILE}" --pg_env="${PG_ENV}"
 
 ####################################################
