@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TABLE :"COUNTRY".fips_codes (
+CREATE TABLE IF NOT EXISTS :"COUNTRY".fips_codes (
     CONSTRAINT fips_codes_pkey PRIMARY KEY(state_code, county_code),
     CONSTRAINT country CHECK (country = :'COUNTRY')
   )

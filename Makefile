@@ -657,8 +657,7 @@ db/load-country-fips-codes-table: db/create-country-fips-codes-table
 	@set -e;\
 	COUNT=$$(psql -t -c "SELECT COUNT(1) FROM \"${COUNTRY}\".fips_codes;" | tr -d " \t\n\r";);\
 	if [ $${COUNT} -eq 0 ]; then\
-		FIPS_CODES_CSV_PATH="${_FIPS_CODES_CSVS_DIR}${COUNTRY}/fips_codes.${COUNTRY}.csv.gz";\
-		gunzip -c "$${FIPS_CODES_CSV_PATH}" | \
+		gunzip -c "${_MKFILE_DIR}/sql/fips_codes/fips_codes.${COUNTRY}.csv.gz" | \
 			iconv -f iso-8859-1 -t utf-8 - |\
 			psql -c "$$(sed 's/__COUNTRY__/${COUNTRY}/g;' ./sql/fips_codes/loadCountryFipsCodesTable.sql)" ;\
 		psql -v COUNTRY="${COUNTRY}" -f ./sql/fips_codes/finishCountryFipsCodesTable.sql;\

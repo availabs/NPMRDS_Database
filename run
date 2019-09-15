@@ -2,7 +2,7 @@
 
 /* eslint no-unused-expressions: 0, camelcase: 0 */
 
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 
 const yargs = require('yargs');
 
@@ -440,6 +440,29 @@ yargs
           PG_ENV: pg_env
         })
       });
+    }
+  })
+  .command({
+    command: 'load-fips-codes-tables',
+    desc: 'Load the US and Canada fips codes tables.',
+    handler: ({ pg_env }) => {
+      const opts = {
+        cwd: __dirname,
+        shell: '/bin/bash',
+        stdio: 'inherit',
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env
+        })
+      };
+
+      opts.env.COUNTRY = 'us';
+      spawn('make', ['db/load-country-fips-codes-table'], opts).on(
+        'close',
+        () => {
+          opts.env.COUNTRY = 'cn';
+          spawn('make', ['db/load-country-fips-codes-table'], opts);
+        }
+      );
     }
   })
   .demandCommand()
