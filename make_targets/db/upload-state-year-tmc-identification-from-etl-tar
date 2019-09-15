@@ -17,10 +17,12 @@ fi
 
 TMP_WORK_DIR="$( mktemp -d )";
 TMP_TMC_IDENTIFICATION_FILE_PATH="$( mktemp )"
+TMC_CLEANED_TMC_IDENTIFICATION_FILE_PATH="$( mktemp )"
 
 # Delete the TMP_WORK_DIR when script finishes
 function finish {
   rm -f "$TMP_TMC_IDENTIFICATION_FILE_PATH"
+  rm -f "$TMC_CLEANED_TMC_IDENTIFICATION_FILE_PATH"
   rm -rf "$TMP_WORK_DIR"
 }
 trap finish EXIT
@@ -51,10 +53,12 @@ find "${ARCHIVE_BASE_NAME/.tar/}" -type f -name '*raw-inrix*' |
   while read -r zip_archive_path; do
     if [[ -z $wrote_file ]]; then
       unzip -p "$zip_archive_path" TMC_Identification.csv |
-        sed 's/\r//' |
-        gzip -9 > "$TMP_TMC_IDENTIFICATION_FILE_PATH"
+        sed 's/\r//' \
+      > "$TMP_TMC_IDENTIFICATION_FILE_PATH"
+
       wrote_file=1
-      checksum="$( zcat "$TMP_TMC_IDENTIFICATION_FILE_PATH" | md5sum | cut -d' ' -f1 )"
+
+      checksum="$( md5sum "$TMP_TMC_IDENTIFICATION_FILE_PATH" | cut -d' ' -f1 )"
     else
       new_checksum="$(
         unzip -p "$zip_archive_path" TMC_Identification.csv |
@@ -72,6 +76,61 @@ find "${ARCHIVE_BASE_NAME/.tar/}" -type f -name '*raw-inrix*' |
 popd >/dev/null
 
 rm -rf "$TMP_WORK_DIR"
+
+# Sort the TMC_Identification file by (tmc, active_end_date DESC, active_start_date DESC)
+# Reason:
+#   The TMC_Identification file has had multiple entries for a single TMC.
+#     This violates the primary key constraint on the tmc_identification tables
+#     causing uploads to fail. We need to filter out mutltiple entries.
+#   The preferred entry is the one with the latest active_end_dates.
+
+TMC_COL="$(
+  head -1 "$TMP_TMC_IDENTIFICATION_FILE_PATH" |
+    tr ',' '\n' |
+    nl |
+    grep -w 'tmc' |
+    cut -f1 |
+    tr -d '[:space:]'
+)"
+
+if [[ "$TMC_COL" != 1 ]]; then
+  (>&2 echo "ERROR: INVARIANT BROKEN. TMC not the first column of the CSV.")
+  exit 1
+fi
+
+ACTIVE_START_DATE_COL="$(
+  head -1 "$TMP_TMC_IDENTIFICATION_FILE_PATH" |
+    tr ',' '\n' |
+    nl |
+    grep -w 'active_start_date' |
+    cut -f1 |
+    tr -d '[:space:]'
+)"
+
+ACTIVE_END_DATE_COL="$(
+  head -1 "$TMP_TMC_IDENTIFICATION_FILE_PATH" |
+    tr ',' '\n' |
+    nl |
+    grep -w 'active_end_date' |
+    cut -f1 |
+    tr -d '[:space:]'
+)"
+
+cat \
+  <( head -1 "$TMP_TMC_IDENTIFICATION_FILE_PATH" ) \
+  <(
+    tail -n +2 "$TMP_TMC_IDENTIFICATION_FILE_PATH" |
+    sort \
+      -u \
+      --field-separator=',' \
+      -k"${TMC_COL}" \
+      -rk"${ACTIVE_END_DATE_COL}" \
+      -rk"${ACTIVE_START_DATE_COL}" 
+  ) |
+  uniq --check-chars=9 \
+  > "$TMC_CLEANED_TMC_IDENTIFICATION_FILE_PATH"
+
+rm -f "$TMP_TMC_IDENTIFICATION_FILE_PATH"
 
 pushd "$( dirname "${BASH_SOURCE[0]}" )/../../" >/dev/null
 
@@ -114,7 +173,7 @@ FULL_TABLE_NAME="\"${STATE}\".${TABLE_NAME}"
 
 # If the table does not exist, create it and load it.
 
-CSV_HEADER="$( zcat "$TMP_TMC_IDENTIFICATION_FILE_PATH" | head -1 )"
+CSV_HEADER="$( head -1 "$TMC_CLEANED_TMC_IDENTIFICATION_FILE_PATH" )"
 
 if ! psql -c "\d $FULL_TABLE_NAME" > /dev/null 2>&1; then
   psql \
@@ -126,7 +185,7 @@ if ! psql -c "\d $FULL_TABLE_NAME" > /dev/null 2>&1; then
       echo "
         COPY $FULL_TABLE_NAME ($CSV_HEADER)
           FROM STDIN CSV HEADER;" &&
-      zcat "$TMP_TMC_IDENTIFICATION_FILE_PATH" &&
+      cat "$TMC_CLEANED_TMC_IDENTIFICATION_FILE_PATH" &&
       echo '\.'
     ) \
     -f ./sql/tmc_identification/state/optimize_state_year_month_tmc_identification_version_table.sql \

@@ -2,6 +2,7 @@
   "extends": ["airbnb-base", "prettier"],
   "rules": {
       "camelcase": 0,
-      "no-console": 0
+      "no-console": 0,
+      "no-plusplus": 0
   }
 }
