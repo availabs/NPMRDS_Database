@@ -171,10 +171,9 @@ fi
 TABLE_NAME="${PARENT_TABLE_NAME}_v${DOWNLOAD_TIMESTAMP}"
 FULL_TABLE_NAME="\"${STATE}\".${TABLE_NAME}"
 
-# If the table does not exist, create it and load it.
-
 CSV_HEADER="$( head -1 "$TMC_CLEANED_TMC_IDENTIFICATION_FILE_PATH" )"
 
+# If the table does not exist, create it and load it.
 if ! psql -c "\d $FULL_TABLE_NAME" > /dev/null 2>&1; then
   psql \
     --quiet \
@@ -190,6 +189,12 @@ if ! psql -c "\d $FULL_TABLE_NAME" > /dev/null 2>&1; then
     ) \
     -f ./sql/tmc_identification/state/optimize_state_year_month_tmc_identification_version_table.sql \
     -c "COMMIT;"
+
+  psql \
+    --quiet \
+    -v STATE="$STATE" -v YEAR="$YEAR" -v DOWNLOAD_TIMESTAMP="$DOWNLOAD_TIMESTAMP" \
+    -f ./sql/tmc_identification/state/update_state_year_month_tmc_identification_version_table_state_col.sql
+
 fi
 
 # Which table in this schema currently inherits public.tmc_identification_:YEAR?
