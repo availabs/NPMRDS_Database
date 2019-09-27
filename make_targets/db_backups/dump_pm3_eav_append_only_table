@@ -27,25 +27,19 @@ popd >/dev/null
 sleep 3
 
 TIMESTAMP="$( date '+%s' )"
-DUMP_DIR_NAME="npmrds_metadata_tables_dump.$TIMESTAMP"
-LOGFILE_NAME="npmrds_metadata_tables_dump.$TIMESTAMP.log"
+DUMP_FILE_NAME="npmrds_pm3_eav_table_dump.$TIMESTAMP"
+LOGFILE_NAME="npmrds_pm3_eav_table_dump.$TIMESTAMP.log"
 
-DUMP_DIR_PATH="$( realpath "${DATA_DIR}/${DUMP_DIR_NAME}" )"
+DUMP_FILE_PATH="$( realpath "${DATA_DIR}/${DUMP_FILE_NAME}.gz" )"
 LOGFILE_PATH="$( realpath "${DATA_DIR}/${LOGFILE_NAME}" )"
 
 (>&2 echo "logging dump messages to $LOGFILE_PATH")
 
-# Note: We exclude table data for the large npmrds and pm3 tables.
-#         NPMRDS table data can be restored using the archived CSVs.
-#         pm3_eav_append_only table data is dumped seperately. 
 pg_dump \
   --verbose \
-  --jobs=4 \
   --compress=9 \
-  --format=directory \
-  --file="$DUMP_DIR_PATH" \
-  --exclude-table-data='*.npmrds' \
-  --exclude-table-data='*.npmrds_y*' \
-  --exclude-table-data='*.pm3_eav_append_only' \
+  --format=plain \
+  --file="$DUMP_FILE_PATH" \
+  --table='pm3_eav_append_only' \
   > "$LOGFILE_PATH" 2>&1
 

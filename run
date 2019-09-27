@@ -494,6 +494,34 @@ yargs
       );
     }
   })
+  .command({
+    command: 'dump-npmrds-pm3-eav-table',
+    desc:
+      'Creates a compressed plain dump of the npmrds database pm3_eav_append_only_table.',
+    builder: {
+      dataDir: {
+        type: 'string',
+        demand: false,
+        default: '.'
+      }
+    },
+    handler: ({ dataDir, pg_env }) => {
+      const opts = {
+        cwd: __dirname,
+        shell: '/bin/bash',
+        stdio: 'inherit',
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env,
+          DATA_DIR: dataDir
+        })
+      };
+
+      spawn(
+        join(__dirname, 'make_targets/db_backups/dump_pm3_eav_append_only_table'),
+        opts
+      );
+    }
+  })
   .demandCommand()
   .recommendCommands()
   .strict()
