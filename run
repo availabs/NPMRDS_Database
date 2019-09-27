@@ -374,7 +374,7 @@ yargs
     }
   })
   .command({
-    command: 'create-mabox-tileset-for-year',
+    command: 'create-mapbox-tileset-for-year',
     desc: "Create mbtiles file from the year's shapfile.",
     builder: {
       year: {
