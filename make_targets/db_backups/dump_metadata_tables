@@ -1,0 +1,50 @@
+#!/bin/bash
+
+set -e
+set -a
+
+if [[ -z "$DATA_DIR" ]]; then
+  (>&2 echo "ERROR: You must specify the YEAR as an ENV variable.")
+  exit 1
+fi
+
+mkdir -p "$DATA_DIR"
+
+# Change CWD to this script's directory.
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+# source the database connection config.
+if [ "$PG_ENV" = "production" ]; then
+	. ../../config/postgres.env.prod
+else
+	. ../../config/postgres.env.dev
+fi
+
+popd >/dev/null
+
+# Last chance to kill script... just in case
+(>&2 echo "Dumping PostgreSQL Server: ${PGHOST}:${PGPORT}")
+sleep 3
+
+TIMESTAMP="$( date '+%s' )"
+DUMP_DIR_NAME="npmrds_metadata_tables_dump.$TIMESTAMP"
+LOGFILE_NAME="npmrds_metadata_tables_dump.$TIMESTAMP.log"
+
+DUMP_DIR_PATH="$( realpath "${DATA_DIR}/${DUMP_DIR_NAME}" )"
+LOGFILE_PATH="$( realpath "${DATA_DIR}/${LOGFILE_NAME}" )"
+
+(>&2 echo "logging dump messages to $LOGFILE_PATH")
+
+# Note: We exclude table data for the large npmrds and pm3 tables.
+#         NPMRDS table data can be restored using the archived CSVs.
+#         pm3_eav_append_only table data is dumped seperately. 
+pg_dump \
+  --verbose \
+  --jobs=4 \
+  --format=directory \
+  --file="$DUMP_DIR_PATH" \
+  --exclude-table-data='*.npmrds' \
+  --exclude-table-data='*.npmrds_y*' \
+  --exclude-table-data='*.pm3_eav_append_only' \
+  > "$LOGFILE_PATH" 2>&1
+

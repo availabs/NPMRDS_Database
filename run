@@ -2,7 +2,8 @@
 
 /* eslint no-unused-expressions: 0, camelcase: 0 */
 
-const { spawn, spawnSync } = require('child_process');
+const { join } = require('path');
+const { spawn } = require('child_process');
 
 const yargs = require('yargs');
 
@@ -462,6 +463,34 @@ yargs
           opts.env.COUNTRY = 'cn';
           spawn('make', ['db/load-country-fips-codes-table'], opts);
         }
+      );
+    }
+  })
+  .command({
+    command: 'dump-npmrds-database-metadata-tables',
+    desc:
+      'Creates a directory format dump of the npmrds database metadata tables. The data from the npmrds and pm3_eav_append_only_table tables is excluded. The npmrds data can be restored using the archived CSVs. The pm3_eav_append_only_table data is dumped seperately.',
+    builder: {
+      dataDir: {
+        type: 'string',
+        demand: false,
+        default: '.'
+      }
+    },
+    handler: ({ dataDir, pg_env }) => {
+      const opts = {
+        cwd: __dirname,
+        shell: '/bin/bash',
+        stdio: 'inherit',
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env,
+          DATA_DIR: dataDir
+        })
+      };
+
+      spawn(
+        join(__dirname, 'make_targets/db_backups/dump_metadata_tables'),
+        opts
       );
     }
   })
