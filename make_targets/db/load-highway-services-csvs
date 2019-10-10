@@ -1,0 +1,137 @@
+#!/usr/bin/env node
+
+/* eslint no-console: 0, no-param-reassign: 0, no-continue: 0 */
+
+const assert = require('assert');
+const { execSync } = require('child_process');
+const { existsSync } = require('fs');
+const { join, isAbsolute } = require('path');
+
+const envFile = require('node-env-file');
+const yargs = require('yargs');
+const { difference, padStart } = require('lodash');
+
+const YEARS = require('../../src/highwayDataServicesScrapers/YEARS');
+const REGIONS = require('../../src/highwayDataServicesScrapers/REGIONS');
+const TABLES = require('../../src/highwayDataServicesScrapers/TABLES');
+
+const getDataFileName = require('../../src/highwayDataServicesScrapers/getDataFileName');
+
+const yargsSpec = {
+  years: {
+    alias: 'year',
+    type: 'array',
+    demand: false,
+    default: YEARS
+  },
+  regions: {
+    alias: 'region',
+    type: 'array',
+    demand: false,
+    default: REGIONS
+  },
+  tables: {
+    alias: 'table',
+    type: 'array',
+    demand: false,
+    default: TABLES
+  },
+  downloadDir: {
+    type: 'string',
+    demand: true
+  },
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    default: 'development'
+  }
+};
+
+const {
+  argv: { years, regions, tables, downloadDir, pg_env }
+} = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': true
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(yargsSpec);
+
+const downloadDirAbsPath = isAbsolute(downloadDir)
+  ? downloadDir
+  : join(process.cwd(), downloadDir);
+
+assert(existsSync(downloadDirAbsPath));
+
+const configPath = join(
+  __dirname,
+  pg_env === 'production'
+    ? '../../config/postgres.env.prod'
+    : '../../config/postgres.env.dev'
+);
+envFile(configPath);
+
+// Get the table load SQL script paths.
+const sqlDir = join(__dirname, '../../sql/highway_data_services/loaders');
+
+const csvLoaders = {
+  average_weekday_speed: join(sqlDir, 'load_average_weekday_speed_table.sql'),
+  average_weekday_vehicle_classification: join(
+    sqlDir,
+    'load_average_weekday_vehicle_classification_table.sql'
+  ),
+  average_weekday_volume: join(sqlDir, 'load_average_weekday_volume_table.sql'),
+  continuous_vehicle_classification: join(
+    sqlDir,
+    'load_continuous_vehicle_classification_table.sql'
+  ),
+  continuous_volume: join(sqlDir, 'load_continuous_volume_table.sql'),
+  short_count_speed: join(sqlDir, 'load_short_count_speed_table.sql'),
+  short_count_vehicle_classification: join(
+    sqlDir,
+    'load_short_count_vehicle_classification_table.sql'
+  ),
+  short_count_volume: join(sqlDir, 'load_short_count_volume_table.sql')
+};
+
+const tablesWithLoaders = Object.keys(csvLoaders);
+
+// Make sure that the TABLES and the keys to the loaders are equivalent.
+assert.strictEqual(difference(TABLES, tablesWithLoaders).length, 0);
+assert.strictEqual(difference(tablesWithLoaders, TABLES).length, 0);
+
+Object.values(csvLoaders).forEach(loaderPath => assert(existsSync(loaderPath)));
+
+for (let i = 0; i < years.length; ++i) {
+  const year = years[i];
+
+  for (let j = 0; j < regions.length; ++j) {
+    const region = regions[j];
+
+    for (let k = 0; k < tables.length; ++k) {
+      const table = tables[k];
+
+      const inputFileName = `${getDataFileName(table, region, year)}.gz`;
+      const inputFilePath = join(downloadDirAbsPath, inputFileName);
+
+      if (!existsSync(inputFilePath)) {
+        console.log(inputFilePath, 'exists');
+        continue;
+      } else {
+        const cmd = `
+          PGOPTIONS='--client-min-messages=error' psql -q -v ON_ERROR_STOP=1 -f <(
+            sed '
+              s/__REGION__/${padStart(region, 2, '0')}/g;
+              s/__YEAR__/${year}/g;
+              s#__CSV_GZ_PATH__#${inputFilePath}#g;
+            ' '${csvLoaders[table]}'
+          )
+        `;
+
+        execSync(cmd, { shell: '/bin/bash' });
+      }
+    }
+  }
+}

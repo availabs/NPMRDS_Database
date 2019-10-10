@@ -1,0 +1,45 @@
+#!/bin/bash
+
+set -e
+set -a
+
+# Change CWD to this script's directory.
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+# source the database connection config.
+if [ "$PG_ENV" = "production" ]; then
+	. ../../config/postgres.env.prod
+else
+	. ../../config/postgres.env.dev
+fi
+
+# Last chance to kill script... just in case
+(>&2 echo "PostgreSQL Server: ${PGHOST}:${PGPORT}")
+sleep 3
+
+pushd ../../sql/highway_data_services
+
+PGOPTIONS='--client-min-messages=error' psql \
+  -c 'CREATE SCHEMA IF NOT EXISTS highway_data_services;' \
+  -f metadataDatabaseObjects/fhwa_direction_of_travel.sql \
+  -f metadataDatabaseObjects/fhwa_f_scheme.sql \
+  -f metadataDatabaseObjects/nys_counties.sql \
+  -f metadataDatabaseObjects/nysdot_data_inteval.sql \
+  -f metadataDatabaseObjects/nysdot_functional_classification.sql \
+  -f metadataDatabaseObjects/nysdot_one_way_road_flag.sql \
+  -f metadataDatabaseObjects/nysdot_regions.sql \
+  -f metadataDatabaseObjects/nysdot_road_direction.sql \
+  -f metadataDatabaseObjects/nysdot_vehicle_axel_code_table.sql \
+  -f metadataDatabaseObjects/seasonal_adjustment_factor_group.sql \
+  -f metadataDatabaseObjects/time_datatypes.sql \
+  -f create_root_tables/create_average_weekday_vehicle_classification_table.sql \
+  -f create_root_tables/create_average_weekday_volume_table.sql \
+  -f create_root_tables/create_continuous_vehicle_classification_table.sql \
+  -f create_root_tables/create_continuous_volume_table.sql \
+  -f create_root_tables/create_short_count_speed_table.sql \
+  -f create_root_tables/create_short_count_vehicle_classification_table.sql \
+  -f create_root_tables/create_short_count_volume_table.sql
+
+popd >/dev/null
+
+popd >/dev/null
