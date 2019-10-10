@@ -1,3 +1,7 @@
+-- SEE
+--   * https://npmrds.ritis.org/analytics/help/#npmrds
+--   * https://npmrds.ritis.org/static/help/docs/NPMRDS.pdf
+
 CREATE TABLE public.tmc_metadata_:YEAR (
   tmc                      CHARACTER VARYING,
   roadnumber               CHARACTER VARYING,
@@ -46,5 +50,13 @@ CREATE TABLE public.tmc_metadata_:YEAR (
   bounding_box             BOX2D,
   avg_vehicle_occupancy    REAL,
   state_code               CHARACTER(2),
-  county_code              CHARACTER(5)
+  county_code              CHARACTER(5),
+
+  -- From tmc_identification
+  type                     CHARACTER VARYING,
+  road_order               REAL,
+  isprimary                SMALLINT,
+  timezone_name            CHARACTER VARYING,
+  active_start_date        DATE,
+  active_end_date          DATE
 );

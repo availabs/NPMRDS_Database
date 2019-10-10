@@ -1,3 +1,7 @@
+-- SEE
+--   * https://npmrds.ritis.org/analytics/help/#npmrds
+--   * https://npmrds.ritis.org/static/help/docs/NPMRDS.pdf
+
 -- Subset of the npmrds_shapefile_:YEAR columns
 CREATE TABLE public.tmc_identification_:YEAR (
   tmc                      CHARACTER VARYING,

@@ -301,6 +301,12 @@ INSERT INTO :tbl_name (
     strhnt_typ,
     strhnt_pct,
     truck,
+    type,
+    road_order,
+    isprimary,
+    timezone_name,
+    active_start_date,
+    active_end_date,
     state,
     state_code,
     county_code,
@@ -360,6 +366,13 @@ INSERT INTO :tbl_name (
       tmc_identification.strhnt_typ,
       tmc_identification.strhnt_pct,
       tmc_identification.truck,
+
+      tmc_identification.type
+      tmc_identification.road_order
+      tmc_identification.isprimary
+      tmc_identification.timezone_name
+      tmc_identification.active_start_date
+      tmc_identification.active_end_date
 
       LOWER(tmc_identification.state) AS state,
 
