@@ -36,7 +36,7 @@ const yargsSpec = {
     demand: false,
     default: TABLES
   },
-  downloadDir: {
+  dataDir: {
     type: 'string',
     demand: true
   },
@@ -49,7 +49,7 @@ const yargsSpec = {
 };
 
 const {
-  argv: { years, regions, tables, downloadDir, pg_env }
+  argv: { years, regions, tables, dataDir, pg_env }
 } = yargs
   .strict()
   .parserConfiguration({
@@ -59,9 +59,9 @@ const {
   .wrap(yargs.terminalWidth() / 1.618)
   .option(yargsSpec);
 
-const downloadDirAbsPath = isAbsolute(downloadDir)
-  ? downloadDir
-  : join(process.cwd(), downloadDir);
+const downloadDirAbsPath = isAbsolute(dataDir)
+  ? dataDir
+  : join(process.cwd(), dataDir);
 
 assert(existsSync(downloadDirAbsPath));
 
@@ -117,7 +117,7 @@ for (let i = 0; i < years.length; ++i) {
       const inputFilePath = join(downloadDirAbsPath, inputFileName);
 
       if (!existsSync(inputFilePath)) {
-        console.log(inputFilePath, 'exists');
+        console.log(inputFilePath, 'does not exist');
         continue;
       } else {
         const cmd = `

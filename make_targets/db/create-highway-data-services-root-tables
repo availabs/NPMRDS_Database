@@ -32,6 +32,7 @@ PGOPTIONS='--client-min-messages=error' psql \
   -f metadataDatabaseObjects/nysdot_vehicle_axel_code_table.sql \
   -f metadataDatabaseObjects/seasonal_adjustment_factor_group.sql \
   -f metadataDatabaseObjects/time_datatypes.sql \
+  -f create_root_tables/create_average_weekday_speed_table.sql \
   -f create_root_tables/create_average_weekday_vehicle_classification_table.sql \
   -f create_root_tables/create_average_weekday_volume_table.sql \
   -f create_root_tables/create_continuous_vehicle_classification_table.sql \

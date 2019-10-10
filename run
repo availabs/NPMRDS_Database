@@ -517,7 +517,57 @@ yargs
       };
 
       spawn(
-        join(__dirname, 'make_targets/db_backups/dump_pm3_eav_append_only_table'),
+        join(
+          __dirname,
+          'make_targets/db_backups/dump_pm3_eav_append_only_table'
+        ),
+        opts
+      );
+    }
+  })
+  .command({
+    command: 'create-highway-data-services-root-tables',
+    desc: 'Creates the highway_data_services metadata and root data tables.',
+    handler: ({ pg_env }) => {
+      const opts = {
+        cwd: __dirname,
+        shell: '/bin/bash',
+        stdio: 'inherit',
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env
+        })
+      };
+      spawn(
+        join(
+          __dirname,
+          'make_targets/db/create-highway-data-services-root-tables'
+        ),
+        opts
+      );
+    }
+  })
+  .command({
+    command: 'load-highway-services-csvs',
+    desc: 'Loads the highway_data_services CSVs into the data tables.',
+    builder: {
+      dataDir: {
+        type: 'string',
+        demand: false,
+        default: '.'
+      }
+    },
+    handler: ({ dataDir, pg_env }) => {
+      const opts = {
+        cwd: __dirname,
+        shell: '/bin/bash',
+        stdio: 'inherit',
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env
+        })
+      };
+      spawn(
+        join(__dirname, 'make_targets/db/load-highway-services-csvs'),
+        [`--dataDir='${dataDir}'`, `--pg_env=${pg_env}`],
         opts
       );
     }
