@@ -1,0 +1,186 @@
+#!/usr/bin/env node
+
+const { writeFileSync } = require('fs');
+const { join } = require('path');
+
+const yargs = require('yargs');
+const inquirer = require('inquirer');
+
+const { sync: mkdirpSync } = require('mkdirp');
+const envFile = require('node-env-file');
+
+const { Client } = require('pg');
+
+const cliArgsSpec = {
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    default: 'development'
+  }
+};
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const { pg_env } = argv;
+
+const configPath = join(
+  __dirname,
+  pg_env === 'production'
+    ? '../../config/postgres.env.prod'
+    : '../../config/postgres.env.dev'
+);
+envFile(configPath);
+
+const PGHOST = process.env.PGHOST || '127.0.0.1';
+const PGPORT = process.env.PGPORT || '5432';
+const PGDATABASE = process.env.PGDATABASE;
+
+const logDir = join(__dirname, '../../logs');
+
+const getTmcMetadataVersionsInfo = async client => {
+  const sql = `
+    SELECT
+        state,
+        table_name,
+        active_default,
+        latest_version
+      FROM (
+        SELECT
+            pn.nspname AS state,
+            p.relname AS table_name,
+            c.relname AS active_default
+          FROM pg_inherits
+            INNER JOIN pg_class AS c ON (inhrelid=c.oid)
+            INNER JOIN pg_class as p ON (inhparent=p.oid)
+            INNER JOIN pg_namespace pn ON pn.oid = p.relnamespace
+            INNER JOIN pg_namespace cn ON cn.oid = c.relnamespace
+          WHERE (
+            (pn.nspname <> 'public')
+            AND
+            (p.relname ~ 'tmc_metadata_\\d\\d\\d\\d$')
+        )
+      ) AS t1 INNER JOIN LATERAL (
+        SELECT
+            MAX(c.relname) AS latest_version
+          FROM pg_class AS c
+            INNER JOIN pg_namespace AS ns ON ns.oid = c.relnamespace
+          WHERE (
+            (ns.nspname = t1.state)
+            AND
+            (c.relname ~ (t1.table_name || '_v\\d{14}$'))
+            AND
+            (c.relname > t1.active_default)
+          )
+      ) AS t2 ON true 
+      WHERE ( t2.latest_version IS NOT NULL )
+      ORDER BY 1,2
+  `;
+
+  const { rows } = await client.query(sql);
+
+  return Array.isArray(rows) && rows.length ? rows : null;
+};
+
+(async () => {
+  const client = new Client();
+  await client.connect();
+  try {
+    const tmcMetadataVersionsInfo = await getTmcMetadataVersionsInfo(client);
+
+    if (
+      Array.isArray(tmcMetadataVersionsInfo) &&
+      tmcMetadataVersionsInfo.length
+    ) {
+      const versionDataByState = tmcMetadataVersionsInfo.reduce(
+        (acc, { state, active_default, latest_version }) => {
+          acc[state] = acc[state] || [];
+          acc[state].push(
+            `"${state}".${active_default} => "${state}".${latest_version}`
+          );
+          return acc;
+        },
+        {}
+      );
+
+      const choices = Object.keys(versionDataByState)
+        .sort()
+        .reduce((acc, state) => {
+          acc.push(new inquirer.Separator(`=== ${state} ===`));
+          versionDataByState[state]
+            .sort()
+            .forEach(alter => acc.push({ name: `${alter}`, checked: true }));
+          return acc;
+        }, []);
+
+      const { updates } = await inquirer.prompt([
+        {
+          type: 'checkbox',
+          message: 'Select updates to make',
+          name: 'updates',
+          choices
+        }
+      ]);
+
+      if (updates.length) {
+        const sql = `
+    -- PGHOST: ${PGHOST}
+    -- PGPORT: ${PGPORT}
+    -- PGDATABASE: ${PGDATABASE}
+
+    BEGIN; 
+      ${updates.reduce((acc, update) => {
+        const [active, latest] = update.split(' => ');
+        console.log(active, latest);
+        const parentTable = active.replace(/_v.*/, '');
+
+        return `${acc}
+    ALTER TABLE ${active} NO INHERIT ${parentTable};
+    ALTER TABLE ${latest} INHERIT ${parentTable};\n`;
+      }, '')}
+    COMMIT;`;
+
+        const { run_it } = await inquirer.prompt({
+          type: 'confirm',
+          name: 'run_it',
+          message: `Execute the following transaction? ${sql}\n`,
+          default: false
+        });
+
+        if (run_it) {
+          mkdirpSync(logDir);
+          const timestamp = Date.now();
+
+          await client.query(sql);
+
+          const logFilePath = join(
+            logDir,
+            `update_tmc_metadata_default_versions.${timestamp}.log`
+          );
+
+          writeFileSync(
+            logFilePath,
+            `-- The following transaction was executed on ${new Date()}:\n${sql}`
+          );
+
+          console.log(
+            `Transaction committed. Log file written to ${logFilePath}`
+          );
+        }
+      }
+    } else {
+      console.log('All tmc_metadata_:YEAR tables using the latest version.');
+    }
+  } catch (err) {
+    console.error(err);
+  } finally {
+    await client.end();
+  }
+})();
