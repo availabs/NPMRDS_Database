@@ -70,8 +70,7 @@ execSync(
     copyFrom(
       `COPY public.conflation_nodes_to_ways_${year}(id, ways_info)
         FROM STDIN WITH (
-          FORMAT CSV,
-          HEADER
+          FORMAT CSV
         )`
     )
   );
