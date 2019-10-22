@@ -32,7 +32,8 @@ yargs
   })
   .command({
     command: 'load_state_year_tmc_metadata',
-    desc: 'Create the tmc_metadata table for the specified state and year. NOTE: Newly created tables do not automatically become the active tables in the table inheritance hierarchy. You must follow up with the update_tmc_metadata_default_versions command after validating the new tables.',
+    desc:
+      'Create the tmc_metadata table for the specified state and year. NOTE: Newly created tables do not automatically become the active tables in the table inheritance hierarchy. You must follow up with the update_tmc_metadata_default_versions command after validating the new tables.',
     builder: {
       year: { type: 'number', demand: true },
       state: { type: 'string', demand: true }
@@ -574,7 +575,8 @@ yargs
   })
   .command({
     command: 'update_tmc_metadata_default_versions',
-    desc: 'Start interactive script that updates the default <state>.tmc_metadata_:YEAR tables.',
+    desc:
+      'Start interactive script that updates the default <state>.tmc_metadata_:YEAR tables.',
     handler: ({ pg_env }) => {
       const opts = {
         cwd: __dirname,
@@ -587,6 +589,37 @@ yargs
       spawn(
         join(__dirname, 'make_targets/db/update_tmc_metadata_default_versions'),
         [`--pg_env=${pg_env}`],
+        opts
+      );
+    }
+  })
+  .command({
+    command: 'load-nodes2ways-table',
+    desc:
+      'Loads the conflation Nodes->WaysInfo into the public.conflation_nodes_to_ways_:YEAR table.',
+    builder: {
+      year: { type: 'number', demand: true },
+      nodes2WaysFile: {
+        demand: true,
+        type: 'string'
+      }
+    },
+    handler: ({ year, nodes2WaysFile, pg_env }) => {
+      const opts = {
+        cwd: __dirname,
+        shell: '/bin/bash',
+        stdio: 'inherit',
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env
+        })
+      };
+      spawn(
+        join(__dirname, 'make_targets/db/load-nodes2ways-table'),
+        [
+          `--year='${year}'`,
+          `--nodes2WaysFile='${nodes2WaysFile}'`,
+          `--pg_env=${pg_env}`
+        ],
         opts
       );
     }

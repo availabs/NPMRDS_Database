@@ -1,0 +1,95 @@
+#!/usr/bin/env node
+
+// https://wiki.openstreetmap.org/wiki/Way#Examples
+//   The nodes defining the geometry of the way are enumerated in the correct order,
+//     and indicated only by reference using their unique identifier.
+//   These nodes must have been already defined separately with their coordinates.
+//
+// https://wiki.openstreetmap.org/wiki/Relation:restriction
+
+const { execSync } = require('child_process');
+const { createReadStream } = require('fs');
+const { pipe, through } = require('mississippi');
+const split = require('split2');
+
+const yargs = require('yargs');
+
+const { join } = require('path');
+const envFile = require('node-env-file');
+
+const { Client } = require('pg');
+const { from: copyFrom } = require('pg-copy-streams');
+
+const cliArgsSpec = {
+  year: { type: 'number', demand: true },
+  nodes2WaysFile: {
+    demand: true,
+    type: 'string'
+  },
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    default: 'development'
+  }
+};
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const { nodes2WaysFile, year, pg_env } = argv;
+
+const configPath = join(
+  __dirname,
+  pg_env === 'production'
+    ? '../../config/postgres.env.prod'
+    : '../../config/postgres.env.dev'
+);
+envFile(configPath);
+
+execSync(
+  `psql -v YEAR=${year} -f ${join(
+    __dirname,
+    '../../sql/conflation_nodes_to_ways/createConflationMetadataTable.sql'
+  )}`
+);
+
+(async () => {
+  const client = new Client();
+  await client.connect();
+
+  await client.query(`TRUNCATE public.conflation_nodes_to_ways_${year};`);
+
+  const dbCopyStream = client.query(
+    copyFrom(
+      `COPY public.conflation_nodes_to_ways_${year}(id, ways_info)
+        FROM STDIN WITH (
+          FORMAT CSV,
+          NULL 'null',
+          HEADER
+        )`
+    )
+  );
+
+  pipe(
+    createReadStream(nodes2WaysFile),
+    split(JSON.parse),
+    through.obj(function json2csv({ nodeId, node2Ways }, _, cb) {
+      this.push(
+        `"${nodeId}","${JSON.stringify(node2Ways).replace(/"/g, '""')}"\n`
+      );
+      return cb();
+    }),
+    dbCopyStream,
+    async () => {
+      await client.query(`CLUSTER public.conflation_nodes_to_ways_${year};`);
+      client.end();
+    }
+  );
+})();
