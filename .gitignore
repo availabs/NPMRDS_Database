@@ -1,7 +1,9 @@
-data*
+data/
+archive/
 ./etl/*
 ./preprocessing*
 node_modules/
 package-lock.json
 spike/
 tasks/
+tmp/
