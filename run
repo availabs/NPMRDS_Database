@@ -624,6 +624,37 @@ yargs
       );
     }
   })
+  .command({
+    command: 'load-gtfs-ways-trips-counts',
+    desc:
+      'Loads the conflation ways_gtfs_trips_counts_:YEAR table. Expects a CSV with the following header: way_id,amp,midd,pmp,we,ovn',
+    builder: {
+      year: { type: 'number', demand: true },
+      waysGTFSTripsCountsFile: {
+        demand: true,
+        type: 'string'
+      }
+    },
+    handler: ({ year, waysGTFSTripsCountsFile, pg_env }) => {
+      const opts = {
+        cwd: __dirname,
+        shell: '/bin/bash',
+        stdio: 'inherit',
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env
+        })
+      };
+      spawn(
+        join(__dirname, 'make_targets/db/load-ways-gtfs-trips-counts'),
+        [
+          `--year='${year}'`,
+          `--waysGTFSTripsCountsFile='${waysGTFSTripsCountsFile}'`,
+          `--pg_env=${pg_env}`
+        ],
+        opts
+      );
+    }
+  })
   .demandCommand()
   .recommendCommands()
   .strict()
