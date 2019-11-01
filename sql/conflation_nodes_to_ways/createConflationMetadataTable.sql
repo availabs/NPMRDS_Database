@@ -4,7 +4,7 @@ BEGIN;
 \set idx_name :tbl_name'_pkey'
 
 CREATE TABLE IF NOT EXISTS public.:tbl_name (
-  id        INTEGER PRIMARY KEY,
+  id        BIGINT PRIMARY KEY,
   ways_info JSONB
 );
 

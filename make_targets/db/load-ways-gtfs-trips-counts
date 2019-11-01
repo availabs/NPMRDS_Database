@@ -1,0 +1,77 @@
+#!/usr/bin/env node
+
+const { execSync } = require('child_process');
+const { pipe } = require('mississippi');
+const { createReadStream } = require('fs');
+const { join } = require('path');
+
+const yargs = require('yargs');
+
+const envFile = require('node-env-file');
+
+const { Client } = require('pg');
+const { from: copyFrom } = require('pg-copy-streams');
+
+const cliArgsSpec = {
+  year: { type: 'number', demand: true },
+  waysGTFSTripsCountsFile: {
+    demand: true,
+    type: 'string'
+  },
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    default: 'development'
+  },
+};
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const { waysGTFSTripsCountsFile, year, pg_env } = argv;
+
+const configPath = join(
+  __dirname,
+  pg_env === 'production'
+    ? '../../config/postgres.env.prod'
+    : '../../config/postgres.env.dev'
+);
+
+envFile(configPath);
+
+execSync(
+  `psql -v YEAR=${year} -f ${join(
+    __dirname,
+    '../../sql/ways_gtfs_trips_counts/createWaysGTFSTripsCountsTable.sql'
+  )}`
+);
+
+(async () => {
+  const client = new Client();
+  await client.connect();
+
+  await client.query(`TRUNCATE osm.ways_gtfs_trips_counts_${year};`);
+
+  const dbCopyStream = client.query(
+    copyFrom(
+      `COPY osm.ways_gtfs_trips_counts_${year}(id, amp, midd, pmp, we, ovn) FROM STDIN WITH CSV HEADER`
+    )
+  );
+
+  pipe(
+    createReadStream(waysGTFSTripsCountsFile),
+    dbCopyStream
+  );
+
+  dbCopyStream.on('end', async () => {
+    await client.query(`CLUSTER osm.ways_gtfs_trips_counts_${year};`);
+    client.end();
+  });
+})();

@@ -70,9 +70,7 @@ execSync(
     copyFrom(
       `COPY public.conflation_nodes_to_ways_${year}(id, ways_info)
         FROM STDIN WITH (
-          FORMAT CSV,
-          NULL 'null',
-          HEADER
+          FORMAT CSV
         )`
     )
   );
@@ -87,8 +85,13 @@ execSync(
       return cb();
     }),
     dbCopyStream,
-    async () => {
+    async (err) => {
+      if (err) {
+        console.error(err)
+        await client.query(`DROP TABLE public.conflation_nodes_to_ways_${year};`);
+      } else {
       await client.query(`CLUSTER public.conflation_nodes_to_ways_${year};`);
+      }
       client.end();
     }
   );
