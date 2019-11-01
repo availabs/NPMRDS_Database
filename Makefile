@@ -535,7 +535,7 @@ db/load-state-year-tmc-metadata: \
 		@export PG_ENV;\
 		export STATE;\
 		export YEAR;\
-		./make_targets/db/load-state-year-tmc-metadata.js
+		node ./make_targets/db/load-state-year-tmc-metadata.js
 
 db/drop-tmc-level-pm3-all-tables-for-version-fn:
 	@psql -f './sql/tmc_level_pm3_all_tables_for_version_fn/drop_tmc_level_pm3_all_tables_for_version_fn.sql'
