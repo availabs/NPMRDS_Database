@@ -14,7 +14,7 @@ const { from: copyFrom } = require('pg-copy-streams');
 
 const cliArgsSpec = {
   year: { type: 'number', demand: true },
-  waysGTFSTripsCountsFile: {
+  conflationAvgDailyGTFSTrips: {
     demand: true,
     type: 'string'
   },
@@ -35,7 +35,7 @@ const { argv } = yargs
   .wrap(yargs.terminalWidth() / 1.618)
   .option(cliArgsSpec);
 
-const { waysGTFSTripsCountsFile, year, pg_env } = argv;
+const { conflationAvgDailyGTFSTrips, year, pg_env } = argv;
 
 const configPath = join(
   __dirname,
@@ -49,7 +49,7 @@ envFile(configPath);
 execSync(
   `psql -v YEAR=${year} -f ${join(
     __dirname,
-    '../../sql/ways_gtfs_trips_counts/createWaysGTFSTripsCountsTable.sql'
+    '../../sql/avg_daily_gtfs_trips/createAvgDailyGTFSTripsTable.sql'
   )}`
 );
 
@@ -57,21 +57,21 @@ execSync(
   const client = new Client();
   await client.connect();
 
-  await client.query(`TRUNCATE osm.ways_gtfs_trips_counts_${year};`);
+  await client.query(`TRUNCATE conflation.avg_daily_gtfs_trips_${year};`);
 
   const dbCopyStream = client.query(
     copyFrom(
-      `COPY osm.ways_gtfs_trips_counts_${year}(id, amp, midd, pmp, we, ovn) FROM STDIN WITH CSV HEADER`
+      `COPY conflation.avg_daily_gtfs_trips_${year}(id, amp, midd, pmp, we, ovn) FROM STDIN WITH CSV HEADER`
     )
   );
 
   pipe(
-    createReadStream(waysGTFSTripsCountsFile),
+    createReadStream(conflationAvgDailyGTFSTrips),
     dbCopyStream
   );
 
   dbCopyStream.on('end', async () => {
-    await client.query(`CLUSTER osm.ways_gtfs_trips_counts_${year};`);
+    await client.query(`CLUSTER conflation.avg_daily_gtfs_trips_${year};`);
     client.end();
   });
 })();

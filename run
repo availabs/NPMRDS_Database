@@ -637,17 +637,17 @@ yargs
     }
   })
   .command({
-    command: 'load-gtfs-ways-trips-counts',
+    command: 'load-conflation-avg-daily-gtfs-trips',
     desc:
-      'Loads the conflation ways_gtfs_trips_counts_:YEAR table. Expects a CSV with the following header: way_id,amp,midd,pmp,we,ovn',
+      'Loads the conflation avg_daily_gtfs_trips_:YEAR table. The provided conflationAvgDailyGTFSTrips MUST be a CSV with the following header: way_id,amp,midd,pmp,we,ovn',
     builder: {
       year: { type: 'number', demand: true },
-      waysGTFSTripsCountsFile: {
+      conflationAvgDailyGTFSTrips: {
         demand: true,
         type: 'string'
       }
     },
-    handler: ({ year, waysGTFSTripsCountsFile, pg_env }) => {
+    handler: ({ year, conflationAvgDailyGTFSTrips, pg_env }) => {
       const opts = {
         cwd: __dirname,
         shell: '/bin/bash',
@@ -657,10 +657,10 @@ yargs
         })
       };
       spawn(
-        join(__dirname, 'make_targets/db/load-ways-gtfs-trips-counts'),
+        join(__dirname, 'make_targets/db/load-conflation-avg-daily-gtfs-trips'),
         [
           `--year='${year}'`,
-          `--waysGTFSTripsCountsFile='${waysGTFSTripsCountsFile}'`,
+          `--conflationAvgDailyGTFSTrips='${conflationAvgDailyGTFSTrips}'`,
           `--pg_env=${pg_env}`
         ],
         opts
