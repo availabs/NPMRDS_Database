@@ -1,3 +1,7 @@
+-- Eventually to be used by code that allows directional ways OSRM requests.
+--   As of 21091105, that code exists in its own prototype repo and uses LevelDB.
+--   Eventually, that code should be moved to the main Falcor server and use the production database.
+
 BEGIN;
 
 \set tbl_name 'conflation_nodes_to_ways_':YEAR
