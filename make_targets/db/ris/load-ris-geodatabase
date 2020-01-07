@@ -9,7 +9,7 @@ if [[ -z "$YEAR" ]]; then
 fi
 
 if [[ -z "$RIS_GEODATABASE_ZIP" ]]; then
-  echo "ERROR: You must specify the RIS_GEODATABASE_ZIP either as an ENV variable."
+  echo "ERROR: You must specify the RIS_GEODATABASE_ZIP as an ENV variable."
   exit 1
 fi
 
@@ -25,9 +25,9 @@ pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 
 
 if [ "$PG_ENV" = "production" ]; then
-	. ../../config/postgres.env.prod
+	. ../../../config/postgres.env.prod
 else
-	. ../../config/postgres.env.dev
+	. ../../../config/postgres.env.dev
 fi
 
 # Last chance to kill script... just in case
@@ -38,7 +38,7 @@ TABLE_NAME="ris.road_inventory_system_$YEAR"
 
 psql --quiet \
   -v YEAR="$YEAR" \
-  -f ../../sql/ris/createRoadInventorySystemTables.sql \
+  -f ../../../sql/ris/createRoadInventorySystemTables.sql \
   -c "TRUNCATE $TABLE_NAME;"
 
 # Upload the data

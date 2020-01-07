@@ -1,0 +1,69 @@
+#!/bin/bash
+
+set -e
+set -a
+
+if [[ -z "$YEAR" ]]; then
+  echo "ERROR: You must specify the YEAR as an ENV variable."
+  exit 1
+fi
+
+if [[ -z "$RIS_SHAPEFILE" ]]; then
+  echo "ERROR: You must specify the RIS_SHAPEFILE as an ENV variable."
+  exit 1
+fi
+
+RIS_SHAPEFILE="$( realpath "$RIS_SHAPEFILE" )"
+
+if [ ! -d "$RIS_SHAPEFILE" ]; then
+  (>&2 echo "ERROR: RIS_SHAPEFILE not found at $RIS_SHAPEFILE")
+  exit 1
+fi
+
+# Change CWD to this script's directory.
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+
+if [ "$PG_ENV" = "production" ]; then
+  . ../../../config/postgres.env.prod
+else
+	. ../../../config/postgres.env.dev
+fi
+
+# Last chance to kill script... just in case
+(>&2 echo "PostgreSQL Server: ${PGHOST}:${PGPORT}")
+sleep 3
+
+TABLE_NAME="ris.road_inventory_system_$YEAR"
+
+LAYER_NAME="$( ogrinfo -q "$RIS_SHAPEFILE" | sed 's/^.*://; s/(.*//' | xargs )"
+
+AADT_CURRENT_YR_EST_FIELD="$(
+  ogrinfo -so "$RIS_SHAPEFILE" "$LAYER_NAME" |
+    sed 's/:.*//g' |
+    tr '[:upper:]' '[:lower:]' |
+    grep -o 'aadt_curre\|aadt_value' 
+)"
+
+psql --quiet \
+  -v YEAR="$YEAR" \
+  -f ../../../sql/ris/createRoadInventorySystemTables.sql \
+  -c "TRUNCATE $TABLE_NAME;"
+
+# Upload the data
+
+ogr2ogr -overwrite -append -preserve_fid -t_srs EPSG:4326 \
+  -f PostgreSQL \
+    "PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}" \
+    "$RIS_SHAPEFILE" -nlt MULTILINESTRING -dim 2 -nln "$TABLE_NAME" -skipfailures \
+    -sql "$(
+        sed "
+          s/__LAYER_NAME__/$LAYER_NAME/g
+          s/__AADT_CURRENT_YR_EST_FIELD__/$AADT_CURRENT_YR_EST_FIELD/g
+        " ./ogr2ogr_select_clause.sql )"
+
+psql --quiet \
+  -c "CLUSTER $TABLE_NAME;" \
+  -c "ANALYZE $TABLE_NAME;"
+
+popd >/dev/null

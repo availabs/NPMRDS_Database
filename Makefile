@@ -373,7 +373,14 @@ db/load-ris-geodatabase-for-year:
 	@:$(call check_defined,RIS_GEODATABASE_ZIP)
 	@export YEAR;\
 	export RIS_GEODATABASE_ZIP;\
-	${_MKFILE_DIR}/make_targets/db/load-ris-geodatabase
+	${_MKFILE_DIR}/make_targets/db/ris/load-ris-geodatabase
+
+db/load-ris-shapefile-for-year:
+	@:$(call check_defined,YEAR)
+	@:$(call check_defined,RIS_SHAPEFILE)
+	@export YEAR;\
+	export RIS_SHAPEFILE;\
+	${_MKFILE_DIR}/make_targets/db/ris/load-ris-shapefile
 
 db/load-osm-ways-metadata:
 	@:$(call check_defined,YEAR)

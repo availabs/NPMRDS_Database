@@ -387,6 +387,33 @@ yargs
     }
   })
   .command({
+    command: 'load_ris_shapefile_for_year',
+    desc:
+      'Load the NYS Road Inventory System Shapefile into PostgreSQL.',
+    builder: {
+      year: {
+        type: 'number',
+        demand: true
+      },
+      risShapefile: {
+        type: 'string',
+        demand: true,
+        describe: 'Path to the RIS Shapefile.'
+      }
+    },
+    handler: ({ year, risShapefile, pg_env }) => {
+      spawn('make', ['db/load-ris-shapefile-for-year'], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: {
+          YEAR: year,
+          RIS_SHAPEFILE: risShapefile,
+          PG_ENV: pg_env
+        }
+      });
+    }
+  })
+  .command({
     command: 'create-mapbox-tileset-for-year',
     desc: "Create mbtiles file from the year's shapfile.",
     builder: {
