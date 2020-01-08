@@ -45,7 +45,7 @@ psql --quiet \
 ogr2ogr -overwrite -append -preserve_fid -t_srs EPSG:4326 \
   -f PostgreSQL \
     "PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}" \
-    "/vsizip/$RIS_GEODATABASE_ZIP" -nlt MULTILINESTRING -dim 2 -nln "$TABLE_NAME";
+    "/vsizip/$RIS_GEODATABASE_ZIP" -preserve_fid -nlt MULTILINESTRING -dim 2 -nln "$TABLE_NAME";
 
 psql --quiet \
   -c "CLUSTER $TABLE_NAME;" \
