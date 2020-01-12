@@ -7,15 +7,15 @@ const { spawn } = require('child_process');
 
 const yargs = require('yargs');
 
-const singleYearInvariantMessage =
-  'The requested startDate and endDate MUST be within a single calendar year.';
+// const singleYearInvariantMessage =
+// 'The requested startDate and endDate MUST be within a single calendar year.';
 
-const verifySingleYear = (startDate, endDate) => {
-  if (startDate.slice(0, 4) !== endDate.slice(0, 4)) {
-    console.error(`ERROR: ${singleYearInvariantMessage}`);
-    process.exit(1);
-  }
-};
+// const verifySingleYear = (startDate, endDate) => {
+// if (startDate.slice(0, 4) !== endDate.slice(0, 4)) {
+// console.error(`ERROR: ${singleYearInvariantMessage}`);
+// process.exit(1);
+// }
+// };
 
 yargs
   .parserConfiguration({
@@ -327,36 +327,40 @@ yargs
     }
   })
   .command({
-    command: 'transcom_events_etl',
-    desc: `Transcom Events ETL Pipeline
-
-      * Creates a tar archive with raw events download from the TransCom API as a gzipped NDJSON file, and a gzipped CSV with the downloaded events transformed for loading into the database.
-
-      * Loads the downloaded events into the specified (via pg_env flag) database.
-      
-      NOTE: The requested startDate and endDate MUST be within a single calendar year.
-
-      NOTE: Does not CLUSTER transcom.transcom_events. Must be manually done after loading.
-    `,
+    command: 'create_transcom_historical_events_table',
+    desc: 'Create the transcom_historical_events table.',
+    handler: ({ pg_env }) => {
+      spawn(
+        'make_targets/db/transcom/create-transcom-historical-events-table',
+        {
+          cwd: __dirname,
+          stdio: 'inherit',
+          env: { PG_ENV: pg_env }
+        }
+      );
+    }
+  })
+  .command({
+    command: 'load_transcom_historical_events',
     builder: {
-      startDate: {
-        type: 'string',
+      transcomEventsNdjsonGzip: {
         demand: true,
-        describe: 'Data start date. (Format YYYYMMDD)'
-      },
-      endDate: {
         type: 'string',
-        demand: true,
-        describe: 'Data end date, inclusive. (Format YYYYMMDD)'
+        describe: 'Path to the GZipped Transcom Events NDJSON file'
       }
     },
-    handler: ({ startDate, endDate, pg_env }) => {
-      verifySingleYear(startDate, endDate);
-      spawn('make', ['etl/transcom_events'], {
-        cwd: __dirname,
-        stdio: 'inherit',
-        env: { START_DATE: startDate, END_DATE: endDate, PG_ENV: pg_env }
-      });
+    handler: ({ transcomEventsNdjsonGzip, pg_env }) => {
+      spawn(
+        'make_targets/db/transcom/loadTranscomEvents/run',
+        [
+          `--transcomEventsNdjsonGzip='${transcomEventsNdjsonGzip}'`,
+          `--pg_env=${pg_env}`
+        ],
+        {
+          cwd: __dirname,
+          stdio: 'inherit'
+        }
+      );
     }
   })
   .command({
@@ -388,8 +392,7 @@ yargs
   })
   .command({
     command: 'load_ris_shapefile_for_year',
-    desc:
-      'Load the NYS Road Inventory System Shapefile into PostgreSQL.',
+    desc: 'Load the NYS Road Inventory System Shapefile into PostgreSQL.',
     builder: {
       year: {
         type: 'number',

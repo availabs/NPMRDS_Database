@@ -1,0 +1,21 @@
+#!/bin/bash
+
+set -e
+set -a
+
+# Change CWD to this script's directory.
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+# source the database connection config.
+if [ "$PG_ENV" = "production" ]; then
+	. ../../../config/postgres.env.prod
+else
+	. ../../../config/postgres.env.dev
+fi
+
+export PGOPTIONS='--client-min-messages=warning'
+
+psql --quiet \
+  -f ../../../sql/transcom_historical_events/create_transcom_historical_events_table.sql
+
+popd >/dev/null

@@ -1,0 +1,20 @@
+module.exports = [
+  'event_id',
+  'event_type',
+  'facility',
+  'creation',
+  'open_time',
+  'close_time',
+  'duration',
+  'description',
+  'from_city',
+  'from_count',
+  'to_city',
+  'state',
+  'from_mile_marker',
+  'to_mile_marker',
+  'latitude',
+  'longitude',
+  'event_category',
+  'point_geom'
+];
