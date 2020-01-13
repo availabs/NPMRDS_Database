@@ -6,6 +6,7 @@ const { basename, join } = require('path');
 const { spawn } = require('child_process');
 
 const yargs = require('yargs');
+const _ = require('lodash');
 
 // const singleYearInvariantMessage =
 // 'The requested startDate and endDate MUST be within a single calendar year.';
@@ -327,6 +328,45 @@ yargs
     }
   })
   .command({
+    command: 'download_transcom_historica_events',
+    desc: 'Download the Transcom events.',
+    builder: {
+      output_dir: {
+        demand: false,
+        type: 'string',
+        default: join(__dirname, './data/transcom/')
+      },
+      start_timestamp: Object.assign({
+        demand: false,
+        type: 'string',
+        describe:
+          '"yyyy-mm-dd HH:MM:SS" format. (If not provided, the latest timestamp in the transcom_historical_events table is used.)'
+      }),
+      end_timestamp: {
+        demand: false,
+        type: 'string',
+        describe:
+          '"yyyy-mm-dd HH:MM:SS" format. (If not provided, the current time is used.)'
+      }
+    },
+    handler: ({ output_dir, start_timestamp, end_timestamp, pg_env }) => {
+      const args = [`--output_dir=${output_dir}`, `--pg_env=${pg_env}`];
+
+      if (!_.isNil(start_timestamp)) {
+        args.push(`--start_timestamp=${start_timestamp}`);
+      }
+
+      if (!_.isNil(end_timestamp)) {
+        args.push(`--end_timestamp=${end_timestamp}`);
+      }
+
+      spawn('./make_targets/etl/downloadTranscomData.js', args, {
+        cwd: __dirname,
+        stdio: 'inherit'
+      });
+    }
+  })
+  .command({
     command: 'create_transcom_historical_events_table',
     desc: 'Create the transcom_historical_events table.',
     handler: ({ pg_env }) => {
@@ -432,6 +472,37 @@ yargs
         stdio: 'inherit',
         env: { YEAR: year, PG_ENV: pg_env }
       });
+    }
+  })
+  .command({
+    command: 'load-conflation-map-shapefile',
+    desc:
+      'Load the conflation map shapefile into PostgreSQL (and create the Transcom events join table).',
+    builder: {
+      conflationMapVersion: {
+        demand: true,
+        type: 'string'
+      },
+      conflationMapShapefile: {
+        demand: true,
+        type: 'string',
+        describe: 'Path to the conflation map shapefile directory.'
+      }
+    },
+    handler: ({ conflationMapVersion, conflationMapShapefile, pg_env }) => {
+      spawn(
+        'make_targets/db/load-conflation-map-shapefile',
+        [
+          `--conflationMapVersion='${conflationMapVersion}'`,
+          `--conflationMapShapefile='${conflationMapShapefile}'`,
+          `--pg_env=${pg_env}`
+        ],
+        {
+          cwd: __dirname,
+          shell: '/bin/bash',
+          stdio: 'inherit'
+        }
+      );
     }
   })
   .command({

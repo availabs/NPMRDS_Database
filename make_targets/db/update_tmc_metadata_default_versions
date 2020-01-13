@@ -39,9 +39,7 @@ const configPath = join(
 );
 envFile(configPath);
 
-const PGHOST = process.env.PGHOST || '127.0.0.1';
-const PGPORT = process.env.PGPORT || '5432';
-const PGDATABASE = process.env.PGDATABASE;
+const { PGHOST = '127.0.0.1', PGPORT = '5432', PGDATABASE = '' } = process.env;
 
 const logDir = join(__dirname, '../../logs');
 
