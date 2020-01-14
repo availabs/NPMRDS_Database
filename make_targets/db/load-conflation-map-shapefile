@@ -19,7 +19,8 @@ const { Client } = require('pg');
 const cliArgsSpec = {
   conflationMapVersion: {
     demand: true,
-    type: 'string'
+    type: 'string',
+    describe: 'E.G.: 0.4.2'
   },
   conflationMapShapefile: {
     demand: true,
@@ -61,7 +62,7 @@ if (!/^\d{1,}\.\d{1,}(\.\d{1,})?$/.test(conflationMapVersion)) {
 
 const conflationMapTableVersion = conflationMapVersion
   .split('.')
-  .slice(0, 2)
+  .slice(0, 3)
   .join('_');
 
 const timestamp = Math.floor(new Date().getTime() / 1000);
