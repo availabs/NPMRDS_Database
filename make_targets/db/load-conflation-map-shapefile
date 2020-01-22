@@ -53,9 +53,9 @@ const configPath = join(
 );
 envFile(configPath);
 
-if (!/^\d{1,}\.\d{1,}(\.\d{1,})?$/.test(conflationMapVersion)) {
+if (!/^\d{1,}\.\d{1,}\.\d{1,}$/.test(conflationMapVersion)) {
   console.error(
-    'USAGE: conflationMapVersion should be of the format x.y or x.y.z'
+    'USAGE: conflationMapVersion should be of the format x.y.z'
   );
   process.exit(1);
 }
