@@ -107,7 +107,7 @@ if (_.isNil(start_timestamp)) {
 
     const result =
       client.querySync(
-        "SELECT to_char(MAX(creation), 'YYYY-MM-DD HH24:MI:SS') AS latest FROM transcom.transcom_events;"
+        "SELECT to_char(MAX(creation), 'YYYY-MM-DD HH24:MI:SS') AS latest FROM transcom.transcom_historical_events;"
       ) || [];
 
     start_timestamp =
@@ -130,6 +130,8 @@ if (_.isNil(end_timestamp)) {
 const outputDir = isAbsolute(output_dir)
   ? output_dir
   : join(process.cwd(), output_dir);
+
+console.log('Transcom Historical Events will be downloaded to', outputDir)
 
 // Date format 'YYYY-MM-DD HH:MI:SS'
 const timestampRE = /^\d{4}-\d{1,2}-\d{1,2} \d{2}:\d{2}:\d{2}$/;
