@@ -5,6 +5,7 @@ const getCreateConflationMapToTranscomEventsTableStmnt = conflationMapVersion =>
     conflationMapToTranscomEventsTableFullName
   } = new ConflationMapDatabaseObjectNames(conflationMapVersion);
 
+  // NOTE: This MUST be idempotent.
   return `
     -- create the join table for this conflation map version
     CREATE TABLE IF NOT EXISTS ${conflationMapToTranscomEventsTableFullName} (

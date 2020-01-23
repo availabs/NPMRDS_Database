@@ -22,14 +22,9 @@ const getUpdateConflationMapToTranscomEventsJoinTableSql = (
 
   const onlyUnmatchedEventsWhereClause = clearExisting
     ? ''
-    : `
-          WHERE (
-            event_id NOT IN (
-              SELECT DISTINCT 
-                  event_id
-                FROM ${conflationMapToTranscomEventsTableFullName}
-            )
-          )`;
+    : `     LEFT OUTER JOIN ${conflationMapToTranscomEventsTableFullName} c
+            USING (event_id)
+          WHERE ( c.conflation_map_id IS NULL )`;
 
   const clearExistingConflationMapToTranscomEventsTableStmnt = clearExisting
     ? `DELETE FROM ${conflationMapToTranscomEventsTableFullName} ;`
@@ -38,6 +33,7 @@ const getUpdateConflationMapToTranscomEventsJoinTableSql = (
   // NOTE: Caller should have control over transaction start and finish.
   //       Therefore, we cannot issue BEGIN/COMMIT or ANALYZE.
   const sql = `
+    -- NOTE: The below DDL MUST be idempotent.
     ${createConflationMapToTranscomEventsTableStmnt}
 
     CREATE TEMPORARY TABLE ${tmpBufferedEventTableName}

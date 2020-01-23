@@ -54,7 +54,7 @@ if (!/^\d{1,}\.\d{1,}\.\d{1,}$/.test(conflationMapVersion)) {
   process.exit(1);
 }
 
-const { conflationSchema } = ConflationMapDatabaseObjectNames
+const { conflationSchema } = ConflationMapDatabaseObjectNames;
 
 const {
   conflationMapTableName,
@@ -192,12 +192,15 @@ const integrateNewMapIntoDatabase = async client => {
     -- Clear the conflation map table, in case it already existed and has data
     DELETE FROM ${conflationMapTableFullName} ;
 
+    -- Transfer the conflation map data from the temp to the permanent table.
     INSERT INTO ${conflationMapTableFullName} (${conflationMapTableColumns},wkb_geometry)
       SELECT
           ${conflationMapColCasts},
           wkb_geometry
         FROM ${tmpVersionedConflationMapTableFullName}
     ;
+
+    -- NOTE: tmpVersionedConflationMapTable is DROPPED below in the finally clause.
 
     CLUSTER ${conflationMapTableFullName} USING ${conflationMapTablePrimaryKeyIdxName} ;
 
