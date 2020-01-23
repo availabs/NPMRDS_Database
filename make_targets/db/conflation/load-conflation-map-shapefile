@@ -54,8 +54,9 @@ if (!/^\d{1,}\.\d{1,}\.\d{1,}$/.test(conflationMapVersion)) {
   process.exit(1);
 }
 
+const { conflationSchema } = ConflationMapDatabaseObjectNames
+
 const {
-  conflationSchema,
   conflationMapTableName,
   conflationMapTableFullName,
   conflationMapTablePrimaryKeyIdxName

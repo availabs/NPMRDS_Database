@@ -1,4 +1,5 @@
 const conflationSchema = 'conflation';
+const conflationMapTablePrefix = 'conflation_map_v'
 
 const getConflationSchema = () => conflationSchema;
 
@@ -17,7 +18,7 @@ const getConflationMapTableVersionSuffix = conflationMapVersion =>
   conflationMapVersion.replace(/\./g, '_');
 
 const getConflationMapTableName = conflationMapVersion =>
-  `conflation_map_v${getConflationMapTableVersionSuffix(conflationMapVersion)}`;
+  `${conflationMapTablePrefix}${getConflationMapTableVersionSuffix(conflationMapVersion)}`;
 
 const getConflationMapTableFullName = conflationMapVersion =>
   `${getConflationSchema()}.${getConflationMapTableName(conflationMapVersion)}`;
@@ -42,7 +43,6 @@ class ConflationMapDatabaseObjectNames {
   constructor(conflationMapVersion) {
     validateConflationMapVersion(conflationMapVersion);
 
-    this.conflationSchema = conflationSchema;
     this.conflationMapVersion = conflationMapVersion;
   }
 
@@ -78,5 +78,8 @@ class ConflationMapDatabaseObjectNames {
     );
   }
 }
+
+ConflationMapDatabaseObjectNames.conflationSchema = conflationSchema
+ConflationMapDatabaseObjectNames.conflationMapTablePrefix = conflationMapTablePrefix
 
 module.exports = ConflationMapDatabaseObjectNames;

@@ -506,6 +506,24 @@ yargs
     }
   })
   .command({
+    command: 'update-conflation-map-to-transcom-join-tables',
+    desc:
+      'Update the conflation_map/transcom_events join tables.',
+    handler: ({ pg_env }) => {
+      spawn(
+        'make_targets/db/conflation/update-conflation-map-to-transcom-join-tables',
+        [
+          `--pg_env=${pg_env}`
+        ],
+        {
+          cwd: __dirname,
+          shell: '/bin/bash',
+          stdio: 'inherit'
+        }
+      );
+    }
+  })
+  .command({
     command: 'load-conflation-metadata',
     desc: 'Load the conflation metadata into PostgreSQL.',
     builder: {
