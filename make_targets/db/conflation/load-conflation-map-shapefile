@@ -1,0 +1,239 @@
+#!/usr/bin/env node
+
+const { execSync } = require('child_process');
+const { join } = require('path');
+
+const yargs = require('yargs');
+const envFile = require('node-env-file');
+const _ = require('lodash');
+
+const { Client } = require('pg');
+
+const ConflationMapDatabaseObjectNames = require('./ConflationMapDatabaseObjectNames');
+const getUpdateConflationMapToTranscomEventsJoinTableSql = require('./getUpdateConflationMapToTranscomEventsJoinTableSql');
+
+const cliArgsSpec = {
+  conflationMapVersion: {
+    demand: true,
+    type: 'string',
+    describe: 'E.G.: 0.4.2'
+  },
+  conflationMapShapefile: {
+    demand: true,
+    type: 'string'
+  },
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    default: 'development'
+  }
+};
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const { conflationMapVersion, conflationMapShapefile, pg_env } = argv;
+
+const configPath = join(
+  __dirname,
+  pg_env === 'production'
+    ? '../../../config/postgres.env.prod'
+    : '../../../config/postgres.env.dev'
+);
+envFile(configPath);
+
+if (!/^\d{1,}\.\d{1,}\.\d{1,}$/.test(conflationMapVersion)) {
+  console.error('USAGE: conflationMapVersion should be of the format x.y.z');
+  process.exit(1);
+}
+
+const {
+  conflationSchema,
+  conflationMapTableName,
+  conflationMapTableFullName,
+  conflationMapTablePrimaryKeyIdxName
+} = new ConflationMapDatabaseObjectNames(conflationMapVersion);
+
+const timestamp = Math.floor(new Date().getTime() / 1000);
+
+// "TEMPORARY" table name
+const tmpVersionedConflationMapTableName = `tmp_${conflationMapTableName}_${timestamp}`;
+const tmpVersionedConflationMapTableFullName = `${conflationSchema}.${tmpVersionedConflationMapTableName}`;
+
+const { PGHOST, PGPORT, PGUSER, PGDATABASE, PGPASSWORD } = process.env;
+
+if (_.isNil(PGHOST && PGPORT && PGUSER && PGDATABASE && PGPASSWORD)) {
+  console.error(
+    'The PostgreSQL config file must contain the following credential variables:'
+  );
+  console.error('     PGHOST, PGPORT, PGUSER, PGDATABASE, PGPASSWORD');
+  process.exit(1);
+}
+
+execSync(`psql --quiet -c 'CREATE SCHEMA IF NOT EXISTS ${conflationSchema};'`, {
+  env: Object.assign({}, process.env, {
+    PGOPTIONS: '--client-min-messages=error'
+  })
+});
+
+const getConflationMapSchema = () => {
+  const shpFileSchema = execSync(`
+    ogrinfo -so '${conflationMapShapefile}' conflation |
+      sed -n '/^id: Integer/,$p;' |
+      sed 's/ (.*//'
+    `).toString();
+
+  const shapefileFieldTypePairs = shpFileSchema
+    .split(/\n/)
+    .filter(f => f)
+    .reduce((acc, fieldDescription) => {
+      const [fieldName, type] = fieldDescription.toLowerCase().split(/: /);
+
+      acc.push([fieldName, type === 'string' ? 'TEXT' : type.toUpperCase()]);
+
+      return acc;
+    }, []);
+
+  // This is to guarantee an ordering of the columns.
+  //   1. id
+  //   2. non target map id(x) cols
+  //   3. target map id(x) cols
+  const shapefileSchemaToPostgresSchemaMappings = Array.prototype.concat(
+    [shapefileFieldTypePairs[0]], // id
+    shapefileFieldTypePairs
+      .slice(1)
+      .filter(([col]) => !/id$|idx$/.test(col))
+      .sort(),
+    shapefileFieldTypePairs
+      .slice(1)
+      .filter(([col]) => /id$|idx$/.test(col))
+      .sort()
+  );
+
+  const conflationMapTableColumns = shapefileSchemaToPostgresSchemaMappings.map(
+    ([col]) => col
+  );
+
+  // Create schema of the column names for a create table statement.
+  const conflationMapTableSchema = shapefileSchemaToPostgresSchemaMappings
+    .reduce((acc, [col, dataType]) => {
+      const isId = col === 'id';
+      const padding = isId ? '' : ' '.repeat(11);
+
+      acc.push(`${padding}${col}  ${dataType}${isId ? ' PRIMARY KEY' : ''}`);
+
+      return acc;
+    }, [])
+    .join(',\n');
+
+  const conflationMapColCasts = shapefileSchemaToPostgresSchemaMappings
+    .reduce((acc, [col, dataType]) => {
+      acc.push(`        CAST(${col} AS ${dataType}) AS ${col}`);
+      return acc;
+    }, [])
+    .join(',\n');
+
+  return {
+    conflationMapTableColumns,
+    conflationMapTableSchema,
+    conflationMapColCasts
+  };
+};
+
+const loadConflationMapShapefileIntoTemporaryTable = async client => {
+  console.log(
+    `Loading shapefile into temporary table ${tmpVersionedConflationMapTableFullName}`
+  );
+
+  execSync(`
+    ogr2ogr -s_srs EPSG:4326 -t_srs EPSG:4326 \
+      -f PostgreSQL \
+        'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+      '${conflationMapShapefile}' -nln '${tmpVersionedConflationMapTableFullName}' -lco FID=id
+  `);
+
+  await client.query(`
+    CLUSTER ${tmpVersionedConflationMapTableFullName}
+      USING ${tmpVersionedConflationMapTableName}_wkb_geometry_geom_idx;
+  `);
+
+  return client.query(`
+    ANALYZE ${tmpVersionedConflationMapTableFullName} ;
+  `);
+};
+
+const integrateNewMapIntoDatabase = async client => {
+  const {
+    conflationMapTableSchema,
+    conflationMapTableColumns,
+    conflationMapColCasts
+  } = getConflationMapSchema();
+
+  const updateConflationMapToTranscomEventsJoinTableSql = getUpdateConflationMapToTranscomEventsJoinTableSql(
+    conflationMapVersion,
+    /* clearExisting = */ true
+  );
+  const sql = `
+    BEGIN ;
+
+    CREATE TABLE IF NOT EXISTS ${conflationMapTableFullName} (
+      ${conflationMapTableSchema},
+      wkb_geometry public.geometry(LineString,4326)
+    ) WITH (fillfactor=100) ;
+
+    -- Clear the conflation map table, in case it already existed and has data
+    DELETE FROM ${conflationMapTableFullName} ;
+
+    INSERT INTO ${conflationMapTableFullName} (${conflationMapTableColumns},wkb_geometry)
+      SELECT
+          ${conflationMapColCasts},
+          wkb_geometry
+        FROM ${tmpVersionedConflationMapTableFullName}
+    ;
+
+    CLUSTER ${conflationMapTableFullName} USING ${conflationMapTablePrimaryKeyIdxName} ;
+
+    ${updateConflationMapToTranscomEventsJoinTableSql};
+
+    COMMIT ;
+  
+    ANALYZE ${conflationMapTableFullName};
+  `;
+
+  return client.query(sql);
+};
+
+(async () => {
+  const client = new Client();
+  await client.connect();
+
+  try {
+    let task = 'load conflation map shapefile into temporary table';
+    console.time(task);
+    await loadConflationMapShapefileIntoTemporaryTable(client);
+    console.timeEnd(task);
+
+    task = 'integrate new conflation map into database';
+    console.time(task);
+    await integrateNewMapIntoDatabase(client);
+    console.timeEnd(task);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    try {
+      await client.query(
+        `DROP TABLE ${tmpVersionedConflationMapTableFullName} ;`
+      );
+    } catch (err2) {
+      console.error(err2);
+    }
+    client.end();
+  }
+})();

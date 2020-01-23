@@ -328,7 +328,7 @@ yargs
     }
   })
   .command({
-    command: 'download_transcom_historica_events',
+    command: 'download_transcom_historical_events',
     desc: 'Download the Transcom events.',
     builder: {
       output_dir: {
@@ -491,7 +491,7 @@ yargs
     },
     handler: ({ conflationMapVersion, conflationMapShapefile, pg_env }) => {
       spawn(
-        'make_targets/db/load-conflation-map-shapefile',
+        'make_targets/db/conflation/load-conflation-map-shapefile',
         [
           `--conflationMapVersion='${conflationMapVersion}'`,
           `--conflationMapShapefile='${conflationMapShapefile}'`,
