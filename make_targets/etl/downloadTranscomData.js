@@ -7,8 +7,6 @@ const { createGzip } = require('zlib');
 const { isAbsolute, join } = require('path');
 
 const request = require('request');
-const { dirSync: tmpDirSync } = require('tmp');
-const { sync: rimrafSync } = require('rimraf');
 const { pipe, through } = require('mississippi');
 const split = require('split2');
 
@@ -21,14 +19,7 @@ const envFile = require('node-env-file');
 const TRANSCOM_URI =
   'https://eventsearch.xcmdata.org/HistoricalEventSearch/xcmEvent/getEventGridData';
 
-const EVENT_TYPES = [
-  'exit',
-  'SIGINT',
-  'SIGUSR1',
-  'SIGUSR2',
-  'uncaughtException',
-  'SIGTERM'
-];
+const { getPostgresConfigurationFilePath, createTmpDir } = require('../utils');
 
 const now = new Date();
 
@@ -87,12 +78,7 @@ let { start_timestamp, end_timestamp } = argv;
 
 if (_.isNil(start_timestamp)) {
   try {
-    const configPath = join(
-      __dirname,
-      pg_env === 'production'
-        ? '../../config/postgres.env.prod'
-        : '../../config/postgres.env.dev'
-    );
+    const configPath = getPostgresConfigurationFilePath(pg_env);
     envFile(configPath);
 
     const { PGDATABASE, PGHOST, PGPORT } = process.env;
@@ -131,7 +117,7 @@ const outputDir = isAbsolute(output_dir)
   ? output_dir
   : join(process.cwd(), output_dir);
 
-console.log('Transcom Historical Events will be downloaded to', outputDir)
+console.log('Transcom Historical Events will be downloaded to', outputDir);
 
 // Date format 'YYYY-MM-DD HH:MI:SS'
 const timestampRE = /^\d{4}-\d{1,2}-\d{1,2} \d{2}:\d{2}:\d{2}$/;
@@ -264,28 +250,6 @@ const downloadDateRangeOfIncidents = (
       }
     );
   });
-
-const createTmpDir = () => {
-  const { name } = tmpDirSync({ unsafeCleanup: true });
-
-  let cleanup = () => rimrafSync(name);
-
-  // https://stackoverflow.com/a/49392671/3970755
-  EVENT_TYPES.forEach(eventType => {
-    process.on(eventType, () => {
-      try {
-        const f = cleanup;
-        cleanup = _.noop;
-
-        f();
-      } catch (err) {
-        //
-      }
-    });
-  });
-
-  return name;
-};
 
 const getOutputFilePath = () => {
   const startTimestamp = start_timestamp.replace(/-|:/g, '').replace(/ /, 'T');

@@ -1,0 +1,78 @@
+#!/usr/bin/env node
+
+const { spawnSync } = require('child_process');
+const { join } = require('path');
+const { readdirSync, renameSync } = require('fs');
+
+const yargs = require('yargs');
+
+const { createTmpDir } = require('../../utils');
+
+const TRANSCOM_DATA_DIR = join(__dirname, '../../../data/transcom');
+
+const TRANSCOM_DOWNLOADER = join(
+  __dirname,
+  '../../etl/downloadTranscomData.js'
+);
+
+console.log(TRANSCOM_DOWNLOADER);
+
+const TRANSCOM_LOADER = join(__dirname, './loadTranscomEvents/run');
+const UPDATE_CONFLATION_MAP_JOIN_TABLES = join(
+  __dirname,
+  '../conflation/update-conflation-map-to-transcom-join-tables'
+);
+
+const cliArgsSpec = {
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    describe:
+      'The database used to check for the latest transcom_historical_events timestamp.',
+    default: 'development'
+  }
+};
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const { pg_env } = argv;
+
+const tmpDownloadDir = createTmpDir();
+
+console.log(tmpDownloadDir);
+
+spawnSync(
+  TRANSCOM_DOWNLOADER,
+  [`--output_dir="${tmpDownloadDir}"`, `--pg_env='${pg_env || 'development'}'`],
+  { stdio: ['inherit', 'inherit', 'inherit'], shell: '/bin/bash' }
+);
+
+const [transcomEventsFileName] = readdirSync(tmpDownloadDir);
+
+const tmpTranscomEventsFilePath = join(tmpDownloadDir, transcomEventsFileName);
+const transcomEventsFilePath = join(TRANSCOM_DATA_DIR, transcomEventsFileName);
+
+renameSync(tmpTranscomEventsFilePath, transcomEventsFilePath);
+
+spawnSync(
+  TRANSCOM_LOADER,
+  [
+    `--transcomEventsNdjsonGzip='${transcomEventsFilePath}'`,
+    `--pg_env='${pg_env || 'development'}'`
+  ],
+  { stdio: ['inherit', 'inherit', 'inherit'], shell: '/bin/bash' }
+);
+
+spawnSync(
+  UPDATE_CONFLATION_MAP_JOIN_TABLES,
+  [`--pg_env='${pg_env || 'development'}'`],
+  { stdio: ['inherit', 'inherit', 'inherit'], shell: '/bin/bash' }
+);

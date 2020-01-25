@@ -404,6 +404,23 @@ yargs
     }
   })
   .command({
+    command: 'download-load-integrate-transcom-events',
+    desc:
+      'Download the latest transcom events (not currently in the database), load them into the database, then update the conflation_map/transcom_events join tables.',
+    handler: ({ pg_env }) => {
+      spawn(
+        './make_targets/db/transcom/download_load_integrate',
+        [
+          `--pg_env=${pg_env}`
+        ],
+        {
+          cwd: __dirname,
+          stdio: 'inherit'
+        }
+      );
+    }
+  })
+  .command({
     command: 'load_ris_geodatabase_for_year',
     desc:
       'Load the NYS Road Inventory System Geodatabase ZIP archive into PostgreSQL.',
