@@ -2,13 +2,15 @@
 
 const { spawnSync } = require('child_process');
 const { join } = require('path');
-const { readdirSync, renameSync } = require('fs');
+const { mkdirSync, readdirSync, renameSync } = require('fs');
 
 const yargs = require('yargs');
 
 const { createTmpDir } = require('../../utils');
 
 const TRANSCOM_DATA_DIR = join(__dirname, '../../../data/transcom');
+
+mkdirSync(TRANSCOM_DATA_DIR, { recursive: true })
 
 const TRANSCOM_DOWNLOADER = join(
   __dirname,
