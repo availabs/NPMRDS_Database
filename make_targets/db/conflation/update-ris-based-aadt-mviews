@@ -1,0 +1,145 @@
+#!/usr/bin/env node
+
+const { spawnSync } = require('child_process');
+const { join } = require('path');
+
+const yargs = require('yargs');
+const envFile = require('node-env-file');
+
+const { Client } = require('pg');
+
+const SQL_FILE_PATH = join(__dirname, './create_ris_based_aadt_mview.sql');
+
+const {
+  conflationSchema,
+  conflationMapTablePrefix
+} = require('./ConflationMapDatabaseObjectNames');
+
+const cliArgsSpec = {
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    default: 'development'
+  }
+};
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const { pg_env } = argv;
+
+const configPath = join(
+  __dirname,
+  pg_env === 'production'
+    ? '../../../config/postgres.env.prod'
+    : '../../../config/postgres.env.dev'
+);
+envFile(configPath);
+
+const getConflationMapTablesMetadata = async client => {
+  const sql = `
+    SELECT
+        TRIM(
+          REPLACE(
+            REPLACE(
+              t.tablename,
+              '${conflationMapTablePrefix}',
+              ''
+            ),
+            '_',
+            '.'
+          )
+        ) AS "conflationMapVersion",
+        json_agg( c.column_name ORDER BY column_name ) AS "idCols"
+      FROM pg_catalog.pg_tables AS t
+        INNER JOIN information_schema.columns AS c
+        ON (
+          ( t.schemaname = c.table_schema )
+          AND
+          ( t.tablename = c.table_name )
+        )
+      WHERE (
+        ( t.schemaname = '${conflationSchema}' )
+        AND
+        ( t.tablename ~ '^${conflationMapTablePrefix}\\d{1,}_\\d{1,}_\\d{1,}$' )
+        AND
+        ( c.column_name ~ '^(ris|tmc)\\d{2}id$' )
+      )
+      GROUP BY 1 ;
+  `;
+
+  const { rows } = await client.query(sql);
+
+  if (!(Array.isArray(rows) && rows.length)) {
+    return null;
+  }
+
+  const tableMetadata = rows.map(({ conflationMapVersion, idCols }) => {
+    const conflMapVer = conflationMapVersion.replace(/\./g, '_');
+
+    const yrs = idCols
+      .filter(col => col.match(/^ris/))
+      .map(col => +col.match(/\d{1,}/)[0]);
+
+    const npmrdsShpYrs = idCols
+      .filter(col => col.match(/^tmc/))
+      .map(col => +col.match(/\d{1,}/)[0]);
+
+    return { conflationMapVersion: conflMapVer, yrs, npmrdsShpYrs };
+  });
+
+  return tableMetadata;
+};
+
+const updateMaterialzedView = (conflationMapVersion, yr, npmrdsShpYr) =>
+  spawnSync(
+    'psql',
+    [
+      `-vNPMRDS_SHP_YR=${npmrdsShpYr}`,
+      `-vYR=${yr}`,
+      `-vCONFLATION_MAP_VERSION=${conflationMapVersion}`,
+      `-f${SQL_FILE_PATH}`
+    ],
+    { stdio: ['inherit', 'inherit', 'inherit'], shell: '/bin/bash' }
+  );
+
+(async () => {
+  const client = new Client();
+  await client.connect();
+
+  try {
+    const conflationMapTablesMetadata = await getConflationMapTablesMetadata(
+      client
+    );
+
+    for (let i = 0; i < conflationMapTablesMetadata.length; ++i) {
+      const {
+        conflationMapVersion,
+        yrs,
+        npmrdsShpYrs
+      } = conflationMapTablesMetadata[i];
+
+      for (let j = 0; j < yrs.length; ++j) {
+        const yr = yrs[j];
+        let npmrdsShpYr = Math.max(...npmrdsShpYrs.filter(nsyr => nsyr <= yr));
+
+        if (!Number.isFinite(npmrdsShpYr)) {
+          npmrdsShpYr = Math.min(...npmrdsShpYrs);
+        }
+
+        updateMaterialzedView(conflationMapVersion, yr, npmrdsShpYr);
+      }
+    }
+  } catch (err) {
+    console.error(err);
+  } finally {
+    client.end();
+  }
+})();
