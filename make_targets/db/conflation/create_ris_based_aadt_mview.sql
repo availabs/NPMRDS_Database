@@ -13,25 +13,25 @@ AS
       tmc,
       ROUND(
         (
-          SUM(ris_aadt * conflmap_len_ft )
+          SUM( aadt_ris * conflmap_len_ft )
           /
-          SUM( conflmap_len_ft * NULLIF(ris_aadt::BOOLEAN::INT, 0) )
+          SUM( conflmap_len_ft * NULLIF(aadt_ris::BOOLEAN::INT, 0) )
         )::NUMERIC
-      ) AS ris_aadt,
+      ) AS aadt_ris,
       ROUND(
         (
-          SUM(ris_aadt_singl * conflmap_len_ft )
+          SUM( aadt_singl_ris * conflmap_len_ft )
           /
-          SUM( conflmap_len_ft * NULLIF(ris_aadt_singl::BOOLEAN::INT, 0) )
+          SUM( conflmap_len_ft * NULLIF(aadt_singl_ris::BOOLEAN::INT, 0) )
         )::NUMERIC
-      ) AS ris_aadt_singl,
+      ) AS aadt_singl_ris,
       ROUND(
         (
-          SUM(ris_aadt_combi * conflmap_len_ft )
+          SUM( aadt_combi_ris * conflmap_len_ft )
           /
-          SUM( conflmap_len_ft * NULLIF(ris_aadt_combi::BOOLEAN::INT, 0) )
+          SUM( conflmap_len_ft * NULLIF(aadt_combi_ris::BOOLEAN::INT, 0) )
         )::NUMERIC
-      ) AS ris_aadt_combi,
+      ) AS aadt_combi_ris,
       json_build_object(
        'npmrds_len_ft',
        MAX(npmrds_len_ft),
@@ -39,8 +39,8 @@ AS
        json_object_agg(
          COALESCE(ris_id, -1)::TEXT,
          json_build_object(
-           'ris_aadt',
-           ris_aadt,
+           'aadt_ris',
+           aadt_ris,
            'conflmap_len_ft',
            conflmap_len_ft
          )
@@ -52,9 +52,9 @@ AS
           t.tmc,                                 -- 1
           t.miles * 5280 AS npmrds_len_ft,       -- 2
           c.:ris_id AS ris_id,                   -- 3
-          r.aadt_current_yr_est AS ris_aadt,     -- 4
-          r.aadt_single_unit AS ris_aadt_singl,  -- 5
-          r.aadt_combo AS ris_aadt_combi,        -- 6
+          r.aadt_current_yr_est AS aadt_ris,     -- 4
+          r.aadt_single_unit AS aadt_singl_ris,  -- 5
+          r.aadt_combo AS aadt_combi_ris,        -- 6
           SUM (
             ST_LENGTH(
               GEOGRAPHY(c.wkb_geometry)
