@@ -194,7 +194,7 @@ const verifyDataCompleteness = () => {
 };
 
 process.stdin
-.pipe(split())
-.pipe(csvInputStream())
-.pipe(verifyDataCompleteness())
-.pipe(process.stdout);
+  .pipe(split())
+  .pipe(csvInputStream())
+  .pipe(verifyDataCompleteness())
+  .pipe(process.stdout);

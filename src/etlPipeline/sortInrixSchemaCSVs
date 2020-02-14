@@ -16,7 +16,7 @@ SORTER_PATH=$( readlink -f "$SORTER_PATH" )
 # Change directory to the work dir
 pushd "$ETL_WORK_DIR" > /dev/null
 
-ARR=(`find . -regex ".*\.[1-2][0-9][0-1][0-9][0-9][0-9]${INRIX_SCHEMA_CSV_EXTENSION}" | sort`)
+ARR=(`find . -regex ".*\.[1-2][0-9][0-9][0-9][0-9][0-9]${INRIX_SCHEMA_CSV_EXTENSION}" | sort`)
 
 for f in "${ARR[@]}"
 do
