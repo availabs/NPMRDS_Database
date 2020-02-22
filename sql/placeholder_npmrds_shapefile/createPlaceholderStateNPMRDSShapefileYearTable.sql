@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS :"STATE".:tbl_name (
 
 COMMENT ON TABLE :"STATE".:tbl_name IS :'table_comment';
 
+TRUNCATE :"STATE".:tbl_name;
+
 INSERT INTO :"STATE".:tbl_name
   SELECT * FROM :"STATE".npmrds_shapefile_:SOURCE_YEAR;
 

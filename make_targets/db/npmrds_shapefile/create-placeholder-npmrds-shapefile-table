@@ -21,6 +21,9 @@ fi
 
 pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 
+# Load the STATE_ABBREVIATIONS hash table
+. ../../../bin/stateAbbreviations.sh
+
 # source the database connection config.
 if [ "$PG_ENV" = "production" ]; then
 	. ../../../config/postgres.env.prod
@@ -46,5 +49,44 @@ psql \
   -v PLACEHOLDER_YEAR="${PLACEHOLDER_YEAR}" \
   -v SOURCE_YEAR="${SOURCE_YEAR}" \
   -f '../../../sql/placeholder_npmrds_shapefile/createPlaceholderStateNPMRDSShapefileYearTable.sql';
+
+# The following applies only when loading Canada's shapefile.
+STATES_IN_PLACEHOLDER_TABLE="$(psql -t -c "
+  SELECT DISTINCT state
+    FROM \"${STATE}\".npmrds_shapefile_${PLACEHOLDER_YEAR}
+    ORDER BY state;
+" | sed '/^$/d; s/^\s*//g')"
+
+while read -r state_name; do
+  state="${STATE_ABBREVIATIONS[${state_name,,}]}";
+
+  # If we have a 2 char code for the state
+  #   and the state is not the same as the STATE name
+  if [[ ! -z "$state" && "$STATE" != "$state" ]]; then
+    VIEW_FULL_NAME="\"${state}\".npmrds_shapefile_${PLACEHOLDER_YEAR}"
+
+    # If the state specific view does not exist
+    if ! psql -c "\d $VIEW_FULL_NAME" > /dev/null 2>&1; then
+      CREATE_VIEW_SQL="
+        CREATE OR REPLACE VIEW $VIEW_FULL_NAME
+          AS
+            SELECT
+                *
+              FROM \"${STATE}\".npmrds_shapefile_${SOURCE_YEAR}
+              WHERE state = '${state_name}'
+        ; "
+
+      VIEW_COMMENT="Placeholder view created by cloning \"${STATE}\".npmrds_shapefile_${SOURCE_YEAR}"
+
+      psql \
+        --quiet \
+        -c 'BEGIN;' \
+        -c "CREATE SCHEMA IF NOT EXISTS \"${state}\";" \
+        -c "$CREATE_VIEW_SQL" \
+        -c "COMMENT ON VIEW $VIEW_FULL_NAME IS '${VIEW_COMMENT}'" \
+        -c 'COMMIT;'
+    fi
+  fi
+done <<< "$STATES_IN_PLACEHOLDER_TABLE"
 
 popd >/dev/null
