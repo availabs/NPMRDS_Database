@@ -16,9 +16,10 @@ if [[ -z "$YEAR" ]]; then
   exit 1
 fi
 
-pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+__DIRNAME="$( realpath "$( dirname "${BASH_SOURCE[0]}" )" )"
+pushd "$__DIRNAME" >/dev/null
 
-PROJECT_ROOT="$(realpath ../../)"
+PROJECT_ROOT="$(realpath ../../..)"
 ETL_DIR="${PROJECT_ROOT}/etl"
 mkdir -p "$ETL_DIR";
 
@@ -43,12 +44,12 @@ SHP_ZIP_PATH="${SHP_ZIP_DIR}${SHP_ZIP_BASENAME}"
 
 ## The last line of output from download-npmrds-shapefile.js
 ##   is the location of the downloaded shapefile.
-"${PROJECT_ROOT}/make_targets/etl/download-npmrds-shapefile.js" "${SHP_ZIP_PATH}"
+"$__DIRNAME/download-npmrds-shapefile" "${SHP_ZIP_PATH}"
 
 DOWNLOAD_TIMESTAMP="$(date +%Y%m%dT%H%M%S)"
 echo "$DOWNLOAD_TIMESTAMP" > "${SHP_ZIP_DIR}/DOWNLOAD_TIMESTAMP"
 
-if ! PARTITIONER_OUTPUT="$("${PROJECT_ROOT}/make_targets/etl/partition-npmrds-shapefile.sh" "${SHP_ZIP_PATH}")"; then
+if ! PARTITIONER_OUTPUT="$("$__DIRNAME/partition-npmrds-shapefile" "${SHP_ZIP_PATH}")"; then
   ( >&2 echo "ERROR: Partitioning failed.")
   ( >&2 echo "$PARTITIONER_OUTPUT")
   exit 1
@@ -61,11 +62,10 @@ NPMRDS_SHAPEFILE_VERSION="$(
 cd "${ETL_DIR}";
 
 FINAL_DIR_NAME="${COUNTRY}_conflationYear${YEAR}_shpVersion${NPMRDS_SHAPEFILE_VERSION}_downloadTS${DOWNLOAD_TIMESTAMP}";
-echo "FINAL_DIR_NAME=$FINAL_DIR_NAME"
 
 mv "${WORK_DIR}" "${FINAL_DIR_NAME}";
 
-tar --remove-files -cvf "${FINAL_DIR_NAME}.tar" "${FINAL_DIR_NAME}";
+tar --remove-files -cf "${FINAL_DIR_NAME}.tar" "${FINAL_DIR_NAME}";
 echo "Downloaded and partitioned shapefile archive: ${ETL_DIR}/${FINAL_DIR_NAME}.tar"
 
 popd >/dev/null

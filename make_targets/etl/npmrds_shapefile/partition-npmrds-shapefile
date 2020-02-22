@@ -27,7 +27,7 @@ SHP_ZIP_DIR="$( dirname "$SHP_ZIP_PATH")"
 pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 
 # Get the stateName -> stateAbbreviation associative array
-. ../../bin/stateAbbreviations.sh;
+source ../../../bin/stateAbbreviations.sh;
 
 # Change to the zipped shapefile's dir
 cd "$SHP_ZIP_DIR" || exit

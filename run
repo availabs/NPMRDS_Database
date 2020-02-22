@@ -68,14 +68,17 @@ yargs
       "Download the specified country's shapefile for the specified conflation year",
     builder: {
       year: { type: 'number', demand: true },
-      country: { type: 'string', demand: true }
+      country: { type: 'string', demand: true, choices: ['USA', 'CANADA'] }
     },
     handler: ({ year, country, pg_env }) => {
-      spawn('make', ['etl/download-and-partition-npmrds-shapefile'], {
-        cwd: __dirname,
-        stdio: 'inherit',
-        env: { YEAR: year, COUNTRY: country, PG_ENV: pg_env }
-      });
+      spawn(
+        'make_targets/etl/npmrds_shapefile/download-and-partition-npmrds-shapefile',
+        {
+          cwd: __dirname,
+          stdio: 'inherit',
+          env: { YEAR: year, COUNTRY: country, PG_ENV: pg_env }
+        }
+      );
     }
   })
   .command({
@@ -118,7 +121,7 @@ yargs
   .command({
     command: 'create_state_placeholder_npmrds_shapefile',
     desc:
-      "Create a placeholder npmrds_shapefile table for the placeholderYear using the sourceYear's npmrds_shapefile table.",
+      "Create a placeholder npmrds_shapefile table for the placeholderYear using the sourceYear's npmrds_shapefile table. Intended for period before the year's NPMRDS Shapefile is released.",
     builder: {
       placeholderYear: { type: 'number', demand: true },
       sourceYear: { type: 'number', demand: true },
@@ -410,9 +413,7 @@ yargs
     handler: ({ pg_env }) => {
       spawn(
         './make_targets/db/transcom/download_load_integrate',
-        [
-          `--pg_env=${pg_env}`
-        ],
+        [`--pg_env=${pg_env}`],
         {
           cwd: __dirname,
           stdio: 'inherit'
@@ -524,14 +525,11 @@ yargs
   })
   .command({
     command: 'update-conflation-map-to-transcom-join-tables',
-    desc:
-      'Update the conflation_map/transcom_events join tables.',
+    desc: 'Update the conflation_map/transcom_events join tables.',
     handler: ({ pg_env }) => {
       spawn(
         'make_targets/db/conflation/update-conflation-map-to-transcom-join-tables',
-        [
-          `--pg_env=${pg_env}`
-        ],
+        [`--pg_env=${pg_env}`],
         {
           cwd: __dirname,
           shell: '/bin/bash',

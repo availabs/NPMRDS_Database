@@ -744,14 +744,6 @@ etl/download-and-transform-npmrds-data:
 	@export DOWNLOAD_LINKS;\
 	${_MKFILE_DIR}/src/etlPipeline/main
 
-etl/download-and-partition-npmrds-shapefile:
-	@:$(call check_defined,COUNTRY)
-	@:$(call check_defined,YEAR)
-	@export COUNTRY;\
-	export YEAR;\
-	${_MKFILE_DIR}/make_targets/etl/download-and-partition-npmrds-shapefile.sh
-
-
 ${_NPMRDS_SHAPEFILES_DIR}:
 	@mkdir -p ${_NPMRDS_SHAPEFILES_DIR};
 
