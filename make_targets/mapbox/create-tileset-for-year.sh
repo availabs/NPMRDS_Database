@@ -29,7 +29,7 @@ DATESTAMP="$(date '+%Y%m%dT%H%M%S')"
 LAYER_NAME="tmc_metadata_${YEAR}_${DATESTAMP}"
 
 if [[ -z "$OUTPUT_FILE_PATH" ]]; then
-  OUTPUT_FILE_PATH="${LAYER_NAME}_$(date +%Y%m%dT%H%M%S).mbtiles"
+  OUTPUT_FILE_PATH="${LAYER_NAME}.mbtiles"
 fi
 
 OUTPUT_FILE_PATH="$(realpath "$OUTPUT_FILE_PATH")"
