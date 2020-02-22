@@ -3,7 +3,7 @@
 
 UPDATE :"STATE".:tbl_name SET state = UPPER(state);
 
-CREATE INDEX :idx_name
+CREATE INDEX IF NOT EXISTS :idx_name
   ON :"STATE".:tbl_name
   USING GIST (wkb_geometry);
 

@@ -338,36 +338,6 @@ db/create-state-npmrds-shapefile-year-table: db/create-schema-${STATE} db/create
 		psql -v STATE="$${STATE}" -v YEAR="$${YEAR}" -f ./sql/npmrds_shapefile/state/createStateNPMRDSShapefileYearTable.sql;\
 	fi
 
-# NOTE: make_targets/db/upload-state-npmrds-shapefile-from-country-tar.sh
-# 			takes care of creating the ancestor tables in the inheritance hierarchy.
-db/upload-state-npmrds-shapefile-from-country-tar: db/create-schema-${STATE}
-	@:$(call check_defined,TAR_ARCHIVE_PATH)
-	@:$(call check_defined,STATE)
-	@export TAR_ARCHIVE_PATH;\
-	export STATE;\
-	${_MKFILE_DIR}/make_targets/db/upload-state-npmrds-shapefile-from-country-tar.sh
-
-db/upload-zipped-npmrds-shapefile: db/create-schema-${STATE}
-	@:$(call check_defined,SHP_ZIP_PATH)
-	@:$(call check_defined,YEAR)
-	@:$(call check_defined,STATE)
-	@export SHP_ZIP_PATH;\
-	export YEAR;\
-	export STATE;\
-	${_MKFILE_DIR}/make_targets/db/upload-zipped-npmrds-shapefile
-
-db/create-state-placeholder-npmrds-shapefile: db/create-schema-${STATE}
-	@:$(call check_defined,PLACEHOLDER_YEAR)
-	@:$(call check_defined,SOURCE_YEAR)
-	@:$(call check_defined,STATE)
-	@if ! psql -c "\d \"${STATE}\".placeholder_npmrds_shapefile_${PLACEHOLDER_YEAR}" > /dev/null 2>&1; then\
-		psql \
-			-v PLACEHOLDER_YEAR="${PLACEHOLDER_YEAR}" \
-			-v SOURCE_YEAR="${SOURCE_YEAR}" \
-			-v STATE="${STATE}" \
-			-f './sql/placeholder_npmrds_shapefile/createPlaceholderStateNPMRDSShapefileYearTable.sql';\
-	fi
-
 db/load-ris-geodatabase-for-year:
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,RIS_GEODATABASE_ZIP)

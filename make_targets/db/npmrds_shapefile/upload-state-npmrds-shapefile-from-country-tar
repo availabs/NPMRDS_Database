@@ -1,5 +1,8 @@
 #!/bin/bash
 
+## Requires tar archive structure created by
+##   make_targets/etl/npmrds_shapefile/download-and-partition-npmrds-shapefile
+
 set -e
 
 TAR_ARCHIVE_PATH="${1:-$TAR_ARCHIVE_PATH}"
@@ -33,7 +36,7 @@ fi
 
 pushd "$( dirname "${BASH_SOURCE[0]}" )/" >/dev/null
 
-LOADER_SCRIPT_PATH="$(readlink -f "./upload-npmrds-shapefile-for-state-year.sh")"
+LOADER_SCRIPT_PATH="$(readlink -f "./upload-npmrds-shapefile-for-state-year")"
 
 popd >/dev/null
 
@@ -47,11 +50,12 @@ trap finish EXIT
 
 tar xOf "$TAR_ARCHIVE_PATH" "$STATE_SHP_ARCHIVE_PATH" > "${TMP_WORK_DIR}/${STATE}.zip"
 
-cd "$TMP_WORK_DIR"
+pushd "$TMP_WORK_DIR" >/dev/null
 
 7za x "${STATE}.zip" -y > /dev/null && rm "${STATE}.zip" 
 
-cd "$STATE"
+pushd "$STATE" >/dev/null
+
 DATA_DIR="$(pwd)"
 
 if [ ! -f ./CONFLATION_YEAR ]; then
@@ -67,3 +71,6 @@ export YEAR
 export PG_ENV
 
 bash "$LOADER_SCRIPT_PATH"
+
+popd >/dev/null
+popd >/dev/null

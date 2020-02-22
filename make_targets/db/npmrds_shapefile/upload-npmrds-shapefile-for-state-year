@@ -16,14 +16,7 @@ fi
 
 # Variables to store the new table's name and its parent table's name.
 TABLE_NAME="npmrds_shapefile_${YEAR}"
-FULL_ROOT_TABLE_NAME="public.${TABLE_NAME}"
 FULL_TABLE_NAME="\"${STATE}\".${TABLE_NAME}"
-
-# If the table already exists, exit.
-if psql -c "\d $FULL_TABLE_NAME" > /dev/null 2>&1; then
-  echo "$FULL_TABLE_NAME already exists. Skipping table creation and shapefile loading."
-  exit
-fi
 
 DATA_DIR=${1:-$DATA_DIR}
 
@@ -41,61 +34,46 @@ fi
 
 pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 
-. ../../bin/stateAbbreviations.sh
+# Load the STATE_ABBREVIATIONS hash table
+. ../../../bin/stateAbbreviations.sh
 
 # source the database connection config.
 if [ "$PG_ENV" = "production" ]; then
-	. ../../config/postgres.env.prod
+	. ../../../config/postgres.env.prod
 else
-	. ../../config/postgres.env.dev
+	. ../../../config/postgres.env.dev
 fi
 
 # Last chance to kill script... just in case
 (>&2 echo "PostgreSQL Server: ${PGHOST}:${PGPORT}")
 sleep 3
 
+export PGOPTIONS='--client-min-messages=warning' 
 
-# If the root table does not exist, create it.
-if ! psql -c "\d $FULL_ROOT_TABLE_NAME" > /dev/null 2>&1; then
-  psql \
-    --quiet \
-    -v YEAR="$YEAR" \
-    -c "BEGIN;" \
-    -f ../../sql/npmrds_shapefile/root/createRootYearNPMRDSShapefileTable.sql \
-    -c "COMMIT;"
-fi
+psql \
+  --quiet \
+  -v STATE="$STATE" -v YEAR="$YEAR" \
+  -c 'BEGIN;' \
+  -f ../../../sql/npmrds_shapefile/root/createRootYearNPMRDSShapefileTable.sql \
+  -f ../../../sql/npmrds_shapefile/state/createStateNPMRDSShapefileYearTable.sql \
+  -f ../../../sql/npmrds_shapefile/state/truncateStateNPMRDSShapefileYearTable.sql \
+  -c 'COMMIT;'
 
-# If the table does not exist, create it.
-if ! psql -c "\d $FULL_TABLE_NAME" > /dev/null 2>&1; then
-  psql \
-    --quiet \
-    -v STATE="$STATE" -v YEAR="$YEAR" \
-    -c "BEGIN;" \
-    -f ../../sql/npmrds_shapefile/state/createStateNPMRDSShapefileYearTable.sql \
-    -c "COMMIT;"
-fi
-
-FINISH_UP="$(
-  realpath ../../sql/npmrds_shapefile/state/finishStateNPMRDSShapefileYearTable.sql
-)"
-
-cd "${DATA_DIR}" || exit
+pushd "${DATA_DIR}" >/dev/null
 
 # Upload the data
 ogr2ogr -append -update -t_srs EPSG:4326 -f \
   PostgreSQL "PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}" \
   "$PWD" -nlt PROMOTE_TO_MULTI -nln "${STATE}.${TABLE_NAME}";
 
+popd >/dev/null
+
 # Create spatial index and cluster the table using it.
 psql \
   --quiet \
   -v STATE="$STATE" -v YEAR="$YEAR" \
-  -c "BEGIN;" \
-  -f "${FINISH_UP}" \
-  -c "COMMIT;" \
+  -f ../../../sql/npmrds_shapefile/state/finishStateNPMRDSShapefileYearTable.sql \
   -c "VACUUM ANALYZE ${FULL_TABLE_NAME};"
-
-echo "$FULL_TABLE_NAME"
 
 # The following applies only when loading Canada's shapefile.
 STATES_IN_SHAPEFILE="$(psql -t -c "
@@ -112,8 +90,6 @@ while read -r state_name; do
   if [[ ! -z "$state" && "$STATE" != "$state" ]]; then
     VIEW_FULL_NAME="\"${state}\".${TABLE_NAME}"
 
-    echo "$VIEW_FULL_NAME"
-
     # If the state specific view does not exist
     if ! psql -c "\d $VIEW_FULL_NAME" > /dev/null 2>&1; then
       CREATE_VIEW_SQL="
@@ -123,6 +99,7 @@ while read -r state_name; do
       "
 
       psql \
+        --quiet \
         -c 'BEGIN;' \
         -c "CREATE SCHEMA IF NOT EXISTS \"${state}\";" \
         -c  "$CREATE_VIEW_SQL" \

@@ -1,17 +1,20 @@
 BEGIN;
 
-\set tbl_name 'placeholder_npmrds_shapefile_':PLACEHOLDER_YEAR
+\set tbl_name 'npmrds_shapefile_':PLACEHOLDER_YEAR
 \set idx_name :tbl_name'_geom_idx'
+\set table_comment 'Placeholder table created by cloning ':STATE'.npmrds_shapefile_':SOURCE_YEAR
 
-CREATE TABLE :"STATE".:tbl_name
-  AS SELECT * FROM :"STATE".npmrds_shapefile_:SOURCE_YEAR;
+CREATE TABLE IF NOT EXISTS :"STATE".:tbl_name (
+  PRIMARY KEY(tmc),
+  LIKE :"STATE".npmrds_shapefile_:SOURCE_YEAR
+) INHERITS (public.npmrds_shapefile_:PLACEHOLDER_YEAR);
 
-UPDATE :"STATE".:tbl_name SET state = UPPER(state);
+COMMENT ON TABLE :"STATE".:tbl_name IS :'table_comment';
 
-ALTER TABLE :"STATE".:tbl_name
-  INHERIT public.npmrds_shapefile_:PLACEHOLDER_YEAR;
+INSERT INTO :"STATE".:tbl_name
+  SELECT * FROM :"STATE".npmrds_shapefile_:SOURCE_YEAR;
 
-CREATE INDEX :idx_name
+CREATE INDEX IF NOT EXISTS :idx_name
   ON :"STATE".:tbl_name
   USING GIST (wkb_geometry);
 

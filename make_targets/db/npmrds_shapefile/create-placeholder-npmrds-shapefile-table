@@ -1,0 +1,50 @@
+#!/bin/bash
+
+set -e
+set -a
+
+# shellcheck disable=SC2153
+if [[ -z "$STATE" ]]; then
+  (>&2 echo "ERROR: You must specify the STATE as an ENV variable.")
+  exit 1
+fi
+
+if [[ -z "$SOURCE_YEAR" ]]; then
+  (>&2 echo "ERROR: You must specify the SOURCE_YEAR as an ENV variable.")
+  exit 1
+fi
+
+if [[ -z "$PLACEHOLDER_YEAR" ]]; then
+  (>&2 echo "ERROR: You must specify the PLACEHOLDER_YEAR as an ENV variable.")
+  exit 1
+fi
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+# source the database connection config.
+if [ "$PG_ENV" = "production" ]; then
+	. ../../../config/postgres.env.prod
+else
+	. ../../../config/postgres.env.dev
+fi
+
+# Last chance to kill script... just in case
+(>&2 echo "PostgreSQL Server: ${PGHOST}:${PGPORT}")
+sleep 3
+
+export PGOPTIONS='--client-min-messages=warning' 
+
+psql \
+  --quiet \
+  -v STATE="$STATE" -v YEAR="$PLACEHOLDER_YEAR" \
+  -c 'BEGIN;' \
+  -f ../../../sql/npmrds_shapefile/root/createRootYearNPMRDSShapefileTable.sql \
+  -c 'COMMIT;'
+
+psql \
+  -v STATE="${STATE}" \
+  -v PLACEHOLDER_YEAR="${PLACEHOLDER_YEAR}" \
+  -v SOURCE_YEAR="${SOURCE_YEAR}" \
+  -f '../../../sql/placeholder_npmrds_shapefile/createPlaceholderStateNPMRDSShapefileYearTable.sql';
+
+popd >/dev/null
