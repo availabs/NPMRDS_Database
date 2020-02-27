@@ -44,6 +44,8 @@ pg_dump \
   --compress=9 \
   --format=directory \
   --file="$DUMP_DIR_PATH" \
+  --exclude-table-data='highway_data_services.*' \
+  --exclude-table-data='highway_data_services_data.*' \
   --exclude-table-data='*.npmrds' \
   --exclude-table-data='*.npmrds_y*' \
   --exclude-table-data='*.pm3_eav_append_only' \

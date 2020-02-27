@@ -49,13 +49,17 @@ EXECUTE 'CREATE MATERIALIZED VIEW geography_metadata AS
   SELECT
       CAST(''COUNTY'' AS geography_level_type) geography_level,
       county_code AS geography_level_code,
-      county_name AS geography_level_name,
+      REPLACE(
+        county_name,
+        ''.'',
+        ''''
+      ) AS geography_level_name,
       ARRAY[state]::TEXT[] AS states,
       ARRAY[state_code]::TEXT[] AS state_codes,
       ST_Extent(bounding_box) AS bounding_box
     FROM cte_tmc_metadata
     WHERE county_name IS NOT NULL
-    GROUP BY county_code, county_name, state, state_code
+    GROUP BY 2, 3, 4, 5
 
   UNION ALL
 
