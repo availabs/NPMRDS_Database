@@ -254,16 +254,17 @@ yargs
       spawn('make', ['db/upload-npmrds-state-yrmo'], {
         cwd: __dirname,
         stdio: 'inherit',
-        env: {
+        env: Object.assign({}, process.env, {
           PG_ENV: pg_env,
           STATE: state,
           YEAR: year,
           MONTH: month,
           DATA_FILE_PATH: dataFilePath
-        }
+        })
       });
     }
   })
+
   .command({
     command: 'create_pm3_tables',
     desc: 'Create the PM3 tables.',
@@ -271,7 +272,9 @@ yargs
       spawn('make', ['db/create_pm3_tables'], {
         cwd: __dirname,
         stdio: 'inherit',
-        env: { PG_ENV: `${pg_env}` }
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env
+        })
       });
     }
   })
@@ -282,7 +285,9 @@ yargs
       spawn('make', ['db/create_pm3_authoritative_geolevel_mview'], {
         cwd: __dirname,
         stdio: 'inherit',
-        env: { PG_ENV: `${pg_env}` }
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env
+        })
       });
     }
   })
@@ -293,10 +298,26 @@ yargs
       spawn('make', ['db/cluster_pm3_eav_append_only_table'], {
         cwd: __dirname,
         stdio: 'inherit',
-        env: { PG_ENV: `${pg_env}` }
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env
+        })
       });
     }
   })
+  .command({
+    command: 'create_pm3_admin_view',
+    desc: 'Create the PM3 Administator View.',
+    handler: ({ pg_env }) => {
+      spawn('./make_targets/db/pm3/create_pm3_admin_view', {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env
+        })
+      });
+    }
+  })
+
   .command({
     command: 'load_avgtt_table_for_state_year',
     desc:

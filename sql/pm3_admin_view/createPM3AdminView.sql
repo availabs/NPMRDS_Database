@@ -8,7 +8,7 @@ AS
       pm3calc.id AS pm3_calculator_run_id,
       pm3meas.id AS pm3_measure_output_id,
       lat_states.states,
-      pm3meas.metadata->>'year' AS year,
+      (pm3meas.metadata->>'year')::INTEGER AS year,
       pm3meas.metadata->>'measure' AS measure,
       (
         pm3meas.authoritative_start IS NOT NULL

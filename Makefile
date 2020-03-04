@@ -229,25 +229,39 @@ db/upload-npmrds-state-yrmo: db/create-npmrds-state-yrmo-table
 
 
 # TODO: make this a dependency: db/upload-npmrds-state-yrmo
+## db/postprocess-npmrds-state-yrmo:
+## 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+## 	@:$(call check_defined,YEAR)
+## 	@:$(call check_defined,MONTH)
+## 	@if psql -c '\d "${STATE}".npmrds_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+## 		psql -c "$$(\
+## 			sed "\
+## 				s/__STATE__/${STATE}/g;\
+## 				s/__YEAR__/${YEAR}/g;\
+## 				s/__MONTH__/${MONTH}/g;\
+## 			" ./sql/npmrds/state/coalesceTimes.sql\
+## 		)";\
+## 		psql -c "$$(\
+## 			sed "\
+## 				s/__STATE__/${STATE}/g;\
+## 				s/__YEAR__/${YEAR}/g;\
+## 				s/__MONTH__/${MONTH}/g;\
+## 			" ./sql/npmrds/state/deleteEmptyRows.sql\
+## 		)";\
+## 		psql -c "$$(\
+## 			sed "\
+## 				s/__STATE__/${STATE}/g;\
+## 				s/__YEAR__/${YEAR}/g;\
+## 				s/__MONTH__/${MONTH}/g;\
+## 			" ./sql/npmrds/state/clusterTable.sql\
+## 		)";\
+## 	fi
+
 db/postprocess-npmrds-state-yrmo:
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
 	@:$(call check_defined,YEAR)
 	@:$(call check_defined,MONTH)
 	@if psql -c '\d "${STATE}".npmrds_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
-		psql -c "$$(\
-			sed "\
-				s/__STATE__/${STATE}/g;\
-				s/__YEAR__/${YEAR}/g;\
-				s/__MONTH__/${MONTH}/g;\
-			" ./sql/npmrds/state/coalesceTimes.sql\
-		)";\
-		psql -c "$$(\
-			sed "\
-				s/__STATE__/${STATE}/g;\
-				s/__YEAR__/${YEAR}/g;\
-				s/__MONTH__/${MONTH}/g;\
-			" ./sql/npmrds/state/deleteEmptyRows.sql\
-		)";\
 		psql -c "$$(\
 			sed "\
 				s/__STATE__/${STATE}/g;\
