@@ -36,6 +36,7 @@ LOGFILE_PATH="$( realpath "${DATA_DIR}/${LOGFILE_NAME}" )"
 (>&2 echo "logging dump messages to $LOGFILE_PATH")
 
 pg_dump \
+  --no-owner \
   --verbose \
   --compress=9 \
   --format=plain \
