@@ -1,0 +1,49 @@
+#!/bin/bash
+
+set -e
+set -a
+
+if [[ -z "$DATA_DIR" ]]; then
+  (>&2 echo "ERROR: DATA_DIR output directory as an ENV variable.")
+  exit 1
+fi
+
+mkdir -p "$DATA_DIR"
+
+# Change CWD to this script's directory.
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+# source the database connection config.
+if [ "$PG_ENV" = "production" ]; then
+	. ../../config/postgres.env.prod
+else
+	. ../../config/postgres.env.dev
+fi
+
+popd >/dev/null
+
+# Last chance to kill script... just in case
+(>&2 echo "Dumping PostgreSQL Server: ${PGHOST}:${PGPORT}")
+sleep 3
+
+TIMESTAMP="$( date '+%s' )"
+DUMP_FILE_NAME="npmrds_pm3_tables_dump.$TIMESTAMP"
+LOGFILE_NAME="npmrds_pm3_tables_dump.$TIMESTAMP.log"
+
+DUMP_FILE_PATH="$( realpath "${DATA_DIR}/${DUMP_FILE_NAME}.gz" )"
+LOGFILE_PATH="$( realpath "${DATA_DIR}/${LOGFILE_NAME}" )"
+
+(>&2 echo "logging dump messages to $LOGFILE_PATH")
+
+pg_dump \
+  --verbose \
+  --compress=9 \
+  --format=plain \
+  --file="$DUMP_FILE_PATH" \
+  --table='pm3_calculator_metadata' \
+  --table='pm3_measure_calculator_metadata' \
+  --table='pm3_authoritative_view' \
+  --table='pm3_authoritative_geolevel_mview' \
+  --table='pm3_eav_append_only' \
+  --table='pm3_admin_view' \
+  > "$LOGFILE_PATH" 2>&1

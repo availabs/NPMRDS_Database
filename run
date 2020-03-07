@@ -668,9 +668,9 @@ yargs
     }
   })
   .command({
-    command: 'dump-npmrds-pm3-eav-table',
+    command: 'dump-pm3-tables',
     desc:
-      'Creates a compressed plain dump of the npmrds database pm3_eav_append_only_table.',
+      'Creates a compressed SQL dump of the PM3 Tables.' ,
     builder: {
       dataDir: {
         type: 'string',
@@ -692,7 +692,7 @@ yargs
       spawn(
         join(
           __dirname,
-          'make_targets/db_backups/dump_pm3_eav_append_only_table'
+          'make_targets/db_backups/dump_pm3_tables'
         ),
         opts
       );
