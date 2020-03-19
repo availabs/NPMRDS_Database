@@ -6,6 +6,8 @@ set -a
 pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 pushd ../../../ >/dev/null
 
+SQL_DIR='./sql'
+
 # shellcheck disable=SC1091
 source ./config/postgres.env.pluto
 
@@ -27,7 +29,7 @@ SQL="
 psql -qAt -c "$SQL" |
   while read -r pm3meacalc_id; do
     echo "=> $pm3meacalc_id"
-    psql -v PM3MEACALC_ID="$pm3meacalc_id" -f ../../../sql/pm3_calculator_output/create_partition_table.sql
+    psql -v PM3MEACALC_ID="$pm3meacalc_id" -f "$SQL_DIR/pm3_calculator_output/create_partition_table.sql"
 
     TABLE_NAME="pm3_calculator_output_partitions.pm3_calculator_output_$pm3meacalc_id"
 
@@ -48,7 +50,7 @@ psql -qAt -c "$SQL" |
     
     psql -c "$SQL2"
 
-    psql -v PM3MEACALC_ID="$pm3meacalc_id" -f ../../../sql/pm3_calculator_output/finish_partition_table.sql
+    psql -v PM3MEACALC_ID="$pm3meacalc_id" -f "$SQL_DIR/pm3_calculator_output/finish_partition_table.sql"
 
     psql -c "VACUUM FREEZE $TABLE_NAME;"
     psql -c "ANALYZE $TABLE_NAME;"
