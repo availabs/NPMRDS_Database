@@ -1,19 +1,19 @@
 BEGIN;
 
-DROP VIEW IF EXISTS pm3.pm3_calculator_output_with_measure_metadata_eav ;
-DROP VIEW IF EXISTS pm3.pm3_calculator_output_with_measure_metadata ;
+DROP VIEW IF EXISTS pm3.pm3_measure_calculator_output_with_measure_metadata_eav ;
+DROP VIEW IF EXISTS pm3.pm3_measure_calculator_output_with_measure_metadata ;
 
-CREATE VIEW pm3.pm3_calculator_output_with_measure_metadata
+CREATE VIEW pm3.pm3_measure_calculator_output_with_measure_metadata
   AS
     SELECT
         measure_metadata.*,
         measure_data.tmc,
         measure_data.measure_data
-      FROM pm3.pm3_calculator_measure_expanded_metadata AS measure_metadata
-        INNER JOIN pm3.pm3_calculator_output AS measure_data USING (pm3meacalc_id)
+      FROM pm3.pm3_measure_calculator_expanded_metadata AS measure_metadata
+        INNER JOIN pm3.pm3_measure_calculator_output AS measure_data USING (pm3meacalc_id)
   ;
 
-CREATE VIEW pm3.pm3_calculator_output_with_measure_metadata_eav
+CREATE VIEW pm3.pm3_measure_calculator_output_with_measure_metadata_eav
   AS
     SELECT
         pm3calc_id,
@@ -45,7 +45,7 @@ CREATE VIEW pm3.pm3_calculator_output_with_measure_metadata_eav
             is_authoritative,
             tmc,
             jsonb_each(measure_data) AS d
-          FROM pm3.pm3_calculator_output_with_measure_metadata
+          FROM pm3.pm3_measure_calculator_output_with_measure_metadata
       ) AS t
   ;
 

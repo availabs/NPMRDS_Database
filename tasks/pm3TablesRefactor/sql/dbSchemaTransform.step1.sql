@@ -23,5 +23,3 @@ CREATE VIEW public.pm3_measure_calculator_metadata
 ;
 
 COMMIT;
-
-

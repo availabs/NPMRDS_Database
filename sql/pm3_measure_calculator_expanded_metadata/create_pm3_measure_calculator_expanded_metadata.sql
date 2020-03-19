@@ -4,7 +4,7 @@ BEGIN;
 --         so we can DROP this view rather than REPLACE.
 --         Currently, if columns need to change, manual
 --         work would be required to re-CREATE the dependents. 
-CREATE OR REPLACE VIEW pm3.pm3_calculator_measure_expanded_metadata
+CREATE OR REPLACE VIEW pm3.pm3_measure_calculator_expanded_metadata
   AS
     SELECT
         a.id AS pm3calc_id,

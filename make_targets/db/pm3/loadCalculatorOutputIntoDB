@@ -87,7 +87,7 @@ execSync(
 execSync(
   `psql -f ${join(
     __dirname,
-    '../../../sql/pm3_calculator_output/create_root_table.sql'
+    '../../../sql/pm3_measure_calculator_output/create_root_table.sql'
   )}`
 );
 
@@ -95,7 +95,7 @@ const createPm3CalculatorOutputTablePartition = pm3meacalc_id => {
   execSync(
     `psql -v PM3MEACALC_ID=${pm3meacalc_id} -f ${join(
       __dirname,
-      '../../../sql/pm3_calculator_output/create_partition_table.sql'
+      '../../../sql/pm3_measure_calculator_output/create_partition_table.sql'
     )}`
   );
 };
@@ -104,7 +104,7 @@ const finishPm3CalculatorOutputTablePartition = pm3meacalc_id => {
   execSync(
     `psql -v PM3MEACALC_ID=${pm3meacalc_id} -f ${join(
       __dirname,
-      '../../../sql/pm3_calculator_output/finish_partition_table.sql'
+      '../../../sql/pm3_measure_calculator_output/finish_partition_table.sql'
     )}`
   );
 };
@@ -154,7 +154,7 @@ const insertPM3CalculatorMetadata = async client => {
   return id;
 };
 
-// NOTE: Will cascade and clean up pm3_measure_calculator_metadata and pm3_calculator_output as well.
+// NOTE: Will cascade and clean up pm3_measure_calculator_metadata and pm3_measure_calculator_output as well.
 const deletePM3CalculatorMetadata = (client, pm3calc_id) =>
   client.query('DELETE FROM pm3.pm3_calculator_metadata WHERE id = $1', [
     pm3calc_id
@@ -196,7 +196,7 @@ const loadOutputFile = (pm3meacalc_id, outputFilePath) => {
       jq -s -c 'sort_by(.tmc, .attribute)[]' ${outputFilePath} |
         ${sortedCalculatorOutputAccumulatorPath} |
         psql -c '
-          COPY pm3_calculator_output_partitions.pm3_calculator_output_${pm3meacalc_id} (
+          COPY pm3_measure_calculator_output_partitions.pm3_measure_calculator_output_${pm3meacalc_id} (
             tmc,
             measure_data
           ) FROM STDIN WITH CSV  
