@@ -269,7 +269,7 @@ yargs
     command: 'create_pm3_tables',
     desc: 'Create the PM3 tables.',
     handler: ({ pg_env }) => {
-      spawn('make', ['db/create_pm3_tables'], {
+      spawn('./make_targets/db/pm3/create-pm3-tables', {
         cwd: __dirname,
         stdio: 'inherit',
         env: Object.assign({}, process.env, {
@@ -292,28 +292,30 @@ yargs
     }
   })
   .command({
-    command: 'cluster_pm3_eav_append_only_table',
-    desc: 'Cluster the pm3_eav_append_only_table on the tmc column.',
-    handler: ({ pg_env }) => {
-      spawn('make', ['db/cluster_pm3_eav_append_only_table'], {
+    command: 'load_pm3_calculator_output',
+    desc:
+      'Load a output directory from the pm3_calculator_2 project into the database PM3 tables.',
+    builder: {
+      calculatorOutputDir: {
+        type: 'string',
+        demand: true
+      },
+      pg_env: {
+        type: 'string',
+        demand: false,
+        choices: ['production', 'development'],
+        default: 'development'
+      }
+    },
+    handler: ({ calculatorOutputDir, pg_env }) => {
+      const args = [
+        `--calculatorOutputDir=${calculatorOutputDir}`,
+        `--pg_env=${pg_env}`
+      ];
+
+      spawn('./make_targets/db/pm3/loadCalculatorOutputIntoDB', args, {
         cwd: __dirname,
-        stdio: 'inherit',
-        env: Object.assign({}, process.env, {
-          PG_ENV: pg_env
-        })
-      });
-    }
-  })
-  .command({
-    command: 'create_pm3_admin_view',
-    desc: 'Create the PM3 Administator View.',
-    handler: ({ pg_env }) => {
-      spawn('./make_targets/db/pm3/create_pm3_admin_view', {
-        cwd: __dirname,
-        stdio: 'inherit',
-        env: Object.assign({}, process.env, {
-          PG_ENV: pg_env
-        })
+        stdio: 'inherit'
       });
     }
   })
@@ -669,8 +671,7 @@ yargs
   })
   .command({
     command: 'dump-pm3-tables',
-    desc:
-      'Creates a compressed SQL dump of the PM3 Tables.' ,
+    desc: 'Creates a compressed SQL dump of the PM3 Tables.',
     builder: {
       dataDir: {
         type: 'string',
@@ -689,13 +690,7 @@ yargs
         })
       };
 
-      spawn(
-        join(
-          __dirname,
-          'make_targets/db_backups/dump_pm3_tables'
-        ),
-        opts
-      );
+      spawn(join(__dirname, 'make_targets/db_backups/dump_pm3_tables'), opts);
     }
   })
   .command({

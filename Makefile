@@ -661,35 +661,6 @@ db/archive-npmrds-state-yrmo:
 
 #####################################################
 
-db/create_pm3_calculator_metadata_table:
-	@if ! psql -c '\d public.pm3_calculator_metadata' > /dev/null 2>&1; then\
-		psql -f './sql/pm3_calculator_metadata/create_pm3_calculator_metadata_table.sql';\
-	fi
-
-db/create_pm3_measure_calculator_metadata_table: db/create_pm3_calculator_metadata_table
-	@if ! psql -c '\d public.pm3_measure_calculator_metadata' > /dev/null 2>&1; then\
-		psql -f './sql/pm3_measure_calculator_metadata/create_pm3_measure_calculator_metadata_table.sql';\
-	fi
-
-db/create_pm3_eav_append_only_table: db/create_pm3_measure_calculator_metadata_table
-	@if ! psql -c '\d public.pm3_eav_append_only' > /dev/null 2>&1; then\
-		psql -f './sql/pm3_eav_append_only/create_pm3_eav_append_only.sql';\
-	fi
-
-db/cluster_pm3_eav_append_only_table: db/create_pm3_eav_append_only_table
-	@psql --quiet -f './sql/pm3_eav_append_only/cluster_pm3_eav_append_only.sql'
-
-db/create_pm3_authoritative_view: db/create_pm3_eav_append_only_table
-	@psql --quiet -f './sql/pm3_authoritative_view/create_pm3_authoritative_view.sql';
-
-db/create_pm3_authoritative_geolevel_mview: db/create_pm3_authoritative_view
-	@psql --quiet -f './sql/pm3_authoritative_geolevel_mview/create_pm3_authoritative_geolevel_mview.sql';
-
-db/create_pm3_tables: db/create_pm3_authoritative_view
-
-#####################################################
-
-
 db/create-root-avgtt-table: db/create-root-npmrds-table
 	@set -e;\
 	if ! psql -c '\d public.avgtt' > /dev/null 2>&1; then\

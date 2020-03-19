@@ -48,6 +48,6 @@ pg_dump \
   --exclude-table-data='highway_data_services_data.*' \
   --exclude-table-data='*.npmrds' \
   --exclude-table-data='*.npmrds_y*' \
-  --exclude-table-data='*.pm3_eav_append_only' \
+  --exclude-table-data='*.pm3*' \
   > "$LOGFILE_PATH" 2>&1
 

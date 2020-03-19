@@ -1,0 +1,58 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+pushd ../../../ >/dev/null
+
+# shellcheck disable=SC1091
+source ./config/postgres.env.pluto
+
+./run create_pm3_tables --pg_env production
+
+SQL="
+  SELECT
+      id
+    FROM pm3.pm3_measure_calculator_metadata
+    WHERE id NOT IN (
+      SELECT
+          pm3meacalc_id
+        FROM pm3.pm3_calculator_output
+    )
+    ORDER BY 1
+  ;
+"
+
+psql -qAt -c "$SQL" |
+  while read -r pm3meacalc_id; do
+    echo "=> $pm3meacalc_id"
+    psql -v PM3MEACALC_ID="$pm3meacalc_id" -f ../../../sql/pm3_calculator_output/create_partition_table.sql
+
+    TABLE_NAME="pm3_calculator_output_partitions.pm3_calculator_output_$pm3meacalc_id"
+
+    SQL2="
+      INSERT INTO ${TABLE_NAME} (tmc, measure_data)
+        SELECT
+            tmc,
+            jsonb_object_agg(
+              attribute,
+              value
+              order by attribute
+            )
+          FROM pm3_eav_append_only
+          WHERE ( pm3meacalc_id = $pm3meacalc_id )
+          GROUP BY tmc
+      ;
+    "
+    
+    psql -c "$SQL2"
+
+    psql -v PM3MEACALC_ID="$pm3meacalc_id" -f ../../../sql/pm3_calculator_output/finish_partition_table.sql
+
+    psql -c "VACUUM FREEZE $TABLE_NAME;"
+    psql -c "ANALYZE $TABLE_NAME;"
+  done
+
+popd >/dev/null
+popd >/dev/null

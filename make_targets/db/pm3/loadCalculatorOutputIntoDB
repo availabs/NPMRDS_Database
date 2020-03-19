@@ -1,0 +1,298 @@
+#!/usr/bin/env node
+
+/* eslint no-console: 0, no-await-in-loop: 0 */
+
+const { execSync } = require('child_process');
+const { isAbsolute, join } = require('path');
+const { existsSync, readFileSync } = require('fs');
+
+const _ = require('lodash');
+// const through2 = require('through2');
+
+const { Client } = require('pg');
+
+const yargs = require('yargs');
+const envFile = require('node-env-file');
+
+const cliArgsSpec = {
+  calculatorOutputDir: {
+    type: 'string',
+    demand: true
+  },
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    default: 'development'
+  }
+};
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const { pg_env, calculatorOutputDir } = argv;
+
+const configPath = join(
+  __dirname,
+  pg_env === 'production'
+    ? '../../../config/postgres.env.prod'
+    : '../../../config/postgres.env.dev'
+);
+envFile(configPath);
+
+process.env.PGOPTIONS = '--client-min-messages=warning';
+
+if (!calculatorOutputDir) {
+  console.error(
+    'ERROR: The calculator output directory path must be specified as the 1st cli argument.'
+  );
+  process.exit(1);
+}
+
+const sortedCalculatorOutputAccumulatorPath = join(
+  __dirname,
+  './utils/sortedCalculatorOutputAccumulator'
+);
+
+const calculatorOutputDirPath = isAbsolute(calculatorOutputDir)
+  ? calculatorOutputDir
+  : join(process.cwd(), calculatorOutputDir);
+
+if (!existsSync(calculatorOutputDirPath)) {
+  console.error(
+    `ERROR: The specified calculator output directory ${calculatorOutputDirPath} does not exist.`
+  );
+  process.exit(1);
+}
+
+// Create the PM3 Tables
+execSync(
+  `psql -f ${join(
+    __dirname,
+    '../../../sql/pm3_calculator_metadata/create_pm3_calculator_metadata_table.sql'
+  )}`
+);
+execSync(
+  `psql -f ${join(
+    __dirname,
+    '../../../sql/pm3_measure_calculator_metadata/create_pm3_measure_calculator_metadata_table.sql'
+  )}`
+);
+execSync(
+  `psql -f ${join(
+    __dirname,
+    '../../../sql/pm3_calculator_output/create_root_table.sql'
+  )}`
+);
+
+const createPm3CalculatorOutputTablePartition = pm3meacalc_id => {
+  execSync(
+    `psql -v PM3MEACALC_ID=${pm3meacalc_id} -f ${join(
+      __dirname,
+      '../../../sql/pm3_calculator_output/create_partition_table.sql'
+    )}`
+  );
+};
+
+const finishPm3CalculatorOutputTablePartition = pm3meacalc_id => {
+  execSync(
+    `psql -v PM3MEACALC_ID=${pm3meacalc_id} -f ${join(
+      __dirname,
+      '../../../sql/pm3_calculator_output/finish_partition_table.sql'
+    )}`
+  );
+};
+
+const calculatorMetadataFilePath = join(
+  calculatorOutputDirPath,
+  'calculator_metadata.json'
+);
+
+if (!existsSync(calculatorMetadataFilePath)) {
+  console.error(
+    `ERROR: ${calculatorOutputDirPath} does not contain a calculator_metadata.json file.`
+  );
+  process.exit(1);
+}
+
+const calculatorMetadata = JSON.parse(
+  readFileSync(calculatorMetadataFilePath, {
+    encoding: 'utf8'
+  })
+);
+
+if (calculatorMetadata.calculatorSettings.outputFileFormat !== 'NDJSON') {
+  console.error(
+    'ERROR: The loader requires the calculator was run with --outputFileFormat=NDJSON'
+  );
+  process.exit(1);
+}
+
+if (calculatorMetadata.calculatorSettings.outputFormat !== 'EAV') {
+  console.error(
+    'ERROR: The loader requires the calculator was run with --outputFormat=EAV'
+  );
+  process.exit(1);
+}
+
+const { calculators: pm3MeasureCalculatorsMetadata } = calculatorMetadata;
+
+const insertPM3CalculatorMetadata = async client => {
+  const {
+    rows: [{ id }]
+  } = await client.query(
+    'INSERT INTO pm3.pm3_calculator_metadata (metadata) VALUES ($1) RETURNING id',
+    [calculatorMetadata]
+  );
+
+  return id;
+};
+
+// NOTE: Will cascade and clean up pm3_measure_calculator_metadata and pm3_calculator_output as well.
+const deletePM3CalculatorMetadata = (client, pm3calc_id) =>
+  client.query('DELETE FROM pm3.pm3_calculator_metadata WHERE id = $1', [
+    pm3calc_id
+  ]);
+
+const insertPM3MeasureCalculatorsMetadata = async (client, pm3calc_id) => {
+  const pm3meacalc_ids = [];
+
+  try {
+    await client.query('BEGIN');
+
+    for (let i = 0; i < pm3MeasureCalculatorsMetadata.length; ++i) {
+      const metadata = pm3MeasureCalculatorsMetadata[i];
+
+      const {
+        rows: [{ id }]
+      } = await client.query(
+        'INSERT INTO pm3.pm3_measure_calculator_metadata (pm3calc_id, metadata) VALUES ($1, $2) RETURNING id',
+        [pm3calc_id, _.omit(metadata, 'outputFileName')]
+      );
+
+      pm3meacalc_ids.push(id);
+    }
+
+    await client.query('COMMIT');
+
+    return pm3meacalc_ids;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  }
+};
+
+const loadOutputFile = (pm3meacalc_id, outputFilePath) => {
+  if (existsSync(outputFilePath)) {
+    createPm3CalculatorOutputTablePartition(pm3meacalc_id);
+
+    execSync(`
+      jq -s -c 'sort_by(.tmc, .attribute)[]' ${outputFilePath} |
+        ${sortedCalculatorOutputAccumulatorPath} |
+        psql -c '
+          COPY pm3_calculator_output_partitions.pm3_calculator_output_${pm3meacalc_id} (
+            tmc,
+            measure_data
+          ) FROM STDIN WITH CSV  
+    '`);
+
+    finishPm3CalculatorOutputTablePartition(pm3meacalc_id);
+  }
+};
+
+const loadMetadata = async (
+  metadataType, // TMC or RIS
+  client,
+  pm3calc_id,
+  metadataFileName
+) => {
+  if (!metadataFileName) {
+    return;
+  }
+
+  const outputFilePath = join(calculatorOutputDir, metadataFileName);
+
+  if (existsSync(outputFilePath)) {
+    const pseudoMetadata = {
+      measure: metadataType,
+      year: calculatorMetadata.calculatorSettings.year,
+      isCanonical: true
+    };
+
+    try {
+      const {
+        rows: [{ id: pm3meacalc_id }]
+      } = await client.query(
+        'INSERT INTO pm3.pm3_measure_calculator_metadata (pm3calc_id, metadata) VALUES ($1, $2) RETURNING id',
+        [pm3calc_id, pseudoMetadata]
+      );
+
+      loadOutputFile(pm3meacalc_id, outputFilePath);
+    } catch (err) {
+      throw err;
+    }
+  } else {
+    throw new Error(
+      `ERROR: measure file ${outputFilePath} is missing from the outputDir`
+    );
+  }
+};
+
+const loadTmcMetadata = loadMetadata.bind(null, 'TMC_METADATA');
+const loadRisMetadata = loadMetadata.bind(null, 'RIS_METADATA');
+
+const loadCalculatorOutput = (pm3meacalc_ids) => {
+  for (let i = 0; i < pm3meacalc_ids.length; ++i) {
+    const pm3meacalc_id = pm3meacalc_ids[i];
+
+    const metadata = pm3MeasureCalculatorsMetadata[i];
+    const { outputFileName } = metadata;
+    const outputFilePath = join(calculatorOutputDir, outputFileName);
+
+    loadOutputFile(pm3meacalc_id, outputFilePath);
+  }
+};
+
+(async () => {
+  let pm3calc_id;
+  let pm3meacalc_ids;
+
+  try {
+    const client = new Client();
+    await client.connect();
+
+    const { tmcMetadataFileName, risMetadataFileName } = calculatorMetadata;
+
+    try {
+      pm3calc_id = await insertPM3CalculatorMetadata(client);
+      pm3meacalc_ids = await insertPM3MeasureCalculatorsMetadata(
+        client,
+        pm3calc_id
+      );
+
+      await loadTmcMetadata(client, pm3calc_id, tmcMetadataFileName);
+
+      if (!_.isEmpty(risMetadataFileName)) {
+        await loadRisMetadata(client, pm3calc_id, risMetadataFileName);
+      }
+
+      loadCalculatorOutput(pm3calc_id, pm3meacalc_ids);
+    } catch (err) {
+      // Clean up failed load. DELETE cascades.
+      console.error('DELETING all data from this pm3_calculator run.');
+      await deletePM3CalculatorMetadata(client, pm3calc_id);
+      console.error(err.message);
+    } finally {
+      client.end();
+    }
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
+})();

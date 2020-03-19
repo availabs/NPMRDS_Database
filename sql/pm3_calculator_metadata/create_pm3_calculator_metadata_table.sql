@@ -1,4 +1,8 @@
-CREATE TABLE public.pm3_calculator_metadata (
+BEGIN;
+
+CREATE SCHEMA IF NOT EXISTS pm3;
+
+CREATE TABLE IF NOT EXISTS pm3.pm3_calculator_metadata (
   id          SERIAL PRIMARY KEY,
   metadata    JSONB,
   CHECK (
@@ -10,6 +14,8 @@ CREATE TABLE public.pm3_calculator_metadata (
   )
 );
 
-CREATE UNIQUE INDEX pm3_calculator_metadata_idx
-  ON pm3_calculator_metadata( (metadata->'timestamp') )
+CREATE UNIQUE INDEX IF NOT EXISTS pm3_calculator_metadata_idx
+  ON pm3.pm3_calculator_metadata( (metadata->'timestamp') )
 ;
+
+COMMIT;

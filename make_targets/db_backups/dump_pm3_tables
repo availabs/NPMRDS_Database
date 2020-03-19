@@ -27,10 +27,10 @@ popd >/dev/null
 sleep 3
 
 TIMESTAMP="$( date '+%s' )"
-DUMP_FILE_NAME="npmrds_pm3_tables_dump.$TIMESTAMP"
+DUMPFILE_NAME="npmrds_pm3_tables_dump.$TIMESTAMP"
 LOGFILE_NAME="npmrds_pm3_tables_dump.$TIMESTAMP.log"
 
-DUMP_FILE_PATH="$( realpath "${DATA_DIR}/${DUMP_FILE_NAME}.gz" )"
+DUMPFILE_PATH="$( realpath "${DATA_DIR}/${DUMPFILE_NAME}.gz" )"
 LOGFILE_PATH="$( realpath "${DATA_DIR}/${LOGFILE_NAME}" )"
 
 (>&2 echo "logging dump messages to $LOGFILE_PATH")
@@ -40,7 +40,7 @@ pg_dump \
   --verbose \
   --compress=9 \
   --format=plain \
-  --file="$DUMP_FILE_PATH" \
+  --file="$DUMPFILE_PATH" \
   --table='pm3_calculator_metadata' \
   --table='pm3_measure_calculator_metadata' \
   --table='pm3_authoritative_view' \

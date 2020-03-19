@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -e
+set -a
+
+# Change CWD to this script's directory.
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+if [ "$PG_ENV" = "production" ]; then
+  . ../../../config/postgres.env.prod
+else
+	. ../../../config/postgres.env.dev
+fi
+
+export PGOPTIONS='--client-min-messages=warning';
+
+SQL_DIR='../../../sql'
+
+psql --quiet -f "$SQL_DIR/pm3_calculator_metadata/create_pm3_calculator_metadata_table.sql"
+psql --quiet -f "$SQL_DIR/pm3_measure_calculator_metadata/create_pm3_measure_calculator_metadata_table.sql"
+psql --quiet -f "$SQL_DIR/pm3_calculator_output/create_root_table.sql"
+psql --quiet -f "$SQL_DIR/pm3_calculator_measure_expanded_metadata/create_pm3_calculator_measure_expanded_metadata.sql"
+psql --quiet -f "$SQL_DIR/pm3_calculator_output_with_measure_metadata/create_calculator_output_with_measure_metadata.sql"
+
+popd >/dev/null

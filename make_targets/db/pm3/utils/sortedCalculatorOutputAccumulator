@@ -1,0 +1,57 @@
+#!/usr/bin/env node
+
+/* eslint no-console: 0, no-await-in-loop: 0 */
+
+const _ = require('lodash');
+const split2 = require('split2');
+const { pipe, through } = require('mississippi');
+
+let accumulator;
+
+pipe(
+  process.stdin,
+  split2(JSON.parse), // https://github.com/mcollina/split2#ndj---newline-delimited-json
+  through.obj(
+    function accumulateByTmc({ tmc, attribute, value }, $, cb) {
+      if (_.get(accumulator, 'tmc') !== tmc) {
+        if (!_.isEmpty(accumulator)) {
+          this.push(accumulator);
+        }
+
+        // reset
+        accumulator = { tmc };
+      }
+
+      accumulator[attribute] = value;
+
+      cb();
+    },
+    function flush(cb) {
+      console.error('loadOutputFile: flush');
+      if (!_.isEmpty(accumulator)) {
+        this.push(accumulator);
+      }
+
+      cb();
+    }
+  ),
+  through.obj(function ndjsonTransformer(d, $, cb) {
+    const { tmc } = d;
+    const measureData = _.omit(d, 'tmc');
+
+    const row = `"${tmc}","${JSON.stringify(measureData).replace(
+      /"/g,
+      '"""'
+    )}"`;
+
+    this.push(Buffer.from(`${row}\n`));
+    cb();
+  }),
+  process.stdout,
+  err => {
+    if (err) {
+      console.error(err);
+      process.exit(1);
+    }
+  }
+);

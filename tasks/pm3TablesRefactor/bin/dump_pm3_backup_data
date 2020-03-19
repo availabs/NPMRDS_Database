@@ -1,0 +1,27 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+mkdir -p ../data/
+
+source ../../../config/postgres.env.pluto
+
+time psql -c '
+    COPY (
+      SELECT * FROM pm3_authoritative_view_bak
+    ) TO STDOUT WITH CSV HEADER FORCE QUOTE *
+  ' |
+  gzip -9 \
+  > ../data/pm3_authoritative_view_bak.csv.gz
+
+time psql -c '
+  COPY (
+    SELECT * FROM pm3_authoritative_geolevel_mview_bak
+  ) TO STDOUT WITH CSV HEADER FORCE QUOTE *' |
+  gzip -9 \
+  > ../data/pm3_authoritative_geolevel_mview_bak.csv.gz
+
+popd >/dev/null
