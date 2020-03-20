@@ -27,7 +27,6 @@ pipe(
       cb();
     },
     function flush(cb) {
-      console.error('loadOutputFile: flush');
       if (!_.isEmpty(accumulator)) {
         this.push(accumulator);
       }

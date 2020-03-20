@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+pushd ../../../ >/dev/null
+
+find ./data/pm3_calculator/output.20200303.complete_ny_rerun/ \
+    -name 'npmrds_measures_calculator_*' -type d |
+  while read -r output_dir; do
+    echo "$output_dir"
+
+    ./run load_pm3_calculator_output --pg_env production --calculatorOutputDir "$output_dir" 
+  done
+
+popd >/dev/null
+popd >/dev/null
