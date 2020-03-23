@@ -1,17 +1,29 @@
 BEGIN;
 
-CREATE OR REPLACE VIEW pm3.pm3_calculator_canonical_run_provenance
+CREATE OR REPLACE VIEW pm3.pm3_calculator_canonical_run_provenances
   AS
     SELECT
-        *
+        pm3calc_id,
+        calculator_run_timestamp,
+        npmrds_data_download_timestamp,
+        tmc_metadata_version_timestamp,
+        pm3_calculator_code_version_timestamp,
+        state,
+        year
       FROM (
         SELECT
-            id AS pm3calc_id,
-            metadata->>'state' AS state,
-            metadata->'calculatorSettings'->>'year' AS year,
-            (metadata->>'timestamp')::TIMESTAMP AS calculator_run_timestamp,
-            SUBSTRING(metadata->'gitRepoState'->>'hash' FROM 1 FOR 40) AS git_hash
-          FROM pm3.pm3_calculator_metadata
+            m.id AS pm3calc_id,
+            m.metadata->>'state' AS state,
+            m.metadata->'calculatorSettings'->>'year' AS year,
+            (m.metadata->>'timestamp')::TIMESTAMP AS calculator_run_timestamp,
+            c.pm3_calculator_code_version_timestamp
+          FROM pm3.pm3_calculator_metadata AS m
+            INNER JOIN pm3.pm3_calculator_code_version_timestamps AS c
+              ON (
+                SUBSTRING(m.metadata->'gitRepoState'->>'hash' FROM 1 FOR 40)
+                =
+                c.git_hash
+              )
           WHERE metadata->>'state' <> 'false'
       ) AS t0
         INNER JOIN LATERAL (

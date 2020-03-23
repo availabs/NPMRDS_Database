@@ -14,13 +14,12 @@ fi
 
 export PGOPTIONS='--client-min-messages=warning';
 
-SQL_DIR='../../../sql'
-
-psql --quiet -f "$SQL_DIR/pm3_calculator_metadata/create_pm3_calculator_metadata_table.sql"
-psql --quiet -f "$SQL_DIR/pm3_measure_calculator_metadata/create_pm3_measure_calculator_metadata_table.sql"
-psql --quiet -f "$SQL_DIR/pm3_measure_calculator_output/create_root_table.sql"
-psql --quiet -f "$SQL_DIR/pm3_measure_calculator_expanded_metadata/create_pm3_measure_calculator_expanded_metadata.sql"
-psql --quiet -f "$SQL_DIR/pm3_measure_calculator_output_with_measure_metadata/create_measure_calculator_output_with_measure_metadata.sql"
-psql --quiet -f "$SQL_DIR/pm3_calculator_metadata/create_pm3_calculator_metadata_table.sql"
+psql --quiet -f ../../../sql/pm3_calculator_metadata/create_pm3_calculator_metadata_table.sql
+psql --quiet -f ../../../sql/pm3_measure_calculator_metadata/create_pm3_measure_calculator_metadata_table.sql
+psql --quiet -f ../../../sql/pm3_measure_calculator_output/create_root_table.sql
+psql --quiet -f ../../../sql/pm3_measure_calculator_expanded_metadata/create_pm3_measure_calculator_expanded_metadata.sql
+psql --quiet -f ../../../sql/pm3_measure_calculator_output_with_measure_metadata/create_measure_calculator_output_with_measure_metadata.sql
+psql --quiet -f ../../../sql/pm3_calculator_code_version_first_seen_timestamps/pm3_calculator_code_version_first_seen_timestamps.sql
+psql --quiet -f ../../../sql/pm3_calculator_canonical_run_provenance/create_pm3_calculator_canonical_run_provenance.sql
 
 popd >/dev/null
