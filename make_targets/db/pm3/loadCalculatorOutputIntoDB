@@ -247,7 +247,7 @@ const loadMetadata = async (
 const loadTmcMetadata = loadMetadata.bind(null, 'TMC_METADATA');
 const loadRisMetadata = loadMetadata.bind(null, 'RIS_METADATA');
 
-const loadCalculatorOutput = (pm3meacalc_ids) => {
+const loadCalculatorOutput = pm3meacalc_ids => {
   for (let i = 0; i < pm3meacalc_ids.length; ++i) {
     const pm3meacalc_id = pm3meacalc_ids[i];
 
