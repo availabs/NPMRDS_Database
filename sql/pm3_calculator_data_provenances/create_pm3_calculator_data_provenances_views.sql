@@ -1,0 +1,143 @@
+BEGIN;
+
+CREATE OR REPLACE VIEW pm3.npmrds_data_download_timestamps
+  AS
+    SELECT DISTINCT
+        state,
+        year,
+        -- Get the latest download timestamp within a 6 day window
+        --   because timestamps may be clustered when downloading multiple
+        --   months at a time. We only want the final download timestamp
+        --   for the cluster.
+        first_value(npmrds_data_download_timestamp) OVER (
+          PARTITION BY state, year
+          ORDER BY npmrds_data_download_timestamp DESC
+          RANGE BETWEEN '3 days' PRECEDING AND '3 days' FOLLOWING
+        ) AS npmrds_data_download_timestamp
+      FROM (
+        SELECTg
+            table_schema AS state,
+            SUBSTRING(table_name FROM 20 FOR 4)::INTEGER AS year,
+            SUBSTRING(UPPER(table_name) FROM 26)::TIMESTAMP AS npmrds_data_download_timestamp
+          FROM information_schema.tables
+          WHERE (
+            ( table_schema <> 'public' )
+            AND
+            ( table_name LIKE 'tmc_identification_%_v%' )
+          )
+      ) AS t
+;
+
+CREATE OR REPLACE VIEW pm3.tmc_metadata_version_timestamps
+  AS
+    SELECT DISTINCT
+        table_schema AS state,
+        SUBSTRING((table_name) FROM 14 FOR 4)::INTEGER AS year,
+        (
+          SUBSTRING((table_name) FROM 20 FOR 8)
+          || 'T'
+          || SUBSTRING((table_name) FROM 28)
+        )::TIMESTAMP AS tmc_metadata_version_timestamp
+      FROM information_schema.tables
+      WHERE (
+        ( table_schema <> 'public' )
+        AND
+        ( table_name LIKE 'tmc_metadata_%_v%' )
+      )
+;
+
+CREATE OR REPLACE VIEW pm3.pm3_calculator_code_version_timestamps
+  AS
+    SELECT *
+      FROM (
+        SELECT DISTINCT ON (1)
+            SUBSTRING(metadata->'gitRepoState'->>'hash' FROM 1 FOR 40) AS git_hash,
+            (metadata->>'timestamp')::TIMESTAMP AS pm3_calculator_code_version_timestamp
+          FROM pm3.pm3_calculator_metadata
+          ORDER BY 1, 2g
+      ) AS t
+      ORDER BY 2
+    ;
+
+CREATE OR REPLACE VIEW pm3.pm3_calculator_data_provenances
+  AS
+    SELECT
+        pm3calc_id,
+        state,
+        year,
+        calculator_run_timestamp,
+        npmrds_data_download_timestamp,
+        tmc_metadata_version_timestamp,
+        pm3_calculator_code_version_timestamp,
+        NULL AS conflation_map_version_timestamp,
+        NULL AS ris_timestamp,
+        NULL AS hwds_traffic_counts_timestamp
+      FROM (
+        SELECT
+            m.id AS pm3calc_id,
+            jsonb_array_elements_text(metadata->'calculatorSettings'->'states') AS state,
+            (m.metadata->'calculatorSettings'->>'year')::INTEGER AS year,
+            (m.metadata->>'timestamp')::TIMESTAMP AS calculator_run_timestamp,
+            c.pm3_calculator_code_version_timestamp
+          FROM pm3.pm3_calculator_metadata AS m
+            INNER JOIN pm3.pm3_calculator_code_version_timestamps AS c
+              ON (
+                SUBSTRING(m.metadata->'gitRepoState'->>'hash' FROM 1 FOR 40)
+                =
+                c.git_hash
+              )
+      ) AS t0
+        INNER JOIN LATERAL (
+          SELECTg
+              state,
+              year,
+              npmrds_data_download_timestamp
+            FROM pm3.npmrds_data_download_timestamps AS nddt
+            WHERE (
+              ( t0.state = nddt.state )
+              AND
+              ( t0.year = nddt.year )
+              AND
+              ( t0.calculator_run_timestamp > nddt.npmrds_data_download_timestamp )
+            )
+            -- We only want the npmrds_data_download_timestamp that
+            --   immediately precedes that calculator_run_timestamp
+            ORDER BY nddt.npmrds_data_download_timestamp DESC
+            LIMIT 1
+        ) AS t1 USING (state, year)
+        INNER JOIN LATERAL (
+          SELECTg
+              state,
+              year,
+              tmc_metadata_version_timestamp
+            FROM pm3.tmc_metadata_version_timestamps AS tmvt
+            WHERE (
+              ( t0.state = tmvt.state )
+              AND
+              ( t0.year = tmvt.year )
+              AND
+              ( t0.calculator_run_timestamp > tmvt.tmc_metadata_version_timestamp )
+            )
+            -- We only want the npmrds_data_download_timestamp that
+            --   immediately precedes that calculator_run_timestamp
+            ORDER BY tmvt.tmc_metadata_version_timestamp DESC
+            LIMIT 1
+        ) AS t2 USING (state, year)
+        ORDER BY pm3calc_id
+    ;
+
+CREATE OR REPLACE VIEW pm3.pm3_measure_calculator_expanded_metadata_with_data_provenances
+  AS
+    SELECT
+        *
+      FROM pm3.pm3_calculator_data_provenances
+        INNER JOIN pm3.pm3_measure_calculator_expanded_metadata
+          USING (
+            pm3calc_id,
+            calculator_run_timestamp,
+            year
+          )
+;
+
+
+COMMIT;
