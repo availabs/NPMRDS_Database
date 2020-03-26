@@ -11,37 +11,53 @@ BEGIN;
 \set idx_name 'tmc_metadata_':YEAR'_v':TMC_METADATA_VERSION'_pkey'
 \set tmc_ident_tbl :"STATE"'.tmc_identification_':YEAR
 
-
 CREATE TEMPORARY TABLE tmp_tmc2mpo
   ON COMMIT DROP
   AS
     SELECT DISTINCT ON (tmc)
         tmc,
-        mpo_id AS mpo_code,
         mpo_name,
-        mpo_acrony
+        mpo_acrony,
+        mpo_code
       FROM (
-          SELECT
-              tmc,
-              wkb_geometry
-            FROM public.npmrds_shapefile_:YEAR AS shp
-              INNER JOIN state_abbreviations AS abbr
-              ON (UPPER(shp.state) = UPPER(abbr.state_name))
-            WHERE ( abbr.abbreviation = :'STATE')
-        ) AS state_shp
-        INNER JOIN mpo_boundaries_view AS mpob
-          ON (
-            ST_Contains(
-              mpob.wkb_geometry,
-              ST_ClosestPoint(
-                state_shp.wkb_geometry,
-                ST_Centroid(state_shp.wkb_geometry)
-              )
-            )
-          )
-      ORDER BY tmc, mpo_id
+        SELECT
+            tmc,
+            mpo_name,
+            mpo_acrony,
+            mpo_id AS mpo_code,
+            (
+              ST_Length(
+                GEOGRAPHY(
+                  ST_Intersection(
+                    mpob.wkb_geometry,
+                    state_shp.wkb_geometry
+                  )
+                )
+              )::NUMERIC
+              * 0.000621371::NUMERIC
+            ) AS miles_in_mpo,
+            (
+              ST_Length(
+                GEOGRAPHY(
+                  state_shp.wkb_geometry
+                )
+              )::NUMERIC
+              * 0.000621371::NUMERIC
+            )::NUMERIC AS tmc_miles
+          FROM :"STATE".npmrds_shapefile_:YEAR AS state_shp
+            INNER JOIN mpo_boundaries_view AS mpob
+              ON ( mpob.wkb_geometry && state_shp.wkb_geometry )
+      ) AS t
+      WHERE (
+        ( ( miles_in_mpo / tmc_miles )
+          >=
+          (1::NUMERIC / 2::NUMERIC)
+        )
+        OR
+        ( miles_in_mpo >= 1 )
+      )
+      ORDER BY tmc, ( miles_in_mpo / tmc_miles ) DESC, mpo_code
 ;
-
 
 CREATE TEMPORARY TABLE tmp_speed_reduction_factor
   ON COMMIT DROP
