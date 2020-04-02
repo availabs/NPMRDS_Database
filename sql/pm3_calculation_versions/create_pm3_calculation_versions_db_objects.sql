@@ -264,6 +264,8 @@ CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
                       )
                       ||
                       ( measure_calc_config - 'outputFileName' )
+                      ||
+                      COALESCE(data_provenance_metadata, '{}'::JSONB)
                     )
                     ORDER BY pm3_calc_run_id, measure_calc_config->>'measure'
                   ) AS state_measure_metadata
@@ -320,7 +322,12 @@ CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
                       AND
                       ( measure_calc_config->>'measure' = ANY( pcv.available_measures ) )
                     )
-                ) AS t0
+                ) AS t0 LEFT OUTER JOIN LATERAL (
+                  SELECT
+                      data_provenance_metadata->(t0.state) AS data_provenance_metadata
+                    FROM pm3.pm3_calculator_data_provenances AS pcdp
+                    WHERE ( t0.pm3_calc_run_id = pcdp.id )
+                ) AS t2 ON (true)
                 GROUP BY state
             ) AS t1
           ) AS t ON (true)

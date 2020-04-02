@@ -58,8 +58,8 @@ CREATE OR REPLACE VIEW pm3.pm3_calculator_code_version_timestamps
       ) AS t
     ;
 
-DROP VIEW IF EXISTS pm3.pm3_calculator_data_provenances CASCADE;
-CREATE VIEW pm3.pm3_calculator_data_provenances
+--  DROP VIEW IF EXISTS pm3.pm3_calculator_data_provenances CASCADE;
+CREATE OR REPLACE VIEW pm3.pm3_calculator_data_provenances
   AS
     SELECT
         id,

@@ -10,12 +10,12 @@ pushd ../../../ >/dev/null
 SQL_DIR='./sql'
 
 # shellcheck disable=SC1091
-source ./config/postgres.env.local
-./run create_pm3_tables
+# source ./config/postgres.env.local
+# ./run create_pm3_tables
 
 # shellcheck disable=SC1091
-# source ./config/postgres.env.pluto
-# ./run create_pm3_tables --pg_env=production
+source ./config/postgres.env.pluto
+./run create_pm3_tables --pg_env=production
 
 SQL="
   SELECT
