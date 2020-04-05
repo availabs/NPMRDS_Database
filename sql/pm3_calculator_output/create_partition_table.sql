@@ -4,7 +4,7 @@ BEGIN;
 
 CREATE SCHEMA IF NOT EXISTS pm3_calculator_output_partitions;
 
-CREATE TABLE :tbl_name
+CREATE TABLE IF NOT EXISTS :tbl_name
   PARTITION OF pm3.pm3_calculator_output
   FOR VALUES IN (:PM3CALC_ID)
   WITH (fillfactor=100)

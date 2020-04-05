@@ -3,6 +3,8 @@
 
 BEGIN;
 
+ALTER TABLE :tbl_name DROP CONSTRAINT IF EXISTS :pkey_idx_name;
+
 ALTER TABLE :tbl_name
   ADD CONSTRAINT :pkey_idx_name
   PRIMARY KEY (tmc, measure)
