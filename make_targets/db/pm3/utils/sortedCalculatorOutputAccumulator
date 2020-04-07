@@ -2,23 +2,33 @@
 
 /* eslint no-console: 0, no-await-in-loop: 0 */
 
+const assert = require('assert')
+
 const _ = require('lodash');
 const split2 = require('split2');
 const { pipe, through } = require('mississippi');
 
+let theMeasure
 let accumulator;
 
 pipe(
   process.stdin,
   split2(JSON.parse), // https://github.com/mcollina/split2#ndj---newline-delimited-json
   through.obj(
-    function accumulateByTmc({ tmc, attribute, value }, $, cb) {
+    function accumulateByTmc({ tmc, measure, attribute, value }, $, cb) {
+      if (!theMeasure) {
+        theMeasure = measure
+      } else {
+        assert(measure === theMeasure)
+      }
+
       if (_.get(accumulator, 'tmc') !== tmc) {
+        // If we have an initialized accumulator, emit it
         if (!_.isEmpty(accumulator)) {
           this.push(accumulator);
         }
 
-        // reset
+        // initialize/reset accumulator
         accumulator = { tmc };
       }
 
@@ -38,7 +48,7 @@ pipe(
     const { tmc } = d;
     const measureData = _.omit(d, 'tmc');
 
-    const row = `"${tmc}","${JSON.stringify(measureData).replace(
+    const row = `"${tmc}","${theMeasure}","${JSON.stringify(measureData).replace(
       /"/g,
       '"""'
     )}"`;

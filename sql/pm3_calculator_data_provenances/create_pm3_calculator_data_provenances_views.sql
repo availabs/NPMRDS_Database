@@ -56,42 +56,57 @@ CREATE OR REPLACE VIEW pm3.pm3_calculator_code_version_timestamps
           FROM pm3.pm3_calculator_metadata
           ORDER BY 1, 2
       ) AS t
-      ORDER BY 2
     ;
 
-DROP VIEW IF EXISTS pm3.pm3_calculator_data_provenances CASCADE;
-CREATE VIEW pm3.pm3_calculator_data_provenances
+--  DROP VIEW IF EXISTS pm3.pm3_calculator_data_provenances CASCADE;
+CREATE OR REPLACE VIEW pm3.pm3_calculator_data_provenances
   AS
     SELECT
-        pm3calc_id,
-        state,
-        year,
-        calculator_run_timestamp,
-        npmrds_data_version_download_timestamp,
-        tmc_metadata_version_timestamp,
-        pm3_calculator_code_version_timestamp,
-        NULL AS conflation_map_version_timestamp,
-        NULL AS ris_version_timestamp,
-        NULL AS hwds_traffic_counts_version_timestamp
+        id,
+        jsonb_object_agg(
+          state,
+          jsonb_build_object(
+            'calculator_run_timestamp',
+            calculator_run_timestamp,
+            'npmrds_data_version_download_timestamp',
+            npmrds_data_version_download_timestamp,
+            'tmc_metadata_version_timestamp',
+            tmc_metadata_version_timestamp,
+            'pm3_calculator_code_version_timestamp',
+            pm3_calculator_code_version_timestamp
+          )
+        ) AS data_provenance_metadata
       FROM (
         SELECT
-            m.id AS pm3calc_id,
+            m.id,
+            -- NOTE: It is possible for the following to create multiple rows per calc run
+            --       as multi-state runs are possible (eg, NYC UZA)
             jsonb_array_elements_text(metadata->'calculatorSettings'->'states') AS state,
+            -- The above returns a single row per state. Below we get the full set of states in a run.
+            string_to_array(
+              regexp_replace(
+                jsonb_pretty(
+                  m.metadata->'calculatorSettings'->'states'
+                ),
+                '[\s\[\]"]',
+                '',
+                'g'
+              ),
+              ','
+            ) AS states,
             (m.metadata->'calculatorSettings'->>'year')::INTEGER AS year,
             (m.metadata->>'timestamp')::TIMESTAMP AS calculator_run_timestamp,
             c.pm3_calculator_code_version_timestamp
           FROM pm3.pm3_calculator_metadata AS m
-            INNER JOIN pm3.pm3_calculator_code_version_timestamps AS c
+            LEFT OUTER JOIN pm3.pm3_calculator_code_version_timestamps AS c
               ON (
                 SUBSTRING(m.metadata->'gitRepoState'->>'hash' FROM 1 FOR 40)
                 =
                 c.git_hash
               )
       ) AS t0
-        INNER JOIN LATERAL (
+        LEFT OUTER JOIN LATERAL (
           SELECT
-              state,
-              year,
               npmrds_data_version_download_timestamp
             FROM pm3.npmrds_data_version_download_timestamps AS nddt
             WHERE (
@@ -105,11 +120,9 @@ CREATE VIEW pm3.pm3_calculator_data_provenances
             --   immediately precedes that calculator_run_timestamp
             ORDER BY nddt.npmrds_data_version_download_timestamp DESC
             LIMIT 1
-        ) AS t1 USING (state, year)
-        INNER JOIN LATERAL (
+        ) AS t1 ON (true)
+        LEFT OUTER JOIN LATERAL (
           SELECT
-              state,
-              year,
               tmc_metadata_version_timestamp
             FROM pm3.tmc_metadata_version_timestamps AS tmvt
             WHERE (
@@ -123,22 +136,8 @@ CREATE VIEW pm3.pm3_calculator_data_provenances
             --   immediately precedes that calculator_run_timestamp
             ORDER BY tmvt.tmc_metadata_version_timestamp DESC
             LIMIT 1
-        ) AS t2 USING (state, year)
-        ORDER BY pm3calc_id
+        ) AS t2 ON (true)
+      GROUP BY id
     ;
-
-CREATE OR REPLACE VIEW pm3.pm3_measure_calculator_expanded_metadata_with_data_provenances
-  AS
-    SELECT
-        *
-      FROM pm3.pm3_calculator_data_provenances
-        INNER JOIN pm3.pm3_measure_calculator_expanded_metadata
-          USING (
-            pm3calc_id,
-            calculator_run_timestamp,
-            year
-          )
-;
-
 
 COMMIT;

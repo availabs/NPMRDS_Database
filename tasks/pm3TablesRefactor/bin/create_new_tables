@@ -6,55 +6,58 @@ set -a
 pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 pushd ../../../ >/dev/null
 
+
 SQL_DIR='./sql'
 
 # shellcheck disable=SC1091
-source ./config/postgres.env.local
-./run create_pm3_tables
+# source ./config/postgres.env.local
+# ./run create_pm3_tables
 
-# source ./config/postgres.env.pluto
-# ./run create_pm3_tables --pg_env=production
-
+# shellcheck disable=SC1091
+source ./config/postgres.env.pluto
+./run create_pm3_tables --pg_env=production
 
 SQL="
   SELECT
       id
-    FROM pm3.pm3_measure_calculator_metadata
+    FROM pm3.pm3_calculator_metadata
     WHERE id NOT IN (
       SELECT
-          pm3meacalc_id
-        FROM pm3.pm3_measure_calculator_output
+          id
+        FROM pm3.pm3_calculator_output
     )
     ORDER BY 1
-    LIMIT 3
   ;
 "
 
 psql -qAt -c "$SQL" |
-  while read -r pm3meacalc_id; do
-    echo "=> $pm3meacalc_id"
-    psql -v PM3MEACALC_ID="$pm3meacalc_id" -f "$SQL_DIR/pm3_measure_calculator_output/create_partition_table.sql"
+  while read -r pm3calc_id; do
+    echo "=> $pm3calc_id"
+    psql -v PM3CALC_ID="$pm3calc_id" -f "$SQL_DIR/pm3_calculator_output/create_partition_table.sql"
 
-    TABLE_NAME="pm3_measure_calculator_output_partitions.pm3_measure_calculator_output_$pm3meacalc_id"
+    TABLE_NAME="pm3_calculator_output_partitions.pm3_calculator_output_$pm3calc_id"
 
     SQL2="
-      INSERT INTO ${TABLE_NAME} (tmc, measure_data)
+      INSERT INTO ${TABLE_NAME} (measure, tmc, measure_data)
         SELECT
+            a.metadata->>'measure' AS measure,
             tmc,
             jsonb_object_agg(
               attribute,
               value
               order by attribute
             )
-          FROM pm3_eav_append_only
-          WHERE ( pm3meacalc_id = $pm3meacalc_id )
-          GROUP BY tmc
+          FROM public.pm3_measure_calculator_metadata AS a
+            INNER JOIN pm3_eav_append_only b
+              ON ( a.id = b.pm3meacalc_id )
+          WHERE ( pm3calc_id = $pm3calc_id )
+          GROUP BY measure, tmc
       ;
     "
     
     psql -c "$SQL2"
 
-    psql -v PM3MEACALC_ID="$pm3meacalc_id" -f "$SQL_DIR/pm3_measure_calculator_output/finish_partition_table.sql"
+    psql -v PM3CALC_ID="$pm3calc_id" -f "$SQL_DIR/pm3_calculator_output/finish_partition_table.sql"
 
     psql -c "VACUUM FREEZE $TABLE_NAME;"
     psql -c "ANALYZE $TABLE_NAME;"

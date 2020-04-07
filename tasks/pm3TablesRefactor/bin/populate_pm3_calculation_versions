@@ -1,0 +1,505 @@
+#!/usr/bin/env node
+
+/* eslint no-console: 0, no-await-in-loop: 0, no-param-reassign: 0 */
+
+const assert = require('assert');
+const { join } = require('path');
+
+const _ = require('lodash');
+// const through2 = require('through2');
+
+const { Client } = require('pg');
+
+const yargs = require('yargs');
+const envFile = require('node-env-file');
+
+const cliArgsSpec = {
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    default: 'development'
+  }
+};
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const { pg_env } = argv;
+
+const configPath = join(
+  __dirname,
+  pg_env === 'production'
+    ? '../../../config/postgres.env.prod'
+    : '../../../config/postgres.env.dev'
+);
+envFile(configPath);
+
+const MAJOR_VERSION = 1;
+
+const getCalcRunMetadata = async client => {
+  const sql = `
+    SELECT
+        id,
+        (metadata - 'dbState') AS metadata
+      FROM pm3.pm3_calculator_metadata
+    ;
+  `;
+  const { rows } = await client.query(sql);
+
+  return rows.reduce((acc, { id, metadata }) => {
+    acc[id] = metadata;
+    return acc;
+  }, {});
+};
+
+const getCalcDataProvenances = async client => {
+  const sql = `
+    SELECT
+        id,
+        data_provenance_metadata
+      FROM pm3.pm3_calculator_data_provenances
+    ;
+  `;
+  const { rows } = await client.query(sql);
+
+  const indexedDataProvenances = rows.reduce(
+    (acc, { id, data_provenance_metadata }) => {
+      acc[id] = data_provenance_metadata;
+      return acc;
+    },
+    {}
+  );
+
+  return indexedDataProvenances;
+};
+
+const measureClassifier = ({ measure, isCanonical }) => {
+  if (/^RIS_|_RIS$/.test(measure)) {
+    return 'RIS';
+  }
+
+  return isCanonical && /^LOTTR$|^TTTR$|^PHED$/.test(measure) ? 'FHWA' : 'AUX';
+};
+
+const getDataProvenanceWindows = (calcRunsMetadata, calcDataProvenances) => {
+  const dataProvs = Object.keys(calcDataProvenances).reduce(
+    (acc, calcRunId) => {
+      const {
+        calculatorSettings: { year }
+      } = calcRunsMetadata[calcRunId];
+
+      acc[year] = acc[year] || {};
+
+      const states = Object.keys(calcDataProvenances[calcRunId]);
+
+      for (let j = 0; j < states.length; ++j) {
+        const state = states[j];
+        acc[year][state] = acc[year][state] || [];
+
+        acc[year][state].push(
+          _.omit(
+            calcDataProvenances[calcRunId][state],
+            'calculator_run_timestamp'
+          )
+        );
+      }
+      return acc;
+    },
+    {}
+  );
+
+  Object.keys(dataProvs).forEach(year => {
+    Object.keys(dataProvs[year]).forEach(state => {
+      dataProvs[year][state] = _(dataProvs[year][state])
+        .uniqWith(_.isEqual)
+        .sortBy([
+          'npmrds_data_version_download_timestamp',
+          'tmc_metadata_version_timestamp'
+          // 'pm3_calculator_code_version_timestamp'
+        ])
+        .values();
+    });
+  });
+
+  return dataProvs;
+};
+
+const mergeRunMetadataWithDataProvenances = (
+  calcRunsMetadata,
+  calcDataProvenances,
+  dataProvenanceWindows
+) => {
+  const mergedMeta = Object.keys(calcRunsMetadata).reduce((acc, calcRunId) => {
+    const {
+      calculators,
+      gitRepoState: { hash: gitHash },
+      calculatorSettings: {
+        year,
+        states,
+        outputHPMSRequiredTmcMetadata: includesTmcMetadata
+      }
+    } = calcRunsMetadata[calcRunId];
+
+    for (let i = 0; i < states.length; ++i) {
+      const state = states[i];
+
+      const measuresByClass = calculators.reduce((acc2, calcMeta) => {
+        const measureClass = measureClassifier(calcMeta);
+        acc2[measureClass] = _.uniq(
+          Array.prototype.concat(acc2[measureClass] || [], calcMeta.measure)
+        ).sort();
+        return acc2;
+      }, {});
+
+      const measureClasses = Object.keys(measuresByClass);
+
+      const dataProvenance = calcDataProvenances[calcRunId][state];
+
+      acc[year] = acc[year] || {};
+      acc[year][state] = acc[year][state] || {};
+
+      for (let j = 0; j < measureClasses.length; ++j) {
+        const measureClass = measureClasses[j];
+        acc[year][state][measureClass] = acc[year][state][measureClass] || [];
+
+        const dataProvenanceWindow = dataProvenanceWindows[year][
+          state
+        ].findIndex(dataProvWindowMeta =>
+          _.isEqual(
+            dataProvWindowMeta,
+            _.pick(dataProvenance, Object.keys(dataProvWindowMeta))
+          )
+        );
+
+        acc[year][state][measureClass].push({
+          calcRunId,
+          state,
+          includesTmcMetadata,
+          year,
+          gitHash,
+          measures: measuresByClass[measureClass],
+          dataProvenanceWindow,
+          ...dataProvenance
+        });
+      }
+    }
+
+    return acc;
+  }, {});
+
+  Object.keys(mergedMeta).forEach(year =>
+    Object.keys(mergedMeta[year]).forEach(state =>
+      Object.keys(mergedMeta[year][state]).forEach(measureClass => {
+        mergedMeta[year][state][measureClass] = _(
+          mergedMeta[year][state][measureClass]
+        )
+          .uniq()
+          .sortBy('dataProvenanceWindow')
+          .value();
+      })
+    )
+  );
+
+  return mergedMeta;
+};
+
+const groupNYCalcsIntoVersions = mergedMeta => {
+  const nyCalcVersioned = Object.keys(mergedMeta).reduce((acc, year) => {
+    acc[year] = {};
+
+    const nyMeta = mergedMeta[year].ny;
+
+    Object.keys(nyMeta).forEach(measureClass => {
+      acc[year][measureClass] = {};
+
+      const runMetas = nyMeta[measureClass];
+
+      runMetas.forEach(runMeta => {
+        if (_.isEqual(runMeta.measures, ['SPEED_PERCENTILES'])) {
+          return;
+        }
+
+        // Initial RIS_ measure runs had RIS as a measure name prefix.
+        //   This was changed so _RIS is the suffix.
+        if (
+          measureClass === 'RIS' &&
+          runMeta.measures.some(measure => /^RIS_/.test(measure))
+        ) {
+          return;
+        }
+
+        const { dataProvenanceWindow } = runMeta;
+
+        acc[year][measureClass][dataProvenanceWindow] =
+          acc[year][measureClass][dataProvenanceWindow] || [];
+
+        acc[year][measureClass][dataProvenanceWindow].push(runMeta);
+
+        // TODO: Verify that the omitted calculations are in fact
+        //       equivalent with their "equal"
+        acc[year][measureClass][dataProvenanceWindow] = _.uniqWith(
+          acc[year][measureClass][dataProvenanceWindow],
+          (a, b) =>
+            _.isEqual(
+              _.omit(a, ['calcRunId', 'calculator_run_timestamp']),
+              _.omit(b, ['calcRunId', 'calculator_run_timestamp'])
+            )
+        );
+      });
+    });
+
+    return acc;
+  }, {});
+
+  Object.keys(nyCalcVersioned).forEach(year =>
+    Object.keys(nyCalcVersioned[year]).forEach(measureClass =>
+      Object.keys(nyCalcVersioned[year][measureClass]).forEach(
+        dataProvenanceWindow => {
+          const measures = _.flattenDeep(
+            _.map(
+              nyCalcVersioned[year][measureClass][dataProvenanceWindow],
+              'measures'
+            )
+          );
+
+          assert(measures.length === _.uniq(measures).length);
+        }
+      )
+    )
+  );
+
+  return nyCalcVersioned;
+};
+
+// const getTmcMetadataRuns = (calcRunsMetadata, calcDataProvenances) =>
+// Object.keys(calcRunsMetadata).reduce((acc, calcRunId) => {
+// const {
+// calculatorSettings: {
+// year,
+// states,
+// outputHPMSRequiredTmcMetadata: includesTmcMetadata
+// }
+// } = calcRunsMetadata[calcRunId];
+
+// if (!includesTmcMetadata) {
+// return acc;
+// }
+
+// acc[year] = acc[year] || {};
+
+// for (let j = 0; j < states.length; ++j) {
+// const state = states[j];
+// acc[year][state] = acc[year][state] || [];
+
+// const dataProvenance = calcDataProvenances[calcRunId][state];
+
+// acc[year][state].push({ calcRunId, ...dataProvenance });
+// acc[year][state].sort((a, b) =>
+// a.calculator_run_timestamp.localeCompare(b.calculator_run_timestamp)
+// );
+// }
+
+// return acc;
+// }, {});
+
+const verifyAllVersionsHaveTmcMetadata = calculationVersions =>
+  Object.keys(calculationVersions).forEach(year =>
+    Object.keys(calculationVersions[year]).forEach(measureClass =>
+      Object.keys(calculationVersions[year][measureClass]).forEach(
+        dataProvenanceWindow => {
+          const includedRunsMeta =
+            calculationVersions[year][measureClass][dataProvenanceWindow];
+
+          _(includedRunsMeta)
+            .map('state')
+            .uniq()
+            .value()
+            .forEach(state => {
+              const numRunsIncludingTmcMetadata = includedRunsMeta
+                .filter(({ state: s }) => s === state)
+                .reduce(
+                  (acc, { includesTmcMetadata }) => acc + +includesTmcMetadata,
+                  0
+                );
+
+              if (numRunsIncludingTmcMetadata !== 1) {
+                console.error(
+                  year,
+                  state,
+                  measureClass,
+                  'has',
+                  numRunsIncludingTmcMetadata,
+                  'TMC_METADATA'
+                );
+              }
+            });
+        }
+      )
+    )
+  );
+
+const injectOtherStatesIntoCalculationVersions = (mergedMeta, nyVersioned) => {
+  const versionedCalculations = _.cloneDeep(nyVersioned);
+
+  Object.keys(mergedMeta).forEach(year =>
+    Object.keys(mergedMeta[year])
+      .filter(state => state !== 'ny')
+      .forEach(state => {
+        Object.keys(mergedMeta[year][state]).forEach(measureClass => {
+          const runMetas = mergedMeta[year][state][measureClass].filter(
+            ({ measure }) => measure !== 'SPEED_PERCENTILES'
+          );
+
+          runMetas
+            .filter(
+              ({ measures }) => !_.isEqual(measures, ['SPEED_PERCENTILES'])
+            )
+            .forEach(runMeta => {
+              const version = _.findLast(
+                versionedCalculations[year][measureClass],
+                verMeta =>
+                  verMeta
+                    .filter(({ state: s }) => s === 'ny')
+                    .some(
+                      ({ calculator_run_timestamp: ts }) =>
+                        ts.slice(0, 7) <=
+                        runMeta.calculator_run_timestamp.slice(0, 7)
+                    )
+              );
+
+              if (version) {
+                version.push(runMeta);
+              }
+            });
+
+          // console.log(JSON.stringify(d, null, 4));
+        });
+      })
+  );
+
+  return versionedCalculations;
+};
+
+const loadCalcVersions = async (client, versionedCalculations) => {
+  const rows = [];
+  Object.keys(versionedCalculations).forEach(year =>
+    Object.keys(versionedCalculations[year]).forEach(measureClass =>
+      Object.keys(versionedCalculations[year][measureClass])
+        .map(dataProvenanceWindow => +dataProvenanceWindow)
+        .sort((a, b) => a - b)
+        .forEach((dataProvenanceWindow, i) => {
+          const d =
+            versionedCalculations[year][measureClass][dataProvenanceWindow];
+
+          const { calculator_run_timestamp } = _.first(
+            d.filter(({ state }) => state === 'ny')
+          );
+
+          const pm3calc_ids = d
+            .map(({ calcRunId }) => +calcRunId)
+            .sort((a, b) => +a - +b);
+
+          const isPreRelease = +year === +calculator_run_timestamp.slice(0, 4);
+
+          const prevRow = _.last(rows);
+
+          const fix_version = isPreRelease
+            ? 0
+            : +(!!prevRow && prevRow.year === year && prevRow.fix_version) + 1;
+
+          const prerelease_label = isPreRelease
+            ? `partial_year_${_.padStart(i + 1, 2, '0')}`
+            : null;
+
+          rows.push({
+            year: +year,
+            measure_class: measureClass,
+            major_version: MAJOR_VERSION,
+            minor_version: calculator_run_timestamp < '2020' ? 1 : 2,
+            fix_version,
+            prerelease_label,
+            pm3calc_ids
+          });
+        })
+    )
+  );
+
+  const sql = `
+    INSERT INTO pm3.pm3_calculation_versions (
+        year,
+        measure_class,
+        major_version,
+        minor_version,
+        fix_version,
+        prerelease_label,
+        pm3calc_ids
+      )
+      VALUES($1, $2, $3, $4, $5, $6, $7)
+    ;`;
+
+  for (let i = 0; i < rows.length; ++i) {
+    try {
+      await client.query(sql, [
+        rows[i].year,
+        rows[i].measure_class,
+        rows[i].major_version,
+        rows[i].minor_version,
+        rows[i].fix_version,
+        rows[i].prerelease_label,
+        rows[i].pm3calc_ids
+      ]);
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+};
+
+(async () => {
+  try {
+    const client = new Client();
+    await client.connect();
+
+    try {
+      const calcRunsMetadata = await getCalcRunMetadata(client);
+      const calcDataProvenances = await getCalcDataProvenances(client);
+
+      const dataProvenanceWindows = getDataProvenanceWindows(
+        calcRunsMetadata,
+        calcDataProvenances
+      );
+
+      const mergedMeta = mergeRunMetadataWithDataProvenances(
+        calcRunsMetadata,
+        calcDataProvenances,
+        dataProvenanceWindows
+      );
+
+      const nyVersioned = groupNYCalcsIntoVersions(mergedMeta);
+
+      const calculationVersions = injectOtherStatesIntoCalculationVersions(
+        mergedMeta,
+        nyVersioned
+      );
+
+      verifyAllVersionsHaveTmcMetadata(calculationVersions);
+      await loadCalcVersions(client, calculationVersions);
+
+      // console.log(JSON.stringify(tmcMetadataRuns, null, 4));
+      // console.log(JSON.stringify(mergedMeta, null, 4));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      client.end();
+    }
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
+})();

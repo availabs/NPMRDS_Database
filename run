@@ -279,19 +279,6 @@ yargs
     }
   })
   .command({
-    command: 'create_pm3_authoritative_geolevel_mview',
-    desc: 'Create the PM3 Geography Level Materialized View.',
-    handler: ({ pg_env }) => {
-      spawn('make', ['db/create_pm3_authoritative_geolevel_mview'], {
-        cwd: __dirname,
-        stdio: 'inherit',
-        env: Object.assign({}, process.env, {
-          PG_ENV: pg_env
-        })
-      });
-    }
-  })
-  .command({
     command: 'load_pm3_calculator_output',
     desc:
       'Load a output directory from the pm3_calculator_2 project into the database PM3 tables.',

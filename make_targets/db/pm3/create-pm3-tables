@@ -15,10 +15,9 @@ fi
 export PGOPTIONS='--client-min-messages=warning';
 
 psql --quiet -f ../../../sql/pm3_calculator_metadata/create_pm3_calculator_metadata_table.sql
-psql --quiet -f ../../../sql/pm3_measure_calculator_metadata/create_pm3_measure_calculator_metadata_table.sql
-psql --quiet -f ../../../sql/pm3_measure_calculator_output/create_root_table.sql
-psql --quiet -f ../../../sql/pm3_measure_calculator_expanded_metadata/create_pm3_measure_calculator_expanded_metadata.sql
-psql --quiet -f ../../../sql/pm3_measure_calculator_output_with_measure_metadata/create_measure_calculator_output_with_measure_metadata.sql
+psql --quiet -f ../../../sql/pm3_calculator_output/create_root_table.sql
+psql --quiet -f ../../../sql/pm3_calculation_versions/create_pm3_calculation_versions_db_objects.sql
 psql --quiet -f ../../../sql/pm3_calculator_data_provenances/create_pm3_calculator_data_provenances_views.sql
+
 
 popd >/dev/null

@@ -1,2 +1,0 @@
-CLUSTER pm3_eav_append_only USING pm3_eav_append_only_idx ;
-ANALYZE pm3_eav_append_only;
