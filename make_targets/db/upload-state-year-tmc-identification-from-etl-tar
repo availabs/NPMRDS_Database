@@ -58,11 +58,12 @@ find "${ARCHIVE_BASE_NAME/.tar/}" -type f -name '*raw-inrix*' |
 
       wrote_file=1
 
-      checksum="$( md5sum "$TMP_TMC_IDENTIFICATION_FILE_PATH" | cut -d' ' -f1 )"
+      checksum="$( sort "$TMP_TMC_IDENTIFICATION_FILE_PATH" | md5sum | cut -d' ' -f1 )"
     else
       new_checksum="$(
         unzip -p "$zip_archive_path" TMC_Identification.csv |
           sed 's/\r//' |
+          sort |
           md5sum |
           cut -d' ' -f1
       )"
@@ -125,7 +126,8 @@ cat \
       --field-separator=',' \
       -k"${TMC_COL}" \
       -rk"${ACTIVE_END_DATE_COL}" \
-      -rk"${ACTIVE_START_DATE_COL}" 
+      -rk"${ACTIVE_START_DATE_COL}" |
+    sed 's/,null,/,,/g; s/null$//'
   ) |
   uniq --check-chars=9 \
   > "$TMC_CLEANED_TMC_IDENTIFICATION_FILE_PATH"
