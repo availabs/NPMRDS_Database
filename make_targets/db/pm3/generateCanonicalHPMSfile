@@ -1,0 +1,278 @@
+#!/usr/bin/env node
+
+/* eslint no-console: 0, no-await-in-loop: 0 */
+
+const { join } = require('path');
+
+const { Client } = require('pg');
+const envFile = require('node-env-file');
+
+const yargs = require('yargs');
+
+const csv = require('fast-csv');
+const { to: copyTo } = require('pg-copy-streams');
+const { flatten, isNil } = require('lodash');
+const split2 = require('split2');
+const through2 = require('through2');
+
+const tmcMetadataColMappings = new Map([
+  ['State_Code', 'stateCode'],
+  ['F_System', 'fSystem'],
+  ['Urban_Code', 'uaCode'],
+  ['Facility_Type', 'faciltype'],
+  ['NHS', 'nhs'],
+  ['Segment_Length', 'miles'],
+  ['Directionality', 'direction'],
+  ['DIR_AADT', 'directionalAadt'],
+  ['OCC_FAC', 'avgVehicleOccupancy']
+]);
+
+const lottrColMappings = new Map([
+  ['LOTTR_AMP', 'amp'],
+  ['TT_AMP50PCT', 'amp_50_pct'],
+  ['TT_AMP80PCT', 'amp_80_pct'],
+  ['LOTTR_MIDD', 'midd'],
+  ['TT_MIDD50PCT', 'midd_50_pct'],
+  ['TT_MIDD80PCT', 'midd_80_pct'],
+  ['LOTTR_PMP', 'pmp'],
+  ['TT_PMP50PCT', 'pmp_50_pct'],
+  ['TT_PMP80PCT', 'pmp_80_pct'],
+  ['LOTTR_WE', 'we'],
+  ['TT_WE50PCT', 'we_50_pct'],
+  ['TT_WE80PCT', 'we_80_pct']
+]);
+
+const tttrColMappings = new Map([
+  ['TTTR_AMP', 'amp'],
+  ['TTT_AMP50PCT', 'amp_50_pct'],
+  ['TTT_AMP95PCT', 'amp_95_pct'],
+  ['TTTR_MIDD', 'midd'],
+  ['TTT_MIDD50PCT', 'midd_50_pct'],
+  ['TTT_MIDD95PCT', 'midd_95_pct'],
+  ['TTTR_PMP', 'pmp'],
+  ['TTT_PMP50PCT', 'pmp_50_pct'],
+  ['TTT_PMP95PCT', 'pmp_95_pct'],
+  ['TTTR_WE', 'we'],
+  ['TTT_WE50PCT', 'we_50_pct'],
+  ['TTT_WE95PCT', 'we_95_pct'],
+  ['TTTR_OVN', 'ovn'],
+  ['TTT_OVN50PCT', 'ovn_50_pct'],
+  ['TTT_OVN95PCT', 'ovn_95_pct']
+]);
+
+const phedColMappings = new Map([['PHED', 'all_xdelay_phrs']]);
+
+const precisionRound = (number, precision = 0) => {
+  if (number === null) {
+    return null;
+  }
+  if (!Number.isFinite(+number)) {
+    return NaN;
+  }
+
+  const factor = 10 ** precision;
+
+  return Math.round(+number * factor) / factor;
+};
+
+const stateRE = /^[a-z]{2}$/i;
+
+const cliArgsSpec = {
+  state: {
+    type: 'string',
+    demand: true
+  },
+  version_id: {
+    type: 'string',
+    demand: true
+  },
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    default: 'development'
+  }
+};
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const {
+  argv: { state, version_id, pg_env }
+} = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .option(cliArgsSpec);
+
+const measureClass = version_id.slice(0, 4);
+
+if (measureClass !== 'FHWA') {
+  console.error(
+    'ERROR: version_ids must be for the FHWA measure class versions.'
+  );
+  process.exit(1);
+}
+
+const Year_Record = +version_id.slice(5, 9);
+
+if (Number.isNaN(Year_Record)) {
+  console.error('ERROR: Invalid version_id', version_id);
+  process.exit(1);
+}
+
+const configPath = join(
+  __dirname,
+  pg_env === 'production'
+    ? '../../../config/postgres.env.prod'
+    : '../../../config/postgres.env.dev'
+);
+envFile(configPath);
+
+const METRIC_SOURCE = 1;
+const COMMENTS = '';
+
+if (!argv.state.match(stateRE)) {
+  console.error(
+    'ERROR: Invalid state. States should be specified by the two letter abbreviation.'
+  );
+  process.exit(1);
+}
+
+// TODO: Filter on state.
+const sql = `
+  SELECT
+      *
+    FROM (
+      SELECT
+          json_build_object(
+            'tmc', tmc,
+            'data', json_object_agg(measure, measure_data) 
+          ) AS d
+        FROM (
+          SELECT
+              tmc,
+              measure,
+              measure_data
+            FROM pm3.pm3_calculation_versions_view AS pcvv
+              INNER JOIN pm3.pm3_calculator_output AS pco
+              ON (
+                ( pcvv.version_id = '${version_id}' )
+                AND
+                ( pco.pm3calc_id = ANY(pcvv.pm3calc_ids) )
+              )
+            WHERE ( measure = ANY(ARRAY['LOTTR', 'TTTR', 'PHED', 'TMC_METADATA']) )
+        ) AS t
+        GROUP BY tmc
+  ) AS t
+  WHERE ( t.d->'data'->'TMC_METADATA'->>'state' = '${state}' )
+`;
+
+const dumpData = async () => {
+  const client = new Client();
+  await client.connect();
+
+  try {
+    await new Promise(async (resolve, reject) => {
+      const stream = client.query(copyTo(`COPY (${sql}) TO STDOUT`));
+
+      stream
+        .pipe(split2(JSON.parse)) // https://github.com/mcollina/split2#ndj---newline-delimited-json
+        .pipe(
+          through2.obj(function ndjsonTransformer({ tmc, data }, _, cb) {
+            const row = {
+              Year_Record,
+              Travel_Time_Code: tmc,
+              METRIC_SOURCE,
+              COMMENTS,
+              ...[...tmcMetadataColMappings.entries()].reduce((acc, [k, v]) => {
+                if (k === 'Directionality') {
+                  acc[k] =
+                    {
+                      N: 1,
+                      S: 2,
+                      E: 3,
+                      W: 4
+                    }[data.TMC_METADATA[v]] || 5;
+                } else if (k === 'Segment_Length') {
+                  // Scale the Segment_Lengths
+                  // NOTE:
+                  //   select * from tmc_metadata_2018 where (nhs_pct is null or nhs_pct = 0) and border_set <> 'Y';
+                  //   (0 rows)
+                  const { nhsPct } = data.TMC_METADATA;
+                  const miles = data.TMC_METADATA[v];
+
+                  const nhsRatio = nhsPct ? nhsPct / 100 : 0;
+
+                  acc[k] = miles * nhsRatio;
+                } else {
+                  acc[k] =
+                    data.TMC_METADATA && !isNil(data.TMC_METADATA[v])
+                      ? data.TMC_METADATA[v]
+                      : '';
+                }
+
+                return acc;
+              }, {}),
+              ...[...lottrColMappings.entries()].reduce((acc, [k, v]) => {
+                acc[k] =
+                  data.LOTTR && !isNil(data.LOTTR[v]) ? data.LOTTR[v] : '';
+
+                return acc;
+              }, {}),
+              ...[...tttrColMappings.entries()].reduce((acc, [k, v]) => {
+                acc[k] = data.TTTR && !isNil(data.TTTR[v]) ? data.TTTR[v] : '';
+
+                return acc;
+              }, {}),
+              ...[...phedColMappings.entries()].reduce((acc, [k, v]) => {
+                acc[k] = data.PHED && !isNil(data.PHED[v]) ? data.PHED[v] : '';
+
+                return acc;
+              }, {})
+            };
+
+            row.Segment_Length = precisionRound(row.Segment_Length, 3);
+            row.OCC_FAC = precisionRound(row.OCC_FAC, 1);
+
+            this.push(row);
+
+            cb();
+          })
+        )
+        .pipe(
+          csv.createWriteStream({
+            headers: flatten([
+              'Year_Record',
+              'State_Code',
+              'Travel_Time_Code',
+              [...tmcMetadataColMappings.keys()].slice(1),
+              [...lottrColMappings.keys()],
+              [...tttrColMappings.keys()],
+              [...phedColMappings.keys()],
+              'METRIC_SOURCE',
+              'COMMENTS'
+            ])
+          })
+        )
+        .pipe(process.stdout);
+
+      stream.on('error', reject);
+      stream.on('end', resolve);
+    });
+  } catch (err) {
+    console.error(err);
+  } finally {
+    await client.end();
+  }
+};
+
+dumpData();
