@@ -4,15 +4,16 @@ BEGIN;
 --       1. Each measure once per state
 --       2. No mingling of canonical and non-canonical
 CREATE TABLE IF NOT EXISTS pm3.pm3_calculation_versions (
-  id                                           SERIAL PRIMARY KEY,
-  year                                         SMALLINT NOT NULL,
-  measure_class                                TEXT NOT NULL,
-  major_version                                SMALLINT NOT NULL,
-  minor_version                                SMALLINT NOT NULL,
-  fix_version                                  SMALLINT NOT NULL,
-  prerelease_label                             TEXT,
-  pm3calc_ids                                  INTEGER[],
-  changelog                                    TEXT,
+  id                 SERIAL PRIMARY KEY,
+  year               SMALLINT NOT NULL,
+  measure_class      TEXT NOT NULL,
+  major_version      SMALLINT NOT NULL,
+  minor_version      SMALLINT NOT NULL,
+  fix_version        SMALLINT NOT NULL,
+  prerelease_label   TEXT,
+  pm3calc_ids        INTEGER[],
+  changelog          TEXT,
+  is_authoritative   BOOLEAN DEFAULT FALSE
 
   CHECK (
     ( ( fix_version <> 0 ) AND ( prerelease_label IS NULL ) )
@@ -21,10 +22,33 @@ CREATE TABLE IF NOT EXISTS pm3.pm3_calculation_versions (
   )
 ) ;
 
+CREATE UNIQUE INDEX IF NOT EXISTS pm3_calculation_versions_release_uniq
+  ON pm3.pm3_calculation_versions (
+    year,
+    measure_class,
+    major_version,
+    minor_version,
+    fix_version
+  ) WHERE (prerelease_label IS NULL)
+;
+
+CREATE UNIQUE INDEX IF NOT EXISTS pm3_calculation_versions_prerelease_uniq
+  ON pm3.pm3_calculation_versions (
+    measure_class,
+    year,
+    major_version,
+    minor_version,
+    fix_version,
+    prerelease_label
+  ) WHERE (prerelease_label IS NOT NULL)
+;
+
 /*
   TODO:
+    0. All pm3calc_ids in pm3_calculator_metadata (on DELETE from pm3_calculator_metadata too)
     1. Add CHECK to make sure only one instance of a measure per state
     2. TMC_METADATA version should immediately precede the calculation
+    3. Only one authoritative per year/measure_class.
 */
 CREATE OR REPLACE FUNCTION pm3_calculation_versions_rules_fn()
   RETURNS TRIGGER
@@ -84,27 +108,6 @@ CREATE TRIGGER pm3_calculation_versions_rules_trigger
   EXECUTE FUNCTION pm3_calculation_versions_rules_fn()
 ;
 
-CREATE UNIQUE INDEX IF NOT EXISTS pm3_calculation_versions_release_uniq
-  ON pm3.pm3_calculation_versions (
-    year,
-    measure_class,
-    major_version,
-    minor_version,
-    fix_version
-  ) WHERE (prerelease_label IS NULL)
-;
-
-CREATE UNIQUE INDEX IF NOT EXISTS pm3_calculation_versions_prerelease_uniq
-  ON pm3.pm3_calculation_versions (
-    measure_class,
-    year,
-    major_version,
-    minor_version,
-    fix_version,
-    prerelease_label
-  ) WHERE (prerelease_label IS NOT NULL)
-;
-
 DROP VIEW pm3.pm3_calculation_versions_view CASCADE;
 
 CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
@@ -118,6 +121,7 @@ CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
         prerelease_label,
         pm3calc_ids,
         changelog,
+        is_authoritative,
         version_id,
         available_measures,
         measure_metadata
@@ -131,6 +135,7 @@ CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
             prerelease_label,
             pm3calc_ids,
             changelog,
+            is_authoritative,
             (
              measure_class
              || '_'
