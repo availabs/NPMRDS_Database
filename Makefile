@@ -224,7 +224,7 @@ db/upload-npmrds-state-yrmo: db/create-npmrds-state-yrmo-table
 	@:$(call check_defined,MONTH)
 	@:$(call check_defined,DATA_FILE_PATH)
 	@if [[ ! $$(psql -t -c 'SELECT * FROM "${STATE}".npmrds_y${YEAR}m${MONTH} LIMIT 1;' | tr -d " \t\n\r";) ]]; then\
-		./make_targets/db/upload-npmrds-state-yrmo.sh;\
+		./make_targets/db/upload-npmrds-state-yrmo;\
 	fi
 
 
