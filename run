@@ -308,6 +308,39 @@ yargs
   })
 
   .command({
+    command: 'generate_canonical_hpms_file',
+    desc: 'Generate the HPMS file for the specified PM3 calculations version.',
+    builder: {
+      state: {
+        type: 'string',
+        demand: true
+      },
+      version_id: {
+        type: 'string',
+        demand: true
+      },
+      pg_env: {
+        type: 'string',
+        demand: false,
+        choices: ['production', 'development'],
+        default: 'development'
+      }
+    },
+    handler: ({ state, version_id, pg_env }) => {
+      const args = [
+        `--state=${state}`,
+        `--version_id=${version_id}`,
+        `--pg_env=${pg_env}`
+      ];
+
+      spawn('./make_targets/db/pm3/generateCanonicalHPMSfile', args, {
+        cwd: __dirname,
+        stdio: 'inherit'
+      });
+    }
+  })
+
+  .command({
     command: 'load_avgtt_table_for_state_year',
     desc:
       'Load the avgtt for the specified state and year of data. (Creates the table if necessary.)',
