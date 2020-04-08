@@ -42,7 +42,7 @@ do
 
   fname="${ETL_WORK_DIR}/$fname"
 
-  curl "$link" > "$fname"
+  curl -L "$link" > "$fname"
 done
 
 popd > /dev/null
