@@ -50,6 +50,12 @@ COLS="$(zcat "$DATA_FILE_PATH" | head -1)"
 SQL="COPY $FULL_TABLE_NAME ($COLS) FROM STDIN CSV HEADER;"
 
 zcat "$DATA_FILE_PATH" |
-  psql -c "$SQL" 
+  psql -c "$SQL"
+
+psql \
+  -v STATE="$STATE" \
+  -v YEAR="$YEAR" \
+  -v MONTH="$MONTH" \
+  -f ../../sql/npmrds/state/clusterTable.sql
 
 popd >/dev/null
