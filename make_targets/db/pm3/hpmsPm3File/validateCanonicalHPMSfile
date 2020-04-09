@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+
+const csv = require('fast-csv');
+const { pipe } = require('mississippi');
+const through2 = require('through2');
+const _ = require('lodash');
+
+const getRowInvalidColValues = require('./utils/getRowInvalidColValues');
+
+pipe(
+  process.stdin,
+  csv.parse({ headers: true }),
+  through2.obj(function validator(row, $, cb) {
+    const data = _.mapValues(row, v =>
+      Number.isFinite(v) || (v !== '' && v !== null && Number.isFinite(+v))
+        ? +v
+        : v
+    );
+    const invalidColValues = getRowInvalidColValues(data);
+
+    if (!_.isEmpty(invalidColValues)) {
+      // this.push(`${'='.repeat(24)}\n`);
+      // this.push(`${JSON.stringify(row)}\n`);
+      this.push(
+        `${JSON.stringify({
+          Travel_Time_Code: row.Travel_Time_Code,
+          ...invalidColValues
+        })}\n`
+      );
+    }
+    cb();
+  }),
+  process.stdout,
+  err => {
+    if (err) {
+      console.error(err);
+    }
+  }
+);
