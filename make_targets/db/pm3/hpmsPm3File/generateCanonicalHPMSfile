@@ -86,6 +86,11 @@ const cliArgsSpec = {
     type: 'string',
     demand: true
   },
+  include_non_nhs: {
+    type: 'boolean',
+    demand: false,
+    default: false
+  },
   pg_env: {
     type: 'string',
     demand: false,
@@ -104,7 +109,7 @@ const { argv } = yargs
   .option(cliArgsSpec);
 
 const {
-  argv: { state, version_id, pg_env }
+  argv: { state, version_id, include_non_nhs, pg_env }
 } = yargs
   .strict()
   .parserConfiguration({
@@ -132,8 +137,8 @@ if (Number.isNaN(Year_Record)) {
 const configPath = join(
   __dirname,
   pg_env === 'production'
-    ? '../../../config/postgres.env.prod'
-    : '../../../config/postgres.env.dev'
+    ? '../../../../config/postgres.env.prod'
+    : '../../../../config/postgres.env.dev'
 );
 envFile(configPath);
 
@@ -147,7 +152,6 @@ if (!argv.state.match(stateRE)) {
   process.exit(1);
 }
 
-// TODO: Filter on state.
 const sql = `
   SELECT
       *
@@ -187,7 +191,13 @@ const dumpData = async () => {
       stream
         .pipe(split2(JSON.parse)) // https://github.com/mcollina/split2#ndj---newline-delimited-json
         .pipe(
-          through2.obj(function ndjsonTransformer({ tmc, data }, _, cb) {
+          through2.obj(function ndjsonTransformer({ tmc, data }, $, cb) {
+            const nhsPct = +data.TMC_METADATA.nhsPct;
+
+            if (!(nhsPct || include_non_nhs)) {
+              return cb();
+            }
+
             const row = {
               Year_Record,
               Travel_Time_Code: tmc,
@@ -207,7 +217,6 @@ const dumpData = async () => {
                   // NOTE:
                   //   select * from tmc_metadata_2018 where (nhs_pct is null or nhs_pct = 0) and border_set <> 'Y';
                   //   (0 rows)
-                  const { nhsPct } = data.TMC_METADATA;
                   const miles = data.TMC_METADATA[v];
 
                   const nhsRatio = nhsPct ? nhsPct / 100 : 0;
@@ -223,29 +232,49 @@ const dumpData = async () => {
                 return acc;
               }, {}),
               ...[...lottrColMappings.entries()].reduce((acc, [k, v]) => {
-                acc[k] =
-                  data.LOTTR && !isNil(data.LOTTR[v]) ? data.LOTTR[v] : '';
+                if ((data.LOTTR && data.LOTTR[v]) === undefined) {
+                  if (/^LOTTR/.test(k)) {
+                    acc[k] = 1;
+                  } else if (/PCT$/.test(k)) {
+                    acc[k] = 0;
+                  } else {
+                    throw new Error('Unrecognized LOTTR column name');
+                  }
+                } else {
+                  acc[k] = data.LOTTR[v];
+                }
 
                 return acc;
               }, {}),
               ...[...tttrColMappings.entries()].reduce((acc, [k, v]) => {
-                acc[k] = data.TTTR && !isNil(data.TTTR[v]) ? data.TTTR[v] : '';
+                if ((data.TTTR && data.TTTR[v]) === undefined) {
+                  if (/^TTTR/.test(k)) {
+                    acc[k] = 1;
+                  } else if (/PCT$/.test(k)) {
+                    acc[k] = 0;
+                  } else {
+                    throw new Error('Unrecognized TTTR column name');
+                  }
+                } else {
+                  acc[k] = data.TTTR[v];
+                }
 
                 return acc;
               }, {}),
               ...[...phedColMappings.entries()].reduce((acc, [k, v]) => {
-                acc[k] = data.PHED && !isNil(data.PHED[v]) ? data.PHED[v] : '';
+                acc[k] = data.PHED && !isNil(data.PHED[v]) ? data.PHED[v] : 0;
 
                 return acc;
               }, {})
             };
 
+            row.DIR_AADT = precisionRound(row.DIR_AADT);
             row.Segment_Length = precisionRound(row.Segment_Length, 3);
             row.OCC_FAC = precisionRound(row.OCC_FAC, 1);
 
             this.push(row);
 
-            cb();
+            return cb();
           })
         )
         .pipe(

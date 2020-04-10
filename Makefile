@@ -257,19 +257,19 @@ db/upload-npmrds-state-yrmo: db/create-npmrds-state-yrmo-table
 ## 		)";\
 ## 	fi
 
-db/postprocess-npmrds-state-yrmo:
-	@:$(call check_defined,STATE) #redundant, since source target calls the same.
-	@:$(call check_defined,YEAR)
-	@:$(call check_defined,MONTH)
-	@if psql -c '\d "${STATE}".npmrds_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
-		psql -c "$$(\
-			sed "\
-				s/__STATE__/${STATE}/g;\
-				s/__YEAR__/${YEAR}/g;\
-				s/__MONTH__/${MONTH}/g;\
-			" ./sql/npmrds/state/clusterTable.sql\
-		)";\
-	fi
+## db/postprocess-npmrds-state-yrmo:
+## 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
+## 	@:$(call check_defined,YEAR)
+## 	@:$(call check_defined,MONTH)
+## 	@if psql -c '\d "${STATE}".npmrds_y${YEAR}m${MONTH}' > /dev/null 2>&1; then\
+## 		psql -c "$$(\
+## 			sed "\
+## 				s/__STATE__/${STATE}/g;\
+## 				s/__YEAR__/${YEAR}/g;\
+## 				s/__MONTH__/${MONTH}/g;\
+## 			" ./sql/npmrds/state/clusterTable.sql\
+## 		)";\
+## 	fi
 
 db/create-state-tmc-date-ranges-table: db/create-schema-${STATE} db/create-root-tmc-date-ranges-table
 	@:$(call check_defined,STATE) #redundant, since source target calls the same.
@@ -314,15 +314,6 @@ db/load-mpo-acronyms-table: db/create-mpo-acronyms-table
 db/create-root-mpo-boundaries-table:
 	@if ! psql -c '\d public.mpo_boundaries' > /dev/null 2>&1; then\
 		psql -f ./sql/mpo_boundaries/create_root_mpo_boundaries_table.sql;\
-	fi
-
-db/upload-mpo-boundaries-shapefile:
-	@:$(call check_defined,MPO_SHAPEFILE_ZIP_PATH)
-	${_MKFILE_DIR}/make_targets/db/upload-mpo-boundaries-shapefile
-
-db/drop-mpo-boundaries-view:
-	@if psql -c '\d public.mpo_boundaries' > /dev/null 2>&1; then\
-		psql -f './sql/mpo_boundaries_view/dropMPOBoundariesView.sql';\
 	fi
 
 db/create-mpo-boundaries-view:
