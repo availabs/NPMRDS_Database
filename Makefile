@@ -316,15 +316,6 @@ db/create-root-mpo-boundaries-table:
 		psql -f ./sql/mpo_boundaries/create_root_mpo_boundaries_table.sql;\
 	fi
 
-db/upload-mpo-boundaries-shapefile:
-	@:$(call check_defined,MPO_SHAPEFILE_ZIP_PATH)
-	${_MKFILE_DIR}/make_targets/db/upload-mpo-boundaries-shapefile
-
-db/drop-mpo-boundaries-view:
-	@if psql -c '\d public.mpo_boundaries' > /dev/null 2>&1; then\
-		psql -f './sql/mpo_boundaries_view/dropMPOBoundariesView.sql';\
-	fi
-
 db/create-mpo-boundaries-view:
 	@if ! psql -c '\d public.mpo_boundaries_view' > /dev/null 2>&1; then\
 		psql -f ./sql/mpo_boundaries_view/createMPOBoundariesView.sql;\

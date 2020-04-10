@@ -811,6 +811,36 @@ yargs
       );
     }
   })
+
+  // db/upload-mpo-boundaries-shapefile:
+  // 	@:$(call check_defined,MPO_SHAPEFILE_ZIP_PATH)
+  // 	${_MKFILE_DIR}/make_targets/db/upload-mpo-boundaries-shapefile
+  .command({
+    command: 'upload-mpo-boundaries-shapefile',
+    desc:
+      'Loads the MPO shapefile downloaded from https://hepgis.fhwa.dot.gov/fhwagis/#',
+    builder: {
+      mpoShapefileZipPath: {
+        demand: true,
+        type: 'string'
+      }
+    },
+    handler: ({ mpoShapefileZipPath, pg_env }) => {
+      const opts = {
+        cwd: __dirname,
+        shell: '/bin/bash',
+        stdio: 'inherit',
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env,
+          MPO_SHAPEFILE_ZIP_PATH: mpoShapefileZipPath
+        })
+      };
+      spawn(
+        join(__dirname, 'make_targets/db/upload-mpo-boundaries-shapefile'),
+        opts
+      );
+    }
+  })
   .command({
     command: 'load-conflation-avg-daily-gtfs-trips',
     desc:
