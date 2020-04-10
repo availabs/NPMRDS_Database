@@ -140,7 +140,7 @@ const insertPM3CalculatorMetadata = async client => {
   const {
     rows: [{ id }]
   } = await client.query(
-    'INSERT INTO pm3.pm3_calculator_metadata (id, metadata) VALUES (88, $1) RETURNING id',
+    'INSERT INTO pm3.pm3_calculator_metadata (metadata) VALUES ($1) RETURNING id',
     [calculatorMetadata]
   );
 
@@ -190,7 +190,6 @@ const loadCalculatorOutput = pm3calc_id => {
 
     try {
       pm3calc_id = await insertPM3CalculatorMetadata(client);
-      // pm3calc_id = 89;
 
       loadCalculatorOutput(pm3calc_id);
     } catch (err) {
