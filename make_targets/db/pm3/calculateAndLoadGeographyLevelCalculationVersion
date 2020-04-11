@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -e
+set -a
+
+if [[ -z "$VERSION_ID" ]]; then
+  ( >&2 echo "ERROR: You must specify the VERSION_ID as an ENV variable." )
+  exit 1
+fi
+
+# Change CWD to this script's directory.
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+if [ "$PG_ENV" = "production" ]; then
+  . ../../../config/postgres.env.prod
+else
+	. ../../../config/postgres.env.dev
+fi
+
+export PGOPTIONS='--client-min-messages=warning';
+
+psql \
+  --quiet \
+  -v VERSION_ID="$VERSION_ID" \
+  -f ../../../sql/pm3_geolevel_calculation_versions/load_pm3_geolevel_calculation_version.sql
+
+popd >/dev/null
+

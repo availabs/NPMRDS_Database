@@ -287,12 +287,6 @@ yargs
         type: 'string',
         demand: true
       },
-      pg_env: {
-        type: 'string',
-        demand: false,
-        choices: ['production', 'development'],
-        default: 'development'
-      }
     },
     handler: ({ calculatorOutputDir, pg_env }) => {
       const args = [
@@ -303,6 +297,27 @@ yargs
       spawn('./make_targets/db/pm3/loadCalculatorOutputIntoDB', args, {
         cwd: __dirname,
         stdio: 'inherit'
+      });
+    }
+  })
+
+  .command({
+    command: 'calculate_and_load_geolevel_pm3_calculations_version',
+    desc: 'Calculate and load the Geography Level PM3 measures for the specified versionId.',
+    builder: {
+      versionId: {
+        type: 'string',
+        demand: true
+      },
+    },
+    handler: ({ versionId, pg_env }) => {
+      spawn('./make_targets/db/pm3/calculateAndLoadGeographyLevelCalculationVersion', {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: Object.assign({}, process.env, {
+          VERSION_ID: versionId,
+          PG_ENV: pg_env
+        })
       });
     }
   })
@@ -333,7 +348,7 @@ yargs
         `--pg_env=${pg_env}`
       ];
 
-      spawn('./make_targets/db/pm3/generateCanonicalHPMSfile', args, {
+      spawn('./make_targets/db/pm3/hpmsPm3File/generateCanonicalHPMSfile', args, {
         cwd: __dirname,
         stdio: 'inherit'
       });
