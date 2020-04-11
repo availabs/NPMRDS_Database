@@ -1,5 +1,15 @@
 #!/usr/bin/env node
 
+console.error(`
+NOTE: This file was used to create calculator versions
+      for the historical PM3 calculator runs.
+      It depended on the database state at the time.
+      It is not guaranteed to be correct in the future.
+      It SHOULD NOT be run again.
+`)
+
+process.exit(1)
+
 /* eslint no-console: 0, no-await-in-loop: 0, no-param-reassign: 0 */
 
 const assert = require('assert');
@@ -395,6 +405,8 @@ const loadCalcVersions = async (client, versionedCalculations) => {
         .map(dataProvenanceWindow => +dataProvenanceWindow)
         .sort((a, b) => a - b)
         .forEach((dataProvenanceWindow, i) => {
+          year = +year;
+
           const d =
             versionedCalculations[year][measureClass][dataProvenanceWindow];
 
@@ -410,19 +422,34 @@ const loadCalcVersions = async (client, versionedCalculations) => {
 
           const prevRow = _.last(rows);
 
+          // Note: This logic works because of how the calculator runs happened.
+          //       It is NOT an expression of the rule.
           const fix_version = isPreRelease
             ? 0
-            : +(!!prevRow && prevRow.year === year && prevRow.fix_version) + 1;
+            : +(
+                !!prevRow &&
+                prevRow.year === year &&
+                prevRow.measure_class === measureClass &&
+                prevRow.fix_version
+              ) + 1;
 
           const prerelease_label = isPreRelease
             ? `partial_year_${_.padStart(i + 1, 2, '0')}`
             : null;
 
+          const minor_version = calculator_run_timestamp < '2020' ? 1 : 2;
+
+          //
+          if (year === 2017 && pm3calc_ids.includes(3)) {
+            const idx = pm3calc_ids.indexOf(3);
+            pm3calc_ids[idx] = 9;
+            pm3calc_ids.sort((a, b) => +a - +b);
+          }
           rows.push({
             year: +year,
             measure_class: measureClass,
             major_version: MAJOR_VERSION,
-            minor_version: calculator_run_timestamp < '2020' ? 1 : 2,
+            minor_version,
             fix_version,
             prerelease_label,
             pm3calc_ids
@@ -433,16 +460,15 @@ const loadCalcVersions = async (client, versionedCalculations) => {
 
   const sql = `
     INSERT INTO pm3.pm3_calculation_versions (
-        year,
-        measure_class,
-        major_version,
-        minor_version,
-        fix_version,
-        prerelease_label,
-        pm3calc_ids
-      )
-      VALUES($1, $2, $3, $4, $5, $6, $7)
-    ;`;
+      year,
+      measure_class,
+      major_version,
+      minor_version,
+      fix_version,
+      prerelease_label,
+      pm3calc_ids
+    ) VALUES($1, $2, $3, $4, $5, $6, $7)
+  ;`;
 
   for (let i = 0; i < rows.length; ++i) {
     try {
