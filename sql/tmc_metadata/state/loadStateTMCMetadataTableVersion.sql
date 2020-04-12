@@ -44,7 +44,7 @@ CREATE TEMPORARY TABLE tmp_tmc2mpo
               )::NUMERIC
               * 0.000621371::NUMERIC
             )::NUMERIC AS tmc_miles
-          FROM :"STATE".npmrds_shapefile_:YEAR AS state_shp
+          FROM npmrds_shapefile_:YEAR AS state_shp
             INNER JOIN mpo_boundaries_view AS mpob
               ON ( mpob.wkb_geometry && state_shp.wkb_geometry )
       ) AS t
