@@ -85,7 +85,15 @@ do
 
   contents="$(unzip -p "$inf" Contents.txt)"
   start_date="$(date -d "$(echo "$contents" | tr '\n' ' ' | sed 's/.*from //g; s/ through.*//g')" '+%Y%m')"
-  end_date="$(date -d "$(echo "$contents" | tr '\n' ' ' | sed 's/.*through //')" '+%Y%m')"
+  end_date="$(
+    date -d "$(
+      echo "$contents" |
+      tr '\n' ' ' |
+      sed 's/.*through //' |
+      grep --only -P '.*?[0-9]{4}' |
+      head -1
+    )" '+%Y%m'
+  )"
 
   [[ "$start_date" != "$end_date" ]] \
     && date_range="${start_date}-${end_date}" \
