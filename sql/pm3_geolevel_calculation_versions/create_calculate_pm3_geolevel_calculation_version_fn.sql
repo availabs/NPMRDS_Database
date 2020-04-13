@@ -4,7 +4,7 @@ DROP FUNCTION IF EXISTS pm3.calculate_pm3_geolevel_calculation_version (TEXT);
 
 CREATE FUNCTION pm3.calculate_pm3_geolevel_calculation_version (p_version_id TEXT)
   RETURNS TABLE (
-    version_id           TEXT,
+    pm3calc_ver_id       INTEGER,
     geolevel             TEXT,
     geocode              TEXT,
     states               TEXT[],
@@ -16,6 +16,15 @@ CREATE FUNCTION pm3.calculate_pm3_geolevel_calculation_version (p_version_id TEX
   )
 AS $calculate_pm3_geolevel_calculation_version$
 BEGIN
+  IF NOT EXISTS (
+      SELECT a.pm3calc_ver_id
+         FROM pm3.pm3_calculation_versions_view AS a
+         WHERE ( a.version_id = p_version_id )
+    ) THEN
+
+      RAISE EXCEPTION 'version_id DOES NOT EXIST';
+
+  END IF;
 
   CREATE TEMPORARY TABLE tmp_pm3_run_tmc_metadata_snapshot (
       tmc          VARCHAR,
@@ -48,7 +57,7 @@ BEGIN
 
   -- Create a snapshot of the tmc_metadata tables that were in use during the pm3 calculator run.
   EXECUTE (
-    SELECT 
+    SELECT
         'INSERT INTO tmp_pm3_run_tmc_metadata_snapshot (tmc, state, state_code, county_code, ua_code, mpo_code)'
         || string_agg(
             '
@@ -295,7 +304,7 @@ BEGIN
   $calculate_for_geolevel_fn$ LANGUAGE SQL;
 
   CREATE TEMPORARY TABLE tmp_result (
-    version_id           TEXT,
+    pm3calc_ver_id       INTEGER,
     geolevel             TEXT,
     geocode              TEXT,
     states               TEXT[],
@@ -306,9 +315,17 @@ BEGIN
     phed                 DOUBLE PRECISION
   ) ON COMMIT DROP;
 
-  INSERT INTO tmp_result
+  INSERT INTO tmp_result (
+      geolevel,
+      geocode,
+      states,
+      state_codes,
+      lottr_interstate,
+      lottr_noninterstate,
+      tttr_interstate,
+      phed
+    )
     SELECT
-        p_version_id,
         t.geolevel,
         t.geocode,
         t.states,
@@ -329,6 +346,14 @@ BEGIN
         SELECT * FROM pg_temp.calculate_for_geolevel_fn('MPO')
       ) AS t
     ;
+
+  UPDATE tmp_result
+    SET pm3calc_ver_id = (
+      SELECT pcvv.pm3calc_ver_id
+        FROM pm3.pm3_calculation_versions_view AS pcvv
+        WHERE ( pcvv.version_id = p_version_id )
+    )
+  ;
 
   DROP FUNCTION pg_temp.calculate_for_geolevel_fn (TEXT, BOOLEAN);
 

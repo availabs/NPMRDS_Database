@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE OR REPLACE VIEW pm3_calculator_output_versions_view
+CREATE OR REPLACE VIEW pm3.pm3_calculator_output_versions_view
   AS
    SELECT
        version_id,

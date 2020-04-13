@@ -108,11 +108,12 @@ CREATE TRIGGER pm3_calculation_versions_rules_trigger
   EXECUTE FUNCTION pm3_calculation_versions_rules_fn()
 ;
 
-DROP VIEW pm3.pm3_calculation_versions_view CASCADE;
+DROP VIEW IF EXISTS pm3.pm3_calculation_versions_view CASCADE;
 
 CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
   AS
     SELECT
+        pcv.pm3calc_ver_id,
         pcv.measure_class,
         year,
         major_version,
@@ -127,6 +128,7 @@ CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
         measure_metadata
       FROM (
         SELECT
+            id AS pm3calc_ver_id,
             measure_class,
             year,
             major_version,

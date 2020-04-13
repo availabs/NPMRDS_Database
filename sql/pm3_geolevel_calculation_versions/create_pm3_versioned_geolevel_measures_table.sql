@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS pm3.pm3_geolevel_calculation_versions (
-  version_id           TEXT,
+  pm3calc_ver_id       INTEGER REFERENCES pm3.pm3_calculation_versions ON DELETE CASCADE NOT NULL,
   geolevel             TEXT,
   geocode              TEXT,
   states               TEXT[],
@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS pm3.pm3_geolevel_calculation_versions (
   tttr_interstate      DOUBLE PRECISION,
   phed                 DOUBLE PRECISION,
 
-  PRIMARY KEY(version_id, geolevel, geocode, states)
+  PRIMARY KEY(pm3calc_ver_id, geolevel, geocode, states)
 );
 
 CLUSTER pm3.pm3_geolevel_calculation_versions
@@ -20,18 +20,20 @@ CLUSTER pm3.pm3_geolevel_calculation_versions
 CREATE OR REPLACE VIEW pm3.pm3_geolevel_calculation_versions_view
   AS
     SELECT
-        measure_class,
-        year,
-        major_version,
-        minor_version,
-        fix_version,
-        prerelease_label,
-        pm3calc_ids,
-        changelog,
-        is_authoritative,
-        pgcv.*
+        pgcv.*,
+        pcvv.measure_class,
+        pcvv.year,
+        pcvv.major_version,
+        pcvv.minor_version,
+        pcvv.fix_version,
+        pcvv.prerelease_label,
+        pcvv.pm3calc_ids,
+        pcvv.changelog,
+        pcvv.is_authoritative,
+        pcvv.version_id
       FROM pm3.pm3_calculation_versions_view AS pcvv
-        INNER JOIN pm3.pm3_geolevel_calculation_versions AS pgcv USING (version_id)
+        INNER JOIN pm3.pm3_geolevel_calculation_versions AS pgcv
+          USING (pm3calc_ver_id)
 ;
 
 COMMIT
