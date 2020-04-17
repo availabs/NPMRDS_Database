@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+# source ../../../config/postgres.env.dev
+source ../../../config/postgres.env.prod
+
+read -r HEADER
+
+psql \
+  -c 'BEGIN;' \
+  -c 'DELETE FROM highway_data_services_data.continuous_vehicle_classification_ny_pause;' \
+  -c "
+    COPY highway_data_services_data.continuous_vehicle_classification_ny_pause (
+      $HEADER
+    ) FROM STDIN WITH CSV
+  " \
+  -c 'COMMIT;'
+
+popd >/dev/null

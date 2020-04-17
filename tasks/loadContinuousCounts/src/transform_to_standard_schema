@@ -1,0 +1,438 @@
+#!/usr/bin/env node
+
+/* eslint no-console: 0 */
+
+const { pipe, through } = require('mississippi');
+const csv = require('fast-csv');
+const _ = require('lodash');
+
+const rc2county = {
+  '01': 'BRONX',
+  '02': 'KINGS',
+  '05': 'QUEENS',
+  '06': 'RICHMOND',
+  '07': 'SUFFOLK',
+  '11': 'ALBANY',
+  '12': 'ESSEX',
+  '13': 'GREENE',
+  '15': 'SARATOGA',
+  '18': 'WASHINGTON',
+  '21': 'FULTON',
+  '22': 'HAMILTON',
+  '23': 'HERKIMER',
+  '26': 'ONEIDA',
+  '33': 'ONONDAGA',
+  '34': 'OSWEGO',
+  '35': 'SENECA',
+  '36': 'TOMPKINS',
+  '41': 'GENESEE',
+  '42': 'LIVINGSTON',
+  '43': 'MONROE',
+  '44': 'ONTARIO',
+  '47': 'WAYNE',
+  '51': 'CATTARAUGUS',
+  '52': 'CHAUTAUQUA',
+  '53': 'ERIE',
+  '54': 'NIAGARA',
+  '61': 'ALLEGANY',
+  '62': 'CHEMUNG',
+  '63': 'SCHUYLER',
+  '64': 'STEUBEN',
+  '66': 'YATES',
+  '71': 'CLINTON',
+  '72': 'FRANKLIN',
+  '73': 'JEFFERSON',
+  '74': 'LEWIS',
+  '75': 'ST LAWRENCE',
+  '81': 'COLUMBIA',
+  '82': 'DUTCHESS',
+  '83': 'ORANGE',
+  '84': 'PUTNAM',
+  '91': 'BROOME',
+  '92': 'CHENANGO',
+  '93': 'DELAWARE',
+  '94': 'OTSEGO',
+  '95': 'SCHOHARIE',
+  '96': 'SULLIVAN',
+  '97': 'TIOGA'
+};
+
+const county2fips = {
+  ALBANY: '001',
+  ALLEGANY: '003',
+  BRONX: '005',
+  BROOME: '007',
+  CATTARAUGUS: '009',
+  CHAUTAUQUA: '013',
+  CHEMUNG: '015',
+  CHENANGO: '017',
+  CLINTON: '019',
+  COLUMBIA: '021',
+  DELAWARE: '025',
+  DUTCHESS: '027',
+  ERIE: '029',
+  ESSEX: '031',
+  FRANKLIN: '033',
+  FULTON: '035',
+  GENESEE: '037',
+  GREENE: '039',
+  HAMILTON: '041',
+  HERKIMER: '043',
+  JEFFERSON: '045',
+  KINGS: '047',
+  LEWIS: '049',
+  LIVINGSTON: '051',
+  MONROE: '055',
+  NIAGARA: '063',
+  ONEIDA: '065',
+  ONONDAGA: '067',
+  ONTARIO: '069',
+  ORANGE: '071',
+  OSWEGO: '075',
+  OTSEGO: '077',
+  PUTNAM: '079',
+  QUEENS: '081',
+  RICHMOND: '085',
+  SARATOGA: '091',
+  SCHOHARIE: '095',
+  SCHUYLER: '097',
+  SENECA: '099',
+  STEUBEN: '101',
+  'ST LAWRENCE': '089',
+  SUFFOLK: '103',
+  SULLIVAN: '105',
+  TIOGA: '107',
+  TOMPKINS: '109',
+  WASHINGTON: '115',
+  WAYNE: '117',
+  YATES: '123'
+};
+
+const dowMapper = {
+  Sunday: 1,
+  Monday: 2,
+  Tuesday: 3,
+  Wednesday: 4,
+  Thursday: 5,
+  Friday: 6,
+  Saturday: 7
+};
+
+const classFValMappper = v => (Number.isFinite(+v) ? +v : null);
+
+const columnValueMappings = {
+  Day_of_week: v => dowMapper[v],
+  Year: _.parseInt,
+  Month: _.parseInt,
+  Day: _.parseInt,
+  Federal_Direction: _.parseInt,
+  Class_F1: classFValMappper,
+  Class_F2: classFValMappper,
+  Class_F3: classFValMappper,
+  Class_F4: classFValMappper,
+  Class_F5: classFValMappper,
+  Class_F6: classFValMappper,
+  Class_F7: classFValMappper,
+  Class_F8: classFValMappper,
+  Class_F9: classFValMappper,
+  Class_F10: classFValMappper,
+  Class_F11: classFValMappper,
+  Class_F12: classFValMappper,
+  Class_F13: classFValMappper
+};
+
+const dbColumns = [
+  'rc',
+  'station',
+  'region',
+  'dotid',
+  'ccid',
+  'fc',
+  'route',
+  'roadname',
+  'county',
+  'county_fips',
+  'begin_desc',
+  'end_desc',
+  'station_id',
+  'road',
+  'one_way',
+  'year',
+  'month',
+  'day',
+  'dow',
+  'hour',
+  'f1',
+  'f2',
+  'f3',
+  'f4',
+  'f5',
+  'f6',
+  'f7',
+  'f8',
+  'f9',
+  'f10',
+  'f11',
+  'f12',
+  'f13'
+];
+
+const columnNameMappings = {
+  // rc is computed
+  Region: 'region',
+
+  Functional_Class: 'fc',
+
+  RCSTA: 'station_id',
+
+  Year: 'year',
+  Month: 'month',
+  Day: 'day',
+  Day_of_week: 'dow',
+
+  Class_F1: 'f1',
+  Class_F2: 'f2',
+  Class_F3: 'f3',
+  Class_F4: 'f4',
+  Class_F5: 'f5',
+  Class_F6: 'f6',
+  Class_F7: 'f7',
+  Class_F8: 'f8',
+  Class_F9: 'f9',
+  Class_F10: 'f10',
+  Class_F11: 'f11',
+  Class_F12: 'f12',
+  Class_F13: 'f13'
+};
+
+const fCodes = [
+  'f1',
+  'f2',
+  'f3',
+  'f4',
+  'f5',
+  'f6',
+  'f7',
+  'f8',
+  'f9',
+  'f10',
+  'f11',
+  'f12',
+  'f13'
+];
+
+let accumulator;
+let prevDir = null;
+let prevLane = null;
+let prevD = null;
+
+const accumuateCounts = d => {
+  for (let i = 0; i < fCodes.length; ++i) {
+    const fCode = fCodes[i];
+
+    const a = accumulator[fCode];
+    const b = d[fCode];
+
+    if (a === undefined) {
+      accumulator[fCode] = b;
+    } else if (b === undefined) {
+      accumulator[fCode] = a;
+    } else {
+      accumulator[fCode] = +a + +b;
+    }
+  }
+};
+
+const assertSortedOrder = (d, dir, lane) => {
+  if (
+    accumulator.station_id > d.station_id ||
+    (accumulator.station_id === d.station_id && accumulator.year > d.year) ||
+    (accumulator.station_id === d.station_id &&
+      accumulator.year === d.year &&
+      accumulator.month > d.month) ||
+    (accumulator.station_id === d.station_id &&
+      accumulator.year === d.year &&
+      accumulator.month === d.month &&
+      accumulator.day > d.day) ||
+    (accumulator.station_id === d.station_id &&
+      accumulator.year === d.year &&
+      accumulator.month === d.month &&
+      accumulator.day === d.day &&
+      accumulator.hour > d.hour) ||
+    (accumulator.station_id === d.station_id &&
+      accumulator.year === d.year &&
+      accumulator.month === d.month &&
+      accumulator.day === d.day &&
+      accumulator.hour === d.hour &&
+      prevDir > dir) ||
+    (accumulator.station_id === d.station_id &&
+      accumulator.year === d.year &&
+      accumulator.month === d.month &&
+      accumulator.day === d.day &&
+      accumulator.hour === d.hour &&
+      prevDir === dir &&
+      prevLane > lane)
+  ) {
+    console.log(JSON.stringify({ accumulator, d }, null, 4));
+    throw new Error('Input not sorted');
+  }
+};
+
+let prevRow;
+pipe(
+  process.stdin,
+  csv.parse({ headers: true }),
+  through.obj(
+    function aggregator(row, $, cb) {
+      const rc = `${row.Region_Code}${row.County_Code}`;
+      const hour = Math.floor(+row.Data_Interval) - 1;
+      const dir = +row.Federal_Direction;
+      const lane = +row.Lane_Code;
+      const county = rc2county[rc];
+      const county_fips = county2fips[county];
+
+      const d = _.reduce(
+        _.mapValues(row, (v, k) => (columnValueMappings[k] || _.identity)(v)),
+        (acc, v, k, obj) => {
+          const dbColName = columnNameMappings[k];
+          if (dbColName) {
+            acc[dbColName] = obj[k];
+            return acc;
+          }
+
+          return acc;
+        },
+        {
+          rc,
+          hour,
+          county,
+          county_fips,
+          road: 99 // May get mutated below if dir changes
+        }
+      );
+
+      // First row
+      if (!accumulator) {
+        accumulator = d;
+        return cb();
+      }
+      // The counts accumulation logic assumes input data is sorted
+      assertSortedOrder(d, dir, lane);
+
+      const differentPlaceOrTime =
+        accumulator.station_id < d.station_id ||
+        accumulator.year < d.year ||
+        accumulator.month < d.month ||
+        accumulator.day < d.day ||
+        accumulator.hour < d.hour;
+
+      if (differentPlaceOrTime) {
+        this.push(accumulator);
+        accumulator = _.cloneDeep(d);
+
+        // Reset the direction and lane
+        prevDir = dir;
+        prevLane = lane;
+        prevD = d;
+        prevRow = row;
+        return cb();
+      }
+
+      // We know that station_id,year,month,hour are the same as in the accumulator
+      const differentDir = prevDir !== dir;
+
+      if (differentDir) {
+        this.push(accumulator);
+
+        d.road = -99;
+        accumulator = _.cloneDeep(d);
+
+        // Reset the direction and lane
+        prevDir = dir;
+        prevLane = null;
+        prevD = d;
+        prevRow = row;
+        return cb();
+      }
+
+      // Make sure we don't have multiple entries for any
+      //   (station,year,month,day,hour,direction,lane) tuple
+      if (prevLane === lane) {
+        const essentialCols = [
+          'rc',
+          'station',
+          'region',
+          'route',
+          'roadname',
+          'county',
+          'county_fips',
+          'station_id',
+          'road',
+          'year',
+          'month',
+          'day',
+          'dow',
+          'hour'
+        ];
+
+        if (
+          !_.isEqual(_.pick(prevD, essentialCols), _.pick(d, essentialCols)) &&
+          // If both have data for a fClass and it differs
+          fCodes.some(
+            fCode => prevD[fCode] && d[fCode] && prevD[fCode] !== d[fCode]
+          )
+        ) {
+          console.error(
+            JSON.stringify(
+              {
+                prevDir,
+                prevLane,
+                dir,
+                lane,
+                accumulator,
+                prevRow,
+                row,
+                d,
+                prevD
+              },
+              null,
+              4
+            )
+          );
+          throw new Error(
+            'Multiple data for same (station,year,month,day,hour,direction,lane) tuple'
+          );
+        }
+        return cb();
+      }
+      prevLane = lane;
+      prevD = d;
+      prevRow = row;
+
+      accumuateCounts(d);
+
+      return cb();
+    },
+    function flush(cb) {
+      if (!_.isEmpty(accumulator)) {
+        this.push(accumulator);
+      }
+      cb();
+    }
+  ),
+  csv.createWriteStream({
+    headers: dbColumns
+  }),
+  process.stdout,
+  err => {
+    if (err) {
+      // https://stackoverflow.com/a/15884508/3970755
+      if (err.code === 'EPIPE') {
+        process.exit(0);
+      } else {
+        console.error(err);
+        process.exit(1);
+      }
+    }
+  }
+);

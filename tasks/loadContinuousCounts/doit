@@ -1,0 +1,21 @@
+#!/bin/bash
+
+cat \
+  <(
+    # Output the header
+    find base_data -type f -name '*.CSV' |
+      head -1 |
+      xargs -I filename head -1 filename
+  ) \
+  <(
+    # Output the data rows, removing the dupes
+    find base_data -type f -name '*.CSV' |
+      sort |
+      while read -r f; do
+        awk "NR>1 { print }" "$f"
+      done |
+      sort -u
+  ) |
+  ./src/sortInputCSV |
+  ./src/transform_to_standard_schema |
+  ./src/loadCsvIntoDb
