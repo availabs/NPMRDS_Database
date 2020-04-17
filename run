@@ -8,6 +8,7 @@ const { spawn } = require('child_process');
 const yargs = require('yargs');
 const _ = require('lodash');
 
+const hdsTrafficCountsScraper = require('./make_targets/highwayDataServicesTrafficCounts/scrape-NYSDOT-CSVs');
 // const singleYearInvariantMessage =
 // 'The requested startDate and endDate MUST be within a single calendar year.';
 
@@ -286,7 +287,7 @@ yargs
       calculatorOutputDir: {
         type: 'string',
         demand: true
-      },
+      }
     },
     handler: ({ calculatorOutputDir, pg_env }) => {
       const args = [
@@ -303,22 +304,26 @@ yargs
 
   .command({
     command: 'calculate_and_load_geolevel_pm3_calculations_version',
-    desc: 'Calculate and load the Geography Level PM3 measures for the specified versionId.',
+    desc:
+      'Calculate and load the Geography Level PM3 measures for the specified versionId.',
     builder: {
       versionId: {
         type: 'string',
         demand: true
-      },
+      }
     },
     handler: ({ versionId, pg_env }) => {
-      spawn('./make_targets/db/pm3/calculateAndLoadGeographyLevelCalculationVersion', {
-        cwd: __dirname,
-        stdio: 'inherit',
-        env: Object.assign({}, process.env, {
-          VERSION_ID: versionId,
-          PG_ENV: pg_env
-        })
-      });
+      spawn(
+        './make_targets/db/pm3/calculateAndLoadGeographyLevelCalculationVersion',
+        {
+          cwd: __dirname,
+          stdio: 'inherit',
+          env: Object.assign({}, process.env, {
+            VERSION_ID: versionId,
+            PG_ENV: pg_env
+          })
+        }
+      );
     }
   })
 
@@ -348,10 +353,14 @@ yargs
         `--pg_env=${pg_env}`
       ];
 
-      spawn('./make_targets/db/pm3/hpmsPm3File/generateCanonicalHPMSfile', args, {
-        cwd: __dirname,
-        stdio: 'inherit'
-      });
+      spawn(
+        './make_targets/db/pm3/hpmsPm3File/generateCanonicalHPMSfile',
+        args,
+        {
+          cwd: __dirname,
+          stdio: 'inherit'
+        }
+      );
     }
   })
 
@@ -749,6 +758,14 @@ yargs
       );
     }
   })
+
+  .command({
+    command: 'scrape-highway-services-csvs',
+    desc: ' the highway_data_services CSVs into the data tables.',
+    builder: hdsTrafficCountsScraper.yargsSpec,
+    handler: hdsTrafficCountsScraper.main
+  })
+
   .command({
     command: 'load-highway-services-csvs',
     desc: 'Loads the highway_data_services CSVs into the data tables.',
