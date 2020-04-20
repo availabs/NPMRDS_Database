@@ -1,0 +1,37 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+# source ../../../config/postgres.env.dev
+source ../../config/postgres.env.pluto
+
+ZIP_PATH='./base_data/vehicle_class/Continuous_Class_2015-2019.zip'
+TABLE_NAME="highway_data_services.raw_continuous_vehicle_classification"
+
+HEADER="$(
+  unzip -p "$ZIP_PATH" |
+  head -1 |
+    tr '[:upper:]' '[:lower:]' |
+    sed 's/"//g'
+)"
+
+unzip -p "$ZIP_PATH" |
+tail -n+2 |
+sed \
+  's/ \{1,\}/ /g; s/" \{0,\}/"/g;  s/ \{0,\}"/"/g; s/""//g' |
+sort -u |
+psql \
+  -c 'BEGIN;' \
+  -c "DELETE FROM $TABLE_NAME;" \
+  -c "
+    COPY $TABLE_NAME (
+      $HEADER
+    ) FROM STDIN WITH CSV;
+  " \
+  -c "CLUSTER $TABLE_NAME;" \
+  -c 'COMMIT;'
+
+popd >/dev/null

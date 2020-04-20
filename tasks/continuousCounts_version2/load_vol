@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+# source ../../../config/postgres.env.dev
+source ../../config/postgres.env.pluto
+
+ZIP_PATH='./base_data/volume/Continuous_Vol_2015-2019.zip'
+TABLE_NAME="highway_data_services.raw_continuous_volume"
+
+HEADER="$(
+  unzip -p "$ZIP_PATH" |
+  head -1 |
+    tr '[:upper:]' '[:lower:]' |
+    sed 's/"//g'
+)"
+
+unzip -p "$ZIP_PATH" |
+sed 's/ \{1,\}/ /g; s/" \{0,\}/"/g;  s/ \{0,\}"/"/g; s/""//g' |
+psql \
+  -c 'BEGIN;' \
+  -c "DELETE FROM $TABLE_NAME;" \
+  -c "
+    COPY $TABLE_NAME (
+      $HEADER
+    ) FROM STDIN WITH CSV HEADER
+  " \
+  -c "CLUSTER $TABLE_NAME;" \
+  -c 'COMMIT;'
+
+popd >/dev/null
