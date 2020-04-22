@@ -1,0 +1,458 @@
+#!/usr/bin/env node
+
+/*
+           Table "highway_data_services.continuous_volume"
+   Column    |         Type         | Collation | Nullable | Default 
+-------------+----------------------+-----------+----------+---------
+ rc          | character varying(2) |           |          | 
+ station     | character varying(4) |           |          | 
+ region      | smallint             |           |          | 
+ dotid       | character varying    |           |          | 
+ ccid        | character varying(4) |           |          | 
+ fc          | smallint             |           |          | 
+ route       | character varying    |           |          | 
+ roadname    | character varying    |           |          | 
+ county      | character varying    |           |          | 
+ county_fips | character varying(3) |           |          | 
+ begin_desc  | character varying    |           |          | 
+ end_desc    | character varying    |           |          | 
+ station_id  | character varying(6) |           |          | 
+ road        | smallint             |           |          | 
+ one_way     | character(1)         |           |          | 
+ year        | smallint             |           |          | 
+ month       | smallint             |           |          | 
+ day         | smallint             |           |          | 
+ dow         | smallint             |           |          | 
+```
+
+```
+RC_STATION          18_0395
+RG                  01
+REGION_CODE         1
+COUNTY_CODE         8
+STAT                0395
+RCSTA               180395
+FUNCTIONAL_CLASS    4
+FACTOR_GROUP        40
+YEAR                2017
+MONTH               9
+DAY                 1
+DAY_OF_WEEK         Friday
+FEDERAL_DIRECTION   5
+LANES_IN_DIRECTION  1
+*/
+
+/* eslint no-console: 0 */
+
+const assert = require('assert');
+
+const { pipe, through } = require('mississippi');
+const split = require('split2');
+const csv = require('fast-csv');
+const _ = require('lodash');
+
+const INPUT_FILE_HEADER = [
+  'rc_station',
+  'rg',
+  'region_code',
+  'county_code',
+  'stat',
+  'rcsta',
+  'functional_class',
+  'factor_group',
+  'year',
+  'month',
+  'day',
+  'day_of_week',
+  'federal_direction',
+  'lanes_in_direction',
+  'interval_01',
+  'interval_02',
+  'interval_03',
+  'interval_04',
+  'interval_05',
+  'interval_06',
+  'interval_07',
+  'interval_08',
+  'interval_09',
+  'interval_10',
+  'interval_11',
+  'interval_12',
+  'interval_13',
+  'interval_14',
+  'interval_15',
+  'interval_16',
+  'interval_17',
+  'interval_18',
+  'interval_19',
+  'interval_20',
+  'interval_21',
+  'interval_22',
+  'interval_23',
+  'interval_24'
+];
+
+const rc2county = {
+  '01': 'Bronx',
+  '02': 'Kings',
+  '03': 'Nassau',
+  '04': 'New York',
+  '05': 'Queens',
+  '06': 'Richmond',
+  '07': 'Suffolk',
+  '11': 'Albany',
+  '12': 'Essex',
+  '13': 'Greene',
+  '14': 'Rensselaer',
+  '15': 'Saratoga',
+  '16': 'Schenectady',
+  '17': 'Warren',
+  '18': 'Washington',
+  '21': 'Fulton',
+  '22': 'Hamilton',
+  '23': 'Herkimer',
+  '24': 'Madison',
+  '25': 'Montgomery',
+  '26': 'Oneida',
+  '31': 'Cayuga',
+  '32': 'Cortland',
+  '33': 'Onondaga',
+  '34': 'Oswego',
+  '35': 'Seneca',
+  '36': 'Tompkins',
+  '41': 'Genesee',
+  '42': 'Livingston',
+  '43': 'Monroe',
+  '44': 'Ontario',
+  '45': 'Orleans',
+  '46': 'Wyoming',
+  '47': 'Wayne',
+  '51': 'Cattaraugus',
+  '52': 'Chautauqua',
+  '53': 'Erie',
+  '54': 'Niagara',
+  '61': 'Allegany',
+  '62': 'Chemung',
+  '63': 'Schuyler',
+  '64': 'Steuben',
+  '66': 'Yates',
+  '71': 'Clinton',
+  '72': 'Franklin',
+  '73': 'Jefferson',
+  '74': 'Lewis',
+  '75': 'St Lawrence',
+  '81': 'Columbia',
+  '82': 'Dutchess',
+  '83': 'Orange',
+  '84': 'Putnam',
+  '85': 'Rockland',
+  '86': 'Ulster',
+  '87': 'Westchester',
+  '91': 'Broome',
+  '92': 'Chenango',
+  '93': 'Delaware',
+  '94': 'Otsego',
+  '95': 'Schoharie',
+  '96': 'Sullivan',
+  '97': 'Tioga'
+};
+
+const county2fips = {
+  ALBANY: '001',
+  ALLEGANY: '003',
+  BRONX: '005',
+  BROOME: '007',
+  CATTARAUGUS: '009',
+  CHAUTAUQUA: '013',
+  CHEMUNG: '015',
+  CHENANGO: '017',
+  CLINTON: '019',
+  COLUMBIA: '021',
+  DELAWARE: '025',
+  DUTCHESS: '027',
+  ERIE: '029',
+  ESSEX: '031',
+  FRANKLIN: '033',
+  FULTON: '035',
+  GENESEE: '037',
+  GREENE: '039',
+  HAMILTON: '041',
+  HERKIMER: '043',
+  JEFFERSON: '045',
+  KINGS: '047',
+  LEWIS: '049',
+  LIVINGSTON: '051',
+  MONROE: '055',
+  NIAGARA: '063',
+  ONEIDA: '065',
+  ONONDAGA: '067',
+  ONTARIO: '069',
+  ORANGE: '071',
+  OSWEGO: '075',
+  OTSEGO: '077',
+  PUTNAM: '079',
+  QUEENS: '081',
+  RICHMOND: '085',
+  SARATOGA: '091',
+  SCHOHARIE: '095',
+  SCHUYLER: '097',
+  SENECA: '099',
+  STEUBEN: '101',
+  'ST LAWRENCE': '089',
+  SUFFOLK: '103',
+  SULLIVAN: '105',
+  TIOGA: '107',
+  TOMPKINS: '109',
+  WASHINGTON: '115',
+  WAYNE: '117',
+  YATES: '123'
+};
+
+const dowMapper = {
+  sunday: 1,
+  monday: 2,
+  tuesday: 3,
+  wednesday: 4,
+  thursday: 5,
+  friday: 6,
+  saturday: 7
+};
+
+const intervalMapper = v => (Number.isFinite(+v) ? +v : null);
+
+const columnValueMappings = {
+  day_of_week: v => dowMapper[v.toLowerCase()],
+  year: _.parseInt,
+  month: _.parseInt,
+  day: _.parseInt,
+  federal_direction: _.parseInt,
+
+  interval_01: intervalMapper,
+  interval_02: intervalMapper,
+  interval_03: intervalMapper,
+  interval_04: intervalMapper,
+  interval_05: intervalMapper,
+  interval_06: intervalMapper,
+  interval_07: intervalMapper,
+  interval_08: intervalMapper,
+  interval_09: intervalMapper,
+  interval_10: intervalMapper,
+  interval_11: intervalMapper,
+  interval_12: intervalMapper,
+  interval_13: intervalMapper,
+  interval_14: intervalMapper,
+  interval_15: intervalMapper,
+  interval_16: intervalMapper,
+  interval_17: intervalMapper,
+  interval_18: intervalMapper,
+  interval_19: intervalMapper,
+  interval_20: intervalMapper,
+  interval_21: intervalMapper,
+  interval_22: intervalMapper,
+  interval_23: intervalMapper,
+  interval_24: intervalMapper
+};
+
+const dbColumns = [
+  'rc',
+  'station',
+  'region',
+  'dotid',
+  'ccid',
+  'fc',
+  'route',
+  'roadname',
+  'county',
+  'county_fips',
+  'begin_desc',
+  'end_desc',
+  'station_id',
+  'road',
+  'one_way',
+  'year',
+  'month',
+  'day',
+  'dow',
+  'i1',
+  'i2',
+  'i3',
+  'i4',
+  'i5',
+  'i6',
+  'i7',
+  'i8',
+  'i9',
+  'i10',
+  'i11',
+  'i12',
+  'i13',
+  'i14',
+  'i15',
+  'i16',
+  'i17',
+  'i18',
+  'i19',
+  'i20',
+  'i21',
+  'i22',
+  'i23',
+  'i24'
+];
+
+const columnNameMappings = {
+  // rc is computed
+  stat: 'station',
+  rg: 'region',
+
+  functional_class: 'fc',
+
+  rcsta: 'station_id',
+
+  year: 'year',
+  month: 'month',
+  day: 'day',
+  day_of_week: 'dow',
+
+  interval_01: 'i1',
+  interval_02: 'i2',
+  interval_03: 'i3',
+  interval_04: 'i4',
+  interval_05: 'i5',
+  interval_06: 'i6',
+  interval_07: 'i7',
+  interval_08: 'i8',
+  interval_09: 'i9',
+  interval_10: 'i10',
+  interval_11: 'i11',
+  interval_12: 'i12',
+  interval_13: 'i13',
+  interval_14: 'i14',
+  interval_15: 'i15',
+  interval_16: 'i16',
+  interval_17: 'i17',
+  interval_18: 'i18',
+  interval_19: 'i19',
+  interval_20: 'i20',
+  interval_21: 'i21',
+  interval_22: 'i22',
+  interval_23: 'i23',
+  interval_24: 'i24'
+};
+
+let prevD = null;
+
+const assertSortedOrder = d => {
+  if (
+    prevD.station_id > d.station_id ||
+    (prevD.station_id === d.station_id && prevD.year > d.year) ||
+    (prevD.station_id === d.station_id &&
+      prevD.year === d.year &&
+      prevD.month > d.month) ||
+    (prevD.station_id === d.station_id &&
+      prevD.year === d.year &&
+      prevD.month === d.month &&
+      prevD.day > d.day) ||
+    (prevD.station_id === d.station_id &&
+      prevD.year === d.year &&
+      prevD.month === d.month &&
+      prevD.day === d.day)
+  ) {
+    if (prevD.dir > d.dir) {
+      throw new Error('Input not sorted');
+    }
+    if (prevD.dir === d.dir) {
+      console.log(JSON.stringify({ prevD, d }, null, 4));
+      throw new Error('Multiple entries for a given location/time/direction.');
+    }
+  }
+};
+
+let firstLine = true;
+pipe(
+  process.stdin,
+  split(),
+  // Just so we don't have to have ALL CAPS object keys below.
+  through(function headerHandler(line, $, cb) {
+    const row = line.toString();
+
+    if (firstLine) {
+      assert(INPUT_FILE_HEADER.join().startsWith(row.toLowerCase()));
+      firstLine = false;
+      return cb(null, `${INPUT_FILE_HEADER.join()}\n`);
+    }
+    return cb(null, `${row}\n`);
+  }),
+
+  csv.parse({ headers: true }),
+
+  through.obj(function aggregator(row, $, cb) {
+    const rc = `${+row.region_code}${+row.county_code}`;
+    const dir = +row.federal_direction;
+    const county = rc2county[rc];
+    const county_fips = county2fips[county];
+
+    if (!county) {
+      console.error(JSON.stringify(row, null, 4));
+      process.exit();
+    }
+
+    const d = _.reduce(
+      _.mapValues(row, (v, k) => (columnValueMappings[k] || _.identity)(v)),
+      (acc, v, k, obj) => {
+        const dbColName = columnNameMappings[k];
+        if (dbColName) {
+          acc[dbColName] = obj[k];
+          return acc;
+        }
+
+        return acc;
+      },
+      {
+        rc,
+        county,
+        county_fips,
+        dir
+      }
+    );
+
+    // First row
+    if (!prevD) {
+      prevD = d;
+      return cb();
+    }
+    // The logic assumes input data is sorted and that there is
+    //   only a single entry per location/time/direction
+    assertSortedOrder(d);
+
+    const samePlaceTime =
+      prevD.station_id === d.station_id &&
+      prevD.year === d.year &&
+      prevD.month === d.month &&
+      prevD.day === d.day;
+
+    d.road = samePlaceTime ? -99 : 99;
+
+    prevD = d;
+    this.push(d);
+
+    return cb();
+  }),
+  csv.createWriteStream({
+    headers: dbColumns
+  }),
+  // through.obj(function log(d, $, cb) {
+  // cb(null, `${JSON.stringify(d)}\n`);
+  // }),
+  process.stdout,
+  err => {
+    if (err) {
+      // https://stackoverflow.com/a/15884508/3970755
+      if (err.code === 'EPIPE') {
+        process.exit(0);
+      } else {
+        console.error(err);
+        process.exit(1);
+      }
+    }
+  }
+);

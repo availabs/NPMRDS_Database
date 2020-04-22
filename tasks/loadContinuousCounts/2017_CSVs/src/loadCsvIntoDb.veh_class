@@ -1,0 +1,41 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+if [[ -z "$REGION_CODE" ]]; then
+  echo "ERROR: The REGION_CODE ENV variable is required."
+  exit 1
+fi
+
+if ! [[ "$REGION_CODE" =~ ^0[1-9]|1[0-1]$ ]]; then
+  echo "ERROR: Invalid REGION_CODE. Region codes should be 01-11."
+  exit 1
+fi
+
+# source ../../../config/postgres.env.dev
+source ../../../../config/postgres.env.pluto
+
+TABLE_NAME="highway_data_services_data.continuous_vehicle_classification_r${REGION_CODE}_2017"
+
+read -r HEADER
+
+psql \
+  -c 'BEGIN;' \
+  -c "
+    CREATE TABLE IF NOT EXISTS $TABLE_NAME (
+      LIKE highway_data_services_data.continuous_vehicle_classification INCLUDING ALL
+    )
+      INHERITS (highway_data_services_data.continuous_vehicle_classification)
+      WITH (fillfactor=100) ;" \
+  -c "DELETE FROM $TABLE_NAME;" \
+  -c "
+    COPY $TABLE_NAME (
+      $HEADER
+    ) FROM STDIN WITH CSV
+  " \
+  -c 'COMMIT;'
+
+popd >/dev/null

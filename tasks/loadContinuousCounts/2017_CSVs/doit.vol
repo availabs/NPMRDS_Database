@@ -1,0 +1,21 @@
+#!/bin/bash
+
+OUTDIR='./derived_data'
+
+mkdir -p "$OUTDIR"
+
+find base_data -name 'continuous_volume_R[0-1][0-9]_2017.csv' |
+	sort |
+	while read -r inf; do
+		base="$( basename "$inf" )"
+		# outf="$( sed "s#^#$OUTDIR/#; s/csv\$/legacy-schema.csv/" <<< "$base" ).gz"
+		REGION_CODE="$( sed 's/^.*R//; s/_2017.csv//;' <<< "$base" )"
+		export REGION_CODE
+
+		# echo "$outf"
+		# echo "$REGION_CODE"
+		
+		./src/sortInputCSV.vol < "$inf" |
+      ./src/transform_vol_csv_to_standard_schema |
+			./src/loadCsvIntoDb.vol
+	done

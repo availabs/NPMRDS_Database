@@ -1,0 +1,21 @@
+#!/bin/bash
+
+OUTDIR='./derived_data'
+
+mkdir -p "$OUTDIR"
+
+find base_data -name 'continuous_vehicle_classification_R[0-1][0-9]_2017.csv' |
+	sort |
+	while read -r inf; do
+		base="$( basename "$inf" )"
+		outf="$( sed "s#^#$OUTDIR/#; s/csv\$/legacy-schema.csv/" <<< "$base" ).gz"
+		REGION_CODE="$( sed 's/^.*R//; s/_2017.csv//;' <<< "$base" )"
+		export REGION_CODE
+
+		echo "$outf"
+		echo "$REGION_CODE"
+		
+		./src/sortInputCSV.veh_class < "$inf" |
+			./src/transform_veh_class_to_standard_schema |
+			./src/loadCsvIntoDb.veh_class
+	done

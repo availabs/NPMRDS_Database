@@ -1,0 +1,506 @@
+#!/usr/bin/env node
+
+/* eslint no-console: 0 */
+
+const assert = require('assert');
+
+const { pipe, through } = require('mississippi');
+const split = require('split2');
+const csv = require('fast-csv');
+const _ = require('lodash');
+
+const INPUT_FILE_HEADER = [
+  'rc_station',
+  'rg',
+  'region_code',
+  'county_code',
+  'stat',
+  'rcsta',
+  'functional_class',
+  'factor_group',
+  'year',
+  'month',
+  'day',
+  'day_of_week',
+  'federal_direction',
+  'lane_code',
+  'lanes_in_direction',
+  'data_interval',
+  'class_f1',
+  'class_f2',
+  'class_f3',
+  'class_f4',
+  'class_f5',
+  'class_f6',
+  'class_f7',
+  'class_f8',
+  'class_f9',
+  'class_f10',
+  'class_f11',
+  'class_f12',
+  'class_f13',
+  'unclassified',
+  'total'
+];
+
+const rc2county = {
+  '01': 'Bronx',
+  '02': 'Kings',
+  '03': 'Nassau',
+  '04': 'New York',
+  '05': 'Queens',
+  '06': 'Richmond',
+  '07': 'Suffolk',
+  '11': 'Albany',
+  '12': 'Essex',
+  '13': 'Greene',
+  '14': 'Rensselaer',
+  '15': 'Saratoga',
+  '16': 'Schenectady',
+  '17': 'Warren',
+  '18': 'Washington',
+  '21': 'Fulton',
+  '22': 'Hamilton',
+  '23': 'Herkimer',
+  '24': 'Madison',
+  '25': 'Montgomery',
+  '26': 'Oneida',
+  '31': 'Cayuga',
+  '32': 'Cortland',
+  '33': 'Onondaga',
+  '34': 'Oswego',
+  '35': 'Seneca',
+  '36': 'Tompkins',
+  '41': 'Genesee',
+  '42': 'Livingston',
+  '43': 'Monroe',
+  '44': 'Ontario',
+  '45': 'Orleans',
+  '46': 'Wyoming',
+  '47': 'Wayne',
+  '51': 'Cattaraugus',
+  '52': 'Chautauqua',
+  '53': 'Erie',
+  '54': 'Niagara',
+  '61': 'Allegany',
+  '62': 'Chemung',
+  '63': 'Schuyler',
+  '64': 'Steuben',
+  '66': 'Yates',
+  '71': 'Clinton',
+  '72': 'Franklin',
+  '73': 'Jefferson',
+  '74': 'Lewis',
+  '75': 'St Lawrence',
+  '81': 'Columbia',
+  '82': 'Dutchess',
+  '83': 'Orange',
+  '84': 'Putnam',
+  '85': 'Rockland',
+  '86': 'Ulster',
+  '87': 'Westchester',
+  '91': 'Broome',
+  '92': 'Chenango',
+  '93': 'Delaware',
+  '94': 'Otsego',
+  '95': 'Schoharie',
+  '96': 'Sullivan',
+  '97': 'Tioga'
+};
+
+const county2fips = {
+  ALBANY: '001',
+  ALLEGANY: '003',
+  BRONX: '005',
+  BROOME: '007',
+  CATTARAUGUS: '009',
+  CHAUTAUQUA: '013',
+  CHEMUNG: '015',
+  CHENANGO: '017',
+  CLINTON: '019',
+  COLUMBIA: '021',
+  DELAWARE: '025',
+  DUTCHESS: '027',
+  ERIE: '029',
+  ESSEX: '031',
+  FRANKLIN: '033',
+  FULTON: '035',
+  GENESEE: '037',
+  GREENE: '039',
+  HAMILTON: '041',
+  HERKIMER: '043',
+  JEFFERSON: '045',
+  KINGS: '047',
+  LEWIS: '049',
+  LIVINGSTON: '051',
+  MONROE: '055',
+  NIAGARA: '063',
+  ONEIDA: '065',
+  ONONDAGA: '067',
+  ONTARIO: '069',
+  ORANGE: '071',
+  OSWEGO: '075',
+  OTSEGO: '077',
+  PUTNAM: '079',
+  QUEENS: '081',
+  RICHMOND: '085',
+  SARATOGA: '091',
+  SCHOHARIE: '095',
+  SCHUYLER: '097',
+  SENECA: '099',
+  STEUBEN: '101',
+  'ST LAWRENCE': '089',
+  SUFFOLK: '103',
+  SULLIVAN: '105',
+  TIOGA: '107',
+  TOMPKINS: '109',
+  WASHINGTON: '115',
+  WAYNE: '117',
+  YATES: '123'
+};
+
+const dowMapper = {
+  Sunday: 1,
+  Monday: 2,
+  Tuesday: 3,
+  Wednesday: 4,
+  Thursday: 5,
+  Friday: 6,
+  Saturday: 7
+};
+
+const classFValMappper = v => (Number.isFinite(+v) ? +v : null);
+
+const columnValueMappings = {
+  day_of_week: v => dowMapper[v.toLowerCase()],
+  year: _.parseInt,
+  month: _.parseInt,
+  day: _.parseInt,
+  federal_direction: _.parseInt,
+  class_f1: classFValMappper,
+  class_f2: classFValMappper,
+  class_f3: classFValMappper,
+  class_f4: classFValMappper,
+  class_f5: classFValMappper,
+  class_f6: classFValMappper,
+  class_f7: classFValMappper,
+  class_f8: classFValMappper,
+  class_f9: classFValMappper,
+  class_f10: classFValMappper,
+  class_f11: classFValMappper,
+  class_f12: classFValMappper,
+  class_f13: classFValMappper
+};
+
+const dbColumns = [
+  'rc',
+  'station',
+  'region',
+  'dotid',
+  'ccid',
+  'fc',
+  'route',
+  'roadname',
+  'county',
+  'county_fips',
+  'begin_desc',
+  'end_desc',
+  'station_id',
+  'road',
+  'one_way',
+  'year',
+  'month',
+  'day',
+  'dow',
+  'hour',
+  'f1',
+  'f2',
+  'f3',
+  'f4',
+  'f5',
+  'f6',
+  'f7',
+  'f8',
+  'f9',
+  'f10',
+  'f11',
+  'f12',
+  'f13'
+];
+
+const columnNameMappings = {
+  // rc is computed
+  stat: 'station',
+  rg: 'region',
+
+  functional_class: 'fc',
+
+  rcsta: 'station_id',
+
+  year: 'year',
+  month: 'month',
+  day: 'day',
+  day_of_week: 'dow',
+
+  class_f1: 'f1',
+  class_f2: 'f2',
+  class_f3: 'f3',
+  class_f4: 'f4',
+  class_f5: 'f5',
+  class_f6: 'f6',
+  class_f7: 'f7',
+  class_f8: 'f8',
+  class_f9: 'f9',
+  class_f10: 'f10',
+  class_f11: 'f11',
+  class_f12: 'f12',
+  class_f13: 'f13'
+};
+
+const fCodes = [
+  'f1',
+  'f2',
+  'f3',
+  'f4',
+  'f5',
+  'f6',
+  'f7',
+  'f8',
+  'f9',
+  'f10',
+  'f11',
+  'f12',
+  'f13'
+];
+
+let accumulator;
+let prevDir = null;
+let prevLane = null;
+let prevD = null;
+
+const accumuateCounts = d => {
+  for (let i = 0; i < fCodes.length; ++i) {
+    const fCode = fCodes[i];
+
+    const a = accumulator[fCode];
+    const b = d[fCode];
+
+    if (a === undefined) {
+      accumulator[fCode] = b;
+    } else if (b === undefined) {
+      accumulator[fCode] = a;
+    } else {
+      accumulator[fCode] = +a + +b;
+    }
+  }
+};
+
+const assertSortedOrder = (d, dir, lane) => {
+  if (
+    accumulator.station_id > d.station_id ||
+    (accumulator.station_id === d.station_id && accumulator.year > d.year) ||
+    (accumulator.station_id === d.station_id &&
+      accumulator.year === d.year &&
+      accumulator.month > d.month) ||
+    (accumulator.station_id === d.station_id &&
+      accumulator.year === d.year &&
+      accumulator.month === d.month &&
+      accumulator.day > d.day) ||
+    (accumulator.station_id === d.station_id &&
+      accumulator.year === d.year &&
+      accumulator.month === d.month &&
+      accumulator.day === d.day &&
+      accumulator.hour > d.hour) ||
+    (accumulator.station_id === d.station_id &&
+      accumulator.year === d.year &&
+      accumulator.month === d.month &&
+      accumulator.day === d.day &&
+      accumulator.hour === d.hour &&
+      prevDir > dir) ||
+    (accumulator.station_id === d.station_id &&
+      accumulator.year === d.year &&
+      accumulator.month === d.month &&
+      accumulator.day === d.day &&
+      accumulator.hour === d.hour &&
+      prevDir === dir &&
+      prevLane > lane)
+  ) {
+    console.log(JSON.stringify({ accumulator, d }, null, 4));
+    throw new Error('Input not sorted');
+  }
+};
+
+let firstLine = true;
+let prevRow;
+pipe(
+  process.stdin,
+  split(),
+  through(function headerHandler(line, $, cb) {
+    const row = line.toString();
+
+    if (firstLine) {
+      assert(INPUT_FILE_HEADER.join().startsWith(row.toLowerCase()));
+      firstLine = false;
+      return cb(null, `${INPUT_FILE_HEADER.join()}\n`);
+    }
+    return cb(null, `${row}\n`);
+  }),
+  csv.parse({ headers: true }),
+
+  through.obj(
+    function aggregator(row, $, cb) {
+      const rc = `${+row.region_code}${+row.county_code}`;
+      const hour = +row.data_interval - 1;
+      const dir = +row.federal_direction;
+      const lane = +row.lane_code;
+      const county = rc2county[rc];
+      const county_fips = county2fips[county];
+
+      const d = _.reduce(
+        _.mapValues(row, (v, k) => (columnValueMappings[k] || _.identity)(v)),
+        (acc, v, k, obj) => {
+          const dbColName = columnNameMappings[k];
+          if (dbColName) {
+            acc[dbColName] = obj[k];
+            return acc;
+          }
+
+          return acc;
+        },
+        {
+          rc,
+          hour,
+          county,
+          county_fips,
+          road: 99 // May get mutated below if dir changes
+        }
+      );
+
+      // First row
+      if (!accumulator) {
+        accumulator = d;
+        return cb();
+      }
+      // The counts accumulation logic assumes input data is sorted
+      assertSortedOrder(d, dir, lane);
+
+      const differentPlaceOrTime =
+        accumulator.station_id < d.station_id ||
+        accumulator.year < d.year ||
+        accumulator.month < d.month ||
+        accumulator.day < d.day ||
+        accumulator.hour < d.hour;
+
+      if (differentPlaceOrTime) {
+        this.push(accumulator);
+        accumulator = _.cloneDeep(d);
+
+        // Reset the direction and lane
+        prevDir = dir;
+        prevLane = lane;
+        prevD = d;
+        prevRow = row;
+        return cb();
+      }
+
+      // We know that station_id,year,month,hour are the same as in the accumulator
+      const differentDir = prevDir !== dir;
+
+      if (differentDir) {
+        this.push(accumulator);
+
+        d.road = -99;
+        accumulator = _.cloneDeep(d);
+
+        // Reset the direction and lane
+        prevDir = dir;
+        prevLane = null;
+        prevD = d;
+        prevRow = row;
+        return cb();
+      }
+
+      // Make sure we don't have multiple entries for any
+      //   (station,year,month,day,hour,direction,lane) tuple
+      if (prevLane === lane) {
+        const essentialCols = [
+          'rc',
+          'station',
+          'region',
+          'route',
+          'roadname',
+          'county',
+          'county_fips',
+          'station_id',
+          'road',
+          'year',
+          'month',
+          'day',
+          'dow',
+          'hour'
+        ];
+
+        if (
+          !_.isEqual(_.pick(prevD, essentialCols), _.pick(d, essentialCols)) &&
+          // If both have data for a fClass and it differs
+          fCodes.some(
+            fCode => prevD[fCode] && d[fCode] && prevD[fCode] !== d[fCode]
+          )
+        ) {
+          console.error(
+            JSON.stringify(
+              {
+                prevDir,
+                prevLane,
+                dir,
+                lane,
+                accumulator,
+                prevRow,
+                row,
+                d,
+                prevD
+              },
+              null,
+              4
+            )
+          );
+          throw new Error(
+            'Multiple data for same (station,year,month,day,hour,direction,lane) tuple'
+          );
+        }
+        return cb();
+      }
+      prevLane = lane;
+      prevD = d;
+      prevRow = row;
+
+      accumuateCounts(d);
+
+      return cb();
+    },
+    function flush(cb) {
+      if (!_.isEmpty(accumulator)) {
+        this.push(accumulator);
+      }
+      cb();
+    }
+  ),
+  csv.createWriteStream({
+    headers: dbColumns
+  }),
+  // through.obj(function log(d, $, cb) {
+  // cb(null, `${JSON.stringify(d)}\n`);
+  // }),
+  process.stdout,
+  err => {
+    if (err) {
+      // https://stackoverflow.com/a/15884508/3970755
+      if (err.code === 'EPIPE') {
+        process.exit(0);
+      } else {
+        console.error(err);
+        process.exit(1);
+      }
+    }
+  }
+);
