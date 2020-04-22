@@ -6,16 +6,21 @@ read -r HEADER
 
 COL_NUMS=$(tr ',' '\n' <<< "$HEADER" | nl)
 
-RCSTA_COL_NUM=$( grep RCSTA <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
-YEAR_COL_NUM=$( grep Year <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
-MONTH_COL_NUM=$( grep Month <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
-DAY_COL_NUM=$( grep Day <<< "$COL_NUMS"| grep -v Day_of_week | grep --only -e '[0-9]\{1,\}' )
-DATA_INTERVAL_COL_NUM=$( grep Data_Interval <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
-FED_DIR_COL_NUM=$( grep Federal_Direction <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
-LANE_CODE_COL_NUM=$( grep Lane_Code <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
+COUNT_ID_COL_NUM=$( grep -i Count_ID <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
+RCSTA_COL_NUM=$( grep -i RCSTA <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
+YEAR_COL_NUM=$( grep -i Year <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
+MONTH_COL_NUM=$( grep -i Month <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
+DAY_COL_NUM=$( grep -i 'Day$' <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
+DATA_INTERVAL_COL_NUM=$( grep -i Data_Interval <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
+FED_DIR_COL_NUM=$( grep -i Federal_Direction <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
+LANE_CODE_COL_NUM=$( grep -i Lane_Code <<< "$COL_NUMS"| grep --only -e '[0-9]\{1,\}' )
 
 echo "$HEADER"
 
+## Sort by station/time/dir/lane ascending, Count_ID desc
+##   Count_ID contains the archive date so sorting in descending
+##     order by that column assures the AWK filter keeps the latest version
+##     for each station/time/dir/lane.
 sort \
   -t, \
   "-k$RCSTA_COL_NUM,$RCSTA_COL_NUM" \
@@ -24,4 +29,6 @@ sort \
   "-k$DAY_COL_NUM,$DAY_COL_NUM"n \
   "-k$DATA_INTERVAL_COL_NUM,$DATA_INTERVAL_COL_NUM"n \
   "-k$FED_DIR_COL_NUM,$FED_DIR_COL_NUM"n \
-  "-k$LANE_CODE_COL_NUM,$LANE_CODE_COL_NUM"n
+  "-k$LANE_CODE_COL_NUM,$LANE_CODE_COL_NUM"n \
+  "-k$COUNT_ID_COL_NUM,$COUNT_ID_COL_NUM"r |
+awk -F',' "!_[\$${RCSTA_COL_NUM},\$${YEAR_COL_NUM},\$${MONTH_COL_NUM},\$${DAY_COL_NUM},\$${DATA_INTERVAL_COL_NUM},\$${FED_DIR_COL_NUM},\$${LANE_CODE_COL_NUM}]++"

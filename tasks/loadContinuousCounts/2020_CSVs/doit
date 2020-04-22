@@ -1,21 +1,32 @@
 #!/bin/bash
 
+HEADER="$(
+  find base_data -type f -name '*.CSV' -exec head -1 {} \; |
+    sed 's/\r//' |
+    sort -u
+)"
+
+# https://superuser.com/a/795465
+if (( $( grep -c . <<< "$HEADER" ) > 1 )); then
+  echo 'ERROR: Inconsistent file headers'
+  exit 1
+fi
+
+
 cat \
   <(
-    # Output the header
-    find base_data -type f -name '*.CSV' |
-      head -1 |
-      xargs -I filename head -1 filename
+    echo "$HEADER"
   ) \
   <(
     # Output the data rows, removing the dupes
     find base_data -type f -name '*.CSV' |
       sort |
       while read -r f; do
-        awk "NR>1 { print }" "$f"
-      done |
-      sort -u
+        # shellcheck disable=SC2086
+        sed 's/\r//; s/\s\{1,\}/ /g; s/"\s\{0,\}/"/g;  s/\s\{0,\}"/"/g; s/""//g; s/, /,/g; s/ ,/,/g' "$f" |
+          awk 'NR>1'
+      done
   ) |
   ./src/sortInputCSV |
-  ./src/transform_to_standard_schema |
-  ./src/loadCsvIntoDb
+  ./src/transform_to_standard_schema #|
+  # ./src/loadCsvIntoDb

@@ -19,7 +19,7 @@ HEADER="$(
 )"
 
 unzip -p "$ZIP_PATH" |
-sed 's/ \{1,\}/ /g; s/" \{0,\}/"/g;  s/ \{0,\}"/"/g; s/""//g' |
+  sed 's/\r//; s/\s\{1,\}/ /g; s/"\s\{0,\}/"/g;  s/\s\{0,\}"/"/g; s/""//g; s/, /,/g; s/ ,/,/g' |
 psql \
   -c 'BEGIN;' \
   -c "DELETE FROM $TABLE_NAME;" \

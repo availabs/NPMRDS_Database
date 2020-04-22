@@ -6,7 +6,7 @@ set -a
 pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 
 # source ../../../config/postgres.env.dev
-source ../../../config/postgres.env.prod
+source ../../../../config/postgres.env.prod
 
 read -r HEADER
 
