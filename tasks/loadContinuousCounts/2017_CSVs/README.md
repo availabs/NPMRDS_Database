@@ -281,3 +281,15 @@ $ paste <(head -1 base_data/continous_counts.2017/continuous_volume_R01_2017.csv
 38  INTERVAL_24         108
 ```
 
+
+## Ensuring single entries for station/date/time/direction
+
+```
+$ find . -name 'continuous_volume*' -exec awk -F, 'NR>1{ print $1,$9,$10,$11,$13 }' {} \; | s
+ort | uniq -D
+$
+
+$ find . -name 'continuous_vehicle*' -exec awk -F, 'NR>1{ print $1,$9,$10,$11,$13,$14,$16 }' {} \; | sort | uniq -D
+$
+```
+

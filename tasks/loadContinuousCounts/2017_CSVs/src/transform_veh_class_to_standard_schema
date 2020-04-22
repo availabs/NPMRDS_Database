@@ -44,68 +44,68 @@ const INPUT_FILE_HEADER = [
 ];
 
 const rc2county = {
-  '01': 'Bronx',
-  '02': 'Kings',
-  '03': 'Nassau',
-  '04': 'New York',
-  '05': 'Queens',
-  '06': 'Richmond',
-  '07': 'Suffolk',
-  '11': 'Albany',
-  '12': 'Essex',
-  '13': 'Greene',
-  '14': 'Rensselaer',
-  '15': 'Saratoga',
-  '16': 'Schenectady',
-  '17': 'Warren',
-  '18': 'Washington',
-  '21': 'Fulton',
-  '22': 'Hamilton',
-  '23': 'Herkimer',
-  '24': 'Madison',
-  '25': 'Montgomery',
-  '26': 'Oneida',
-  '31': 'Cayuga',
-  '32': 'Cortland',
-  '33': 'Onondaga',
-  '34': 'Oswego',
-  '35': 'Seneca',
-  '36': 'Tompkins',
-  '41': 'Genesee',
-  '42': 'Livingston',
-  '43': 'Monroe',
-  '44': 'Ontario',
-  '45': 'Orleans',
-  '46': 'Wyoming',
-  '47': 'Wayne',
-  '51': 'Cattaraugus',
-  '52': 'Chautauqua',
-  '53': 'Erie',
-  '54': 'Niagara',
-  '61': 'Allegany',
-  '62': 'Chemung',
-  '63': 'Schuyler',
-  '64': 'Steuben',
-  '66': 'Yates',
-  '71': 'Clinton',
-  '72': 'Franklin',
-  '73': 'Jefferson',
-  '74': 'Lewis',
-  '75': 'St Lawrence',
-  '81': 'Columbia',
-  '82': 'Dutchess',
-  '83': 'Orange',
-  '84': 'Putnam',
-  '85': 'Rockland',
-  '86': 'Ulster',
-  '87': 'Westchester',
-  '91': 'Broome',
-  '92': 'Chenango',
-  '93': 'Delaware',
-  '94': 'Otsego',
-  '95': 'Schoharie',
-  '96': 'Sullivan',
-  '97': 'Tioga'
+  '01': 'BRONX',
+  '02': 'KINGS',
+  '03': 'NASSAU',
+  '04': 'NEW YORK',
+  '05': 'QUEENS',
+  '06': 'RICHMOND',
+  '07': 'SUFFOLK',
+  '11': 'ALBANY',
+  '12': 'ESSEX',
+  '13': 'GREENE',
+  '14': 'RENSSELAER',
+  '15': 'SARATOGA',
+  '16': 'SCHENECTADY',
+  '17': 'WARREN',
+  '18': 'WASHINGTON',
+  '21': 'FULTON',
+  '22': 'HAMILTON',
+  '23': 'HERKIMER',
+  '24': 'MADISON',
+  '25': 'MONTGOMERY',
+  '26': 'ONEIDA',
+  '31': 'CAYUGA',
+  '32': 'CORTLAND',
+  '33': 'ONONDAGA',
+  '34': 'OSWEGO',
+  '35': 'SENECA',
+  '36': 'TOMPKINS',
+  '41': 'GENESEE',
+  '42': 'LIVINGSTON',
+  '43': 'MONROE',
+  '44': 'ONTARIO',
+  '45': 'ORLEANS',
+  '46': 'WYOMING',
+  '47': 'WAYNE',
+  '51': 'CATTARAUGUS',
+  '52': 'CHAUTAUQUA',
+  '53': 'ERIE',
+  '54': 'NIAGARA',
+  '61': 'ALLEGANY',
+  '62': 'CHEMUNG',
+  '63': 'SCHUYLER',
+  '64': 'STEUBEN',
+  '66': 'YATES',
+  '71': 'CLINTON',
+  '72': 'FRANKLIN',
+  '73': 'JEFFERSON',
+  '74': 'LEWIS',
+  '75': 'ST LAWRENCE',
+  '81': 'COLUMBIA',
+  '82': 'DUTCHESS',
+  '83': 'ORANGE',
+  '84': 'PUTNAM',
+  '85': 'ROCKLAND',
+  '86': 'ULSTER',
+  '87': 'WESTCHESTER',
+  '91': 'BROOME',
+  '92': 'CHENANGO',
+  '93': 'DELAWARE',
+  '94': 'OTSEGO',
+  '95': 'SCHOHARIE',
+  '96': 'SULLIVAN',
+  '97': 'TIOGA'
 };
 
 const county2fips = {
@@ -114,11 +114,13 @@ const county2fips = {
   BRONX: '005',
   BROOME: '007',
   CATTARAUGUS: '009',
+  CAYUGA: '011',
   CHAUTAUQUA: '013',
   CHEMUNG: '015',
   CHENANGO: '017',
   CLINTON: '019',
   COLUMBIA: '021',
+  CORTLAND: '023',
   DELAWARE: '025',
   DUTCHESS: '027',
   ERIE: '029',
@@ -133,18 +135,26 @@ const county2fips = {
   KINGS: '047',
   LEWIS: '049',
   LIVINGSTON: '051',
+  MADISON: '053',
   MONROE: '055',
+  MONTGOMERY: '057',
+  NASSAU: '059',
+  'NEW YORK': '061',
   NIAGARA: '063',
   ONEIDA: '065',
   ONONDAGA: '067',
   ONTARIO: '069',
   ORANGE: '071',
+  ORLEANS: '073',
   OSWEGO: '075',
   OTSEGO: '077',
   PUTNAM: '079',
   QUEENS: '081',
+  RENSSELAER: '083',
   RICHMOND: '085',
+  ROCKLAND: '087',
   SARATOGA: '091',
+  SCHENECTADY: '093',
   SCHOHARIE: '095',
   SCHUYLER: '097',
   SENECA: '099',
@@ -154,25 +164,29 @@ const county2fips = {
   SULLIVAN: '105',
   TIOGA: '107',
   TOMPKINS: '109',
+  ULSTER: '111',
+  WARREN: '113',
   WASHINGTON: '115',
   WAYNE: '117',
+  WESTCHESTER: '119',
+  WYOMING: '121',
   YATES: '123'
 };
 
 const dowMapper = {
-  Sunday: 1,
-  Monday: 2,
-  Tuesday: 3,
-  Wednesday: 4,
-  Thursday: 5,
-  Friday: 6,
-  Saturday: 7
+  SUNDAY: 1,
+  MONDAY: 2,
+  TUESDAY: 3,
+  WEDNESDAY: 4,
+  THURSDAY: 5,
+  FRIDAY: 6,
+  SATURDAY: 7
 };
 
 const classFValMappper = v => (Number.isFinite(+v) ? +v : null);
 
 const columnValueMappings = {
-  day_of_week: v => dowMapper[v.toLowerCase()],
+  day_of_week: v => dowMapper[v.toUpperCase()],
   year: _.parseInt,
   month: _.parseInt,
   day: _.parseInt,
@@ -276,7 +290,6 @@ const fCodes = [
 let accumulator;
 let prevDir = null;
 let prevLane = null;
-let prevD = null;
 
 const accumuateCounts = d => {
   for (let i = 0; i < fCodes.length; ++i) {
@@ -295,7 +308,7 @@ const accumuateCounts = d => {
   }
 };
 
-const assertSortedOrder = (d, dir, lane) => {
+const assertSortedAndUnique = (d, dir, lane) => {
   if (
     accumulator.station_id > d.station_id ||
     (accumulator.station_id === d.station_id && accumulator.year > d.year) ||
@@ -323,15 +336,19 @@ const assertSortedOrder = (d, dir, lane) => {
       accumulator.day === d.day &&
       accumulator.hour === d.hour &&
       prevDir === dir &&
-      prevLane > lane)
+      prevLane >= lane)
   ) {
     console.log(JSON.stringify({ accumulator, d }, null, 4));
+    if (prevLane === lane) {
+      throw new Error(
+        'Input contains multiple entries for a station/time/direction/lane'
+      );
+    }
     throw new Error('Input not sorted');
   }
 };
 
 let firstLine = true;
-let prevRow;
 pipe(
   process.stdin,
   split(),
@@ -382,7 +399,7 @@ pipe(
         return cb();
       }
       // The counts accumulation logic assumes input data is sorted
-      assertSortedOrder(d, dir, lane);
+      assertSortedAndUnique(d, dir, lane);
 
       const differentPlaceOrTime =
         accumulator.station_id < d.station_id ||
@@ -398,8 +415,6 @@ pipe(
         // Reset the direction and lane
         prevDir = dir;
         prevLane = lane;
-        prevD = d;
-        prevRow = row;
         return cb();
       }
 
@@ -415,64 +430,10 @@ pipe(
         // Reset the direction and lane
         prevDir = dir;
         prevLane = null;
-        prevD = d;
-        prevRow = row;
         return cb();
       }
 
-      // Make sure we don't have multiple entries for any
-      //   (station,year,month,day,hour,direction,lane) tuple
-      if (prevLane === lane) {
-        const essentialCols = [
-          'rc',
-          'station',
-          'region',
-          'route',
-          'roadname',
-          'county',
-          'county_fips',
-          'station_id',
-          'road',
-          'year',
-          'month',
-          'day',
-          'dow',
-          'hour'
-        ];
-
-        if (
-          !_.isEqual(_.pick(prevD, essentialCols), _.pick(d, essentialCols)) &&
-          // If both have data for a fClass and it differs
-          fCodes.some(
-            fCode => prevD[fCode] && d[fCode] && prevD[fCode] !== d[fCode]
-          )
-        ) {
-          console.error(
-            JSON.stringify(
-              {
-                prevDir,
-                prevLane,
-                dir,
-                lane,
-                accumulator,
-                prevRow,
-                row,
-                d,
-                prevD
-              },
-              null,
-              4
-            )
-          );
-          throw new Error(
-            'Multiple data for same (station,year,month,day,hour,direction,lane) tuple'
-          );
-        }
-        return cb();
-      }
       prevLane = lane;
-      prevD = d;
-      prevRow = row;
 
       accumuateCounts(d);
 
