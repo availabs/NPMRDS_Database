@@ -1,8 +1,8 @@
 BEGIN;
 
-DROP FUNCTION IF EXISTS pm3.calculate_pm3_geolevel_calculation_version (TEXT);
+DROP FUNCTION IF EXISTS pm3.calculate_pm3_geolevel_calculation_version_v1_2 (TEXT);
 
-CREATE FUNCTION pm3.calculate_pm3_geolevel_calculation_version (p_version_id TEXT)
+CREATE FUNCTION pm3.calculate_pm3_geolevel_calculation_version_v1_2 (p_version_id TEXT)
   RETURNS TABLE (
     pm3calc_ver_id       INTEGER,
     geolevel             TEXT,
@@ -49,6 +49,7 @@ BEGIN
       miles      DOUBLE PRECISION,
       occ_fac    DOUBLE PRECISION,
       nhs_pct    DOUBLE PRECISION,
+      isprimary  SMALLINT,
 
       PRIMARY KEY(tmc)
     ) WITH (fillfactor=100)
@@ -169,7 +170,11 @@ BEGIN
               NULLIF(
                 measure_data->'nhsPct',
                 'null'::JSONB
-              )::DOUBLE PRECISION AS nhs_pct
+              )::DOUBLE PRECISION AS nhs_pct,
+              NULLIF(
+                measure_data->'isprimary',
+                'null'::JSONB
+              )::SMALLINT AS isprimary
             FROM cte_pm3_calculations
             WHERE ( measure = 'TMC_METADATA' )
         ) AS t_tmc_metadata USING (tmc)
@@ -270,9 +275,15 @@ BEGIN
           , 2 -- to nearest 1/100th
         )::DOUBLE PRECISION AS tttr_interstate,
         ROUND(
+          -- if (all_xdelay_phrs > 0 && nhsPct > 0 && +isprimary) {
+          --   total_phed += _.round(xdelayPHrs * +nhsPct / 100, 3);
+          -- }
           SUM(
             ROUND(phed::NUMERIC, 3)
-            * (NULLIF(nhs_pct, 0) IS NOT NULL)::INT
+            *
+            (nhs_pct::NUMERIC / 100::NUMERIC) 
+            *
+            isprimary::NUMERIC
           )
           , 1 -- to nearest 1/10th
         )::DOUBLE PRECISION AS phed

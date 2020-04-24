@@ -20,6 +20,7 @@ psql --quiet -f ../../../sql/pm3_calculation_versions/create_pm3_calculation_ver
 psql --quiet -f ../../../sql/pm3_calculator_data_provenances/create_pm3_calculator_data_provenances_views.sql
 psql --quiet -f ../../../sql/pm3_calculator_output_versions_view/create_pm3_calculator_output_versions_view.sql
 psql --quiet -f ../../../sql/pm3_geolevel_calculation_versions/create_pm3_versioned_geolevel_measures_table.sql
-psql --quiet -f ../../../sql/pm3_geolevel_calculation_versions/create_calculate_pm3_geolevel_calculation_version_fn.sql
+psql --quiet -f ../../../sql/pm3_geolevel_calculation_versions/create_calculate_pm3_geolevel_calculation_version_fn.v1_1.sql
+psql --quiet -f ../../../sql/pm3_geolevel_calculation_versions/create_calculate_pm3_geolevel_calculation_version_fn.v1_2.sql
 
 popd >/dev/null

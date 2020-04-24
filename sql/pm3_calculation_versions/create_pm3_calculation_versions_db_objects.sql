@@ -15,10 +15,12 @@ CREATE TABLE IF NOT EXISTS pm3.pm3_calculation_versions (
   changelog          TEXT,
   is_authoritative   BOOLEAN DEFAULT FALSE
 
+  -- fix_version is 0 IFF partial year downloaded.
+  --   If partial year downloaded, prerelease_label is REQUIRED.
   CHECK (
-    ( ( fix_version <> 0 ) AND ( prerelease_label IS NULL ) )
+    ( fix_version <> 0 )
     OR
-    ( ( fix_version = 0 ) AND ( prerelease_label IS NOT NULL ) )
+    ( prerelease_label IS NOT NULL )
   )
 ) ;
 
