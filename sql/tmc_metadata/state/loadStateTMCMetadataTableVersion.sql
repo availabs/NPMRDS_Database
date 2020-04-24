@@ -458,7 +458,6 @@ INSERT INTO :tbl_name (
           tmc,
           MAX(avg_speedlimit) AS avg_speedlimit
         FROM avg_speedlimits
-        WHERE (state = :'STATE')
         GROUP BY tmc
     ) AS avg_speedlimits
       USING (tmc)
