@@ -451,30 +451,42 @@ BEGIN
           , 1 -- to nearest 1/10th
         )::DOUBLE PRECISION AS phed,
 
-        SUM(
-          -- NOTE: if nhs_pct or f_system is null, not included in sum.
-          ( is_nhs_interstate AND isprimary )::INTEGER -- Converting BOOLEAN to INTEGER yields 0 or 1
+        COALESCE(
+          SUM(
+            -- NOTE: if nhs_pct or f_system is null, not included in sum.
+            ( is_nhs_interstate AND isprimary )::INTEGER -- Converting BOOLEAN to INTEGER yields 0 or 1
+          ),
+          0
         )::INTEGER AS interstate_tmcs,
 
         ROUND(
           -- NOTE: if nhs_pct or f_system is null, not included in sum.
-          SUM(
-            (miles::NUMERIC * nhs_pct::NUMERIC / 100)
-            * ( is_nhs_interstate AND isprimary )::INTEGER
+          COALESCE(
+            SUM(
+              (miles::NUMERIC * nhs_pct::NUMERIC / 100)
+              * ( is_nhs_interstate AND isprimary )::INTEGER
+            ),
+            0
           )::NUMERIC
           , 2
         )::DOUBLE PRECISION AS interstate_miles,
 
-        SUM(
-          -- NOTE: if nhs_pct or f_system is null, not included in sum.
-          ( is_nhs_noninterstate AND isprimary )::INTEGER -- Converting BOOLEAN to INTEGER yields 0 or 1
+        COALESCE(
+          SUM(
+            -- NOTE: if nhs_pct or f_system is null, not included in sum.
+            ( is_nhs_noninterstate AND isprimary )::INTEGER -- Converting BOOLEAN to INTEGER yields 0 or 1
+          ),
+          0
         )::INTEGER AS noninterstate_tmcs,
 
         ROUND(
-          SUM(
-            -- NOTE: if nhs_pct or f_system is null, not included in sum.
-            (miles::NUMERIC * nhs_pct::NUMERIC / 100)
-            * ( is_nhs_noninterstate AND isprimary )::INTEGER
+          COALESCE(
+            SUM(
+              -- NOTE: if nhs_pct or f_system is null, not included in sum.
+              (miles::NUMERIC * nhs_pct::NUMERIC / 100)
+              * ( is_nhs_noninterstate AND isprimary )::INTEGER
+            ),
+            0
           )::NUMERIC
           , 2
         )::DOUBLE PRECISION AS noninterstate_miles

@@ -218,8 +218,8 @@ BEGIN
         ROUND(
           SUM(
             (miles * nhs_pct / 100)
-            * (ROUND(lottr::NUMERIC, 2) < 1.50)::INT
-            * (f_system = 1)::INT
+            * (ROUND(lottr::NUMERIC, 2) < 1.50)::INTEGER
+            * (f_system = 1)::INTEGER
             * ROUND(dir_aadt::NUMERIC, 0)::NUMERIC
             * occ_fac::NUMERIC
           )::NUMERIC
@@ -227,8 +227,8 @@ BEGIN
           NULLIF(
             SUM(
               (miles * nhs_pct / 100)
-              * (lottr IS NOT NULL)::INT
-              * (f_system = 1)::INT
+              * (lottr IS NOT NULL)::INTEGER
+              * (f_system = 1)::INTEGER
               * ROUND(dir_aadt::NUMERIC, 0)::NUMERIC
               * occ_fac::NUMERIC
             )::NUMERIC
@@ -242,8 +242,8 @@ BEGIN
         ROUND(
           SUM(
             (miles * nhs_pct / 100)
-            * (ROUND(lottr::NUMERIC, 2) < 1.50)::INT
-            * (f_system <> 1)::INT
+            * (ROUND(lottr::NUMERIC, 2) < 1.50)::INTEGER
+            * (f_system <> 1)::INTEGER
             * ROUND(dir_aadt::NUMERIC, 0)::NUMERIC
             * occ_fac::NUMERIC
           )::NUMERIC
@@ -251,8 +251,8 @@ BEGIN
           NULLIF(
             SUM(
               (miles * nhs_pct / 100)
-              * (lottr IS NOT NULL)::INT
-              * (f_system <> 1)::INT
+              * (lottr IS NOT NULL)::INTEGER
+              * (f_system <> 1)::INTEGER
               * ROUND(dir_aadt::NUMERIC, 0)::NUMERIC
               * occ_fac::NUMERIC
             )
@@ -267,14 +267,14 @@ BEGIN
           SUM(
             (miles * nhs_pct / 100)
             * ROUND((tttr::NUMERIC), 2)::NUMERIC
-            * (f_system = 1)::INT
+            * (f_system = 1)::INTEGER
           )::NUMERIC
           /
           NULLIF(
             SUM(
               (miles * nhs_pct / 100)
-              * (tttr IS NOT NULL)::INT
-              * (f_system = 1)::INT
+              * (tttr IS NOT NULL)::INTEGER
+              * (f_system = 1)::INTEGER
             )
             , 0
           )::NUMERIC
@@ -284,37 +284,49 @@ BEGIN
         ROUND(
           SUM(
             ROUND(phed::NUMERIC, 3)
-            * (NULLIF(nhs_pct, 0) IS NOT NULL)::INT
+            * (NULLIF(nhs_pct, 0) IS NOT NULL)::INTEGER
           )
           , 1 -- to nearest 1/10th
         )::DOUBLE PRECISION AS phed,
 
-        SUM(
-          -- NOTE: if nhs_pct or f_system is null, not included in sum.
-          ( ( f_system = 1) AND ( nhs_pct > 0 ) )::INT
-        )::INT AS interstate_tmcs,
+        COALESCE(
+            SUM(
+              -- NOTE: if nhs_pct or f_system is null, not included in sum.
+              ( ( f_system = 1) AND ( nhs_pct > 0 ) )::INTEGER
+            ),
+            0
+        )::INTEGER AS interstate_tmcs,
 
         ROUND(
           -- NOTE: if nhs_pct or f_system is null, not included in sum.
-          SUM(
-            (miles::NUMERIC * nhs_pct::NUMERIC / 100)
-            * (f_system = 1)::INT
-          )::NUMERIC
-          , 2
+          COALESCE(
+            SUM(
+              (miles::NUMERIC * nhs_pct::NUMERIC / 100)
+              * (f_system = 1)::INTEGER
+            ),
+            0
+          )::NUMERIC,
+          2
         )::DOUBLE PRECISION AS interstate_miles,
 
-        SUM(
-          -- NOTE: if nhs_pct or f_system is null, not included in sum.
-          ( ( f_system <> 1) AND ( nhs_pct > 0 ) )::INT
-        )::INT AS noninterstate_tmcs,
-
-        ROUND(
+        COALESCE(
           SUM(
             -- NOTE: if nhs_pct or f_system is null, not included in sum.
-            (miles::NUMERIC * nhs_pct::NUMERIC / 100)
-            * (f_system <> 1)::INT
-          )::NUMERIC
-          , 2
+            ( ( f_system <> 1) AND ( nhs_pct > 0 ) )::INTEGER
+          ),
+          0
+        )::INTEGER AS noninterstate_tmcs,
+
+        ROUND(
+          COALESCE(
+            SUM(
+              -- NOTE: if nhs_pct or f_system is null, not included in sum.
+              (miles::NUMERIC * nhs_pct::NUMERIC / 100)
+              * (f_system <> 1)::INTEGER
+            ),
+            0
+          )::NUMERIC,
+          2
         )::DOUBLE PRECISION AS noninterstate_miles
 
       FROM tmp_pm3_run_tmc_metadata_snapshot
