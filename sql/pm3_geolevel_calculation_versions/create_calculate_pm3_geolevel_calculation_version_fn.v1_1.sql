@@ -12,7 +12,11 @@ CREATE FUNCTION pm3.calculate_pm3_geolevel_calculation_version_v1_1 (p_version_i
     lottr_interstate     DOUBLE PRECISION,
     lottr_noninterstate  DOUBLE PRECISION,
     tttr_interstate      DOUBLE PRECISION,
-    phed                 DOUBLE PRECISION
+    phed                 DOUBLE PRECISION,
+    interstate_tmcs      INTEGER,
+    interstate_miles     DOUBLE PRECISION,
+    noninterstate_tmcs   INTEGER,
+    noninterstate_miles  DOUBLE PRECISION
   )
 AS $calculate_pm3_geolevel_calculation_version$
 BEGIN
@@ -187,7 +191,11 @@ BEGIN
       lottr_interstate     DOUBLE PRECISION,
       lottr_noninterstate  DOUBLE PRECISION,
       tttr_interstate      DOUBLE PRECISION,
-      phed                 DOUBLE PRECISION
+      phed                 DOUBLE PRECISION,
+      interstate_tmcs      INTEGER,
+      interstate_miles     DOUBLE PRECISION,
+      noninterstate_tmcs   INTEGER,
+      noninterstate_miles  DOUBLE PRECISION
     )
   AS $calculate_for_geolevel_fn$
     SELECT
@@ -206,6 +214,7 @@ BEGIN
         ARRAY_AGG(
           DISTINCT state_code ORDER BY state_code
         )::TEXT[] AS state_codes,
+
         ROUND(
           SUM(
             (miles * nhs_pct / 100)
@@ -229,6 +238,7 @@ BEGIN
           100 -- To percent
           , 1 -- to nearest 1/10th
         )::DOUBLE PRECISION AS lottr_interstate,
+
         ROUND(
           SUM(
             (miles * nhs_pct / 100)
@@ -252,6 +262,7 @@ BEGIN
           100 -- To percent
           , 1 -- to nearest 1/10th
         )::DOUBLE PRECISION AS lottr_noninterstate,
+
         ROUND(
           SUM(
             (miles * nhs_pct / 100)
@@ -269,13 +280,43 @@ BEGIN
           )::NUMERIC
           , 2 -- to nearest 1/100th
         )::DOUBLE PRECISION AS tttr_interstate,
+
         ROUND(
           SUM(
             ROUND(phed::NUMERIC, 3)
             * (NULLIF(nhs_pct, 0) IS NOT NULL)::INT
           )
           , 1 -- to nearest 1/10th
-        )::DOUBLE PRECISION AS phed
+        )::DOUBLE PRECISION AS phed,
+
+        SUM(
+          -- NOTE: if nhs_pct or f_system is null, not included in sum.
+          ( ( f_system = 1) AND ( nhs_pct > 0 ) )::INT
+        )::INT AS interstate_tmcs,
+
+        ROUND(
+          -- NOTE: if nhs_pct or f_system is null, not included in sum.
+          SUM(
+            (miles::NUMERIC * nhs_pct::NUMERIC / 100)
+            * (f_system = 1)::INT
+          )::NUMERIC
+          , 2
+        )::DOUBLE PRECISION AS interstate_miles,
+
+        SUM(
+          -- NOTE: if nhs_pct or f_system is null, not included in sum.
+          ( ( f_system <> 1) AND ( nhs_pct > 0 ) )::INT
+        )::INT AS noninterstate_tmcs,
+
+        ROUND(
+          SUM(
+            -- NOTE: if nhs_pct or f_system is null, not included in sum.
+            (miles::NUMERIC * nhs_pct::NUMERIC / 100)
+            * (f_system <> 1)::INT
+          )::NUMERIC
+          , 2
+        )::DOUBLE PRECISION AS noninterstate_miles
+
       FROM tmp_pm3_run_tmc_metadata_snapshot
         INNER JOIN tmp_tmc_level_pm3_measures USING (tmc)
       WHERE (
@@ -283,9 +324,9 @@ BEGIN
           WHEN 'STATE' THEN ( state_code IS NOT NULL )
           WHEN 'COUNTY' THEN ( county_code IS NOT NULL )
           WHEN 'UA' THEN (
-            ( ( NOT p_ua_nonurban ) AND ( ua_code <> ALL(ARRAY['99998', '99999']) ) )
+            ( ( NOT p_ua_nonurban ) AND ( ua_code NOT IN ('99998', '99999') ) )
             OR
-            ( ( p_ua_nonurban ) AND ( ua_code = ANY(ARRAY['99998', '99999']) ) )
+            ( ( p_ua_nonurban ) AND ( ua_code IN ('99998', '99999') ) )
           )
           WHEN 'MPO' THEN ( mpo_code IS NOT NULL )
           ELSE false
@@ -312,7 +353,11 @@ BEGIN
     lottr_interstate     DOUBLE PRECISION,
     lottr_noninterstate  DOUBLE PRECISION,
     tttr_interstate      DOUBLE PRECISION,
-    phed                 DOUBLE PRECISION
+    phed                 DOUBLE PRECISION,
+    interstate_tmcs      INTEGER,
+    interstate_miles     DOUBLE PRECISION,
+    noninterstate_tmcs   INTEGER,
+    noninterstate_miles  DOUBLE PRECISION
   ) ON COMMIT DROP;
 
   INSERT INTO tmp_result (
@@ -323,7 +368,11 @@ BEGIN
       lottr_interstate,
       lottr_noninterstate,
       tttr_interstate,
-      phed
+      phed,
+      interstate_tmcs,
+      interstate_miles,
+      noninterstate_tmcs,
+      noninterstate_miles
     )
     SELECT
         t.geolevel,
@@ -333,7 +382,11 @@ BEGIN
         t.lottr_interstate,
         t.lottr_noninterstate,
         t.tttr_interstate,
-        t.phed
+        t.phed,
+        t.interstate_tmcs,
+        t.interstate_miles,
+        t.noninterstate_tmcs,
+        t.noninterstate_miles
       FROM (
         SELECT * FROM pg_temp.calculate_for_geolevel_fn('STATE')
         UNION ALL

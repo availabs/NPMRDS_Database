@@ -10,6 +10,10 @@ CREATE TABLE IF NOT EXISTS pm3.pm3_geolevel_calculation_versions (
   lottr_noninterstate  DOUBLE PRECISION,
   tttr_interstate      DOUBLE PRECISION,
   phed                 DOUBLE PRECISION,
+  interstate_tmcs      INTEGER,
+  interstate_miles     DOUBLE PRECISION,
+  noninterstate_tmcs   INTEGER,
+  noninterstate_miles  DOUBLE PRECISION,
 
   PRIMARY KEY(pm3calc_ver_id, geolevel, geocode, states)
 );

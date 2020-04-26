@@ -1,3 +1,73 @@
+/*
+From
+  FHWA Computation Procedure for Travel Time Based and
+    Percent Non-Single Occupancy Vehicle (non-SOV) Travel Performance Measures
+
+    FHWA HIF-18-024
+
+    May 2018
+
+
+    2.3.1 Interstate Travel Time Reliability Measure
+
+      2.3.1.1 Step 1: Obtain Interstate Reporting Segment Data
+      The data records in the Travel_Time_Metric_Dataset must meet the criteria below to be considered
+      as data for the reporting segments on the mainline highway of the Interstate System for a State.
+
+        SELECT * FROM Travel_Time_Metric_Dataset
+        WHERE
+          (([F_System] =1) AND
+          ([Facility_Type] IN (1, 2, 6)) AND
+          ([NHS] IN (1, 2, 3, 4, 5, 6, 7, 8, 9)) AND
+          ([Urban_Code] > 0))
+
+    2.3.2 Non-Interstate Travel Time Reliability Measure
+
+      2.3.2.1 Step 1: Get non-Interstate NHS Data
+      The data records in the Travel_Time_Metric_Dataset must meet the criteria below to be considered
+      as data for the reporting segments on the mainline highway of the non-Interstate NHS for a State.
+
+        SELECT * FROM Travel_Time_Metric_Dataset
+          WHERE
+            (([F_System] IN (2, 3, 4, 5, 6, 7)) AND
+            ([Facility_Type] IN (1, 2, 6)) AND
+            ([NHS] IN (1, 2, 3, 4, 5, 6, 7, 8, 9)) AND
+            ([Urban_Code] > 0))
+
+    2.3.3 Truck Travel Time Reliability (TTTR) Index (referred to as the “Freight Reliability Measure”)
+
+      2.3.3.1 Step 1: Obtain Interstate Reporting Segment Data
+      As provided in 23 CFR 490.603, the Freight Reliability Measure is applicable to the Interstate System.
+      The data records in the Travel_Time_Metric_Dataset must meet the criteria below to be considered
+      as data for the reporting segments on the mainline highway of the Interstate System for a State.
+
+        SELECT * FROM Travel_Time_Metric_Dataset
+          WHERE
+            (([F_System] =1) AND
+            ([Facility_Type] IN (1, 2, 6)) AND
+            ([NHS] IN (1, 2, 3, 4, 5, 6, 7, 8, 9)) AND
+            ([Urban_Code] > 0))
+
+    2.3.4 PHED Measure
+
+      2.3.4.1 Step 1: Obtaining Dataset for an Applicable Urbanized Area
+      The total number of reporting segments on the NHS located within the applicable urbanized area
+      (denoted as “U” in the equation) is determined by by applying the following criteria.
+
+        SELECT * FROM Travel_Time_Metric_Dataset(S)
+          WHERE
+            ([State_Code] IN (##, …)) AND
+            ([F_System] IN (1, 2, 3, 4, 5, 6, 7)) AND
+            ([Facility_Type] IN (1, 2, 6)) AND
+            ([NHS] IN (1, 2, 3, 4, 5, 6, 7, 8, 9)) AND
+            ([Urban_Code] = #####)
+
+NOTE:
+        1. The is_nhs_interstate criteria is the same for LOTTR and TTTR.
+        2. The PHED inclusion criteria = is_nhs_interstate OR is_nhs_noninterstate
+
+*/
+
 BEGIN;
 
 DROP FUNCTION IF EXISTS pm3.calculate_pm3_geolevel_calculation_version_v1_2 (TEXT);
@@ -12,7 +82,12 @@ CREATE FUNCTION pm3.calculate_pm3_geolevel_calculation_version_v1_2 (p_version_i
     lottr_interstate     DOUBLE PRECISION,
     lottr_noninterstate  DOUBLE PRECISION,
     tttr_interstate      DOUBLE PRECISION,
-    phed                 DOUBLE PRECISION
+    phed                 DOUBLE PRECISION,
+    interstate_tmcs      INTEGER,
+    interstate_miles     DOUBLE PRECISION,
+    noninterstate_tmcs   INTEGER,
+    noninterstate_miles  DOUBLE PRECISION
+
   )
 AS $calculate_pm3_geolevel_calculation_version$
 BEGIN
@@ -40,16 +115,18 @@ BEGIN
   ;
 
   CREATE TEMPORARY TABLE tmp_tmc_level_pm3_measures (
-      tmc        VARCHAR,
-      lottr      DOUBLE PRECISION,
-      tttr       DOUBLE PRECISION,
-      phed       DOUBLE PRECISION,
-      dir_aadt   DOUBLE PRECISION,
-      f_system   DOUBLE PRECISION,
-      miles      DOUBLE PRECISION,
-      occ_fac    DOUBLE PRECISION,
-      nhs_pct    DOUBLE PRECISION,
-      isprimary  SMALLINT,
+      tmc                   VARCHAR,
+      lottr                 DOUBLE PRECISION,
+      tttr                  DOUBLE PRECISION,
+      phed                  DOUBLE PRECISION,
+      dir_aadt              DOUBLE PRECISION,
+      f_system              DOUBLE PRECISION,
+      miles                 DOUBLE PRECISION,
+      occ_fac               DOUBLE PRECISION,
+      nhs_pct               DOUBLE PRECISION,
+      isprimary             BOOLEAN,
+      is_nhs_interstate     BOOLEAN,
+      is_nhs_noninterstate  BOOLEAN,
 
       PRIMARY KEY(tmc)
     ) WITH (fillfactor=100)
@@ -96,6 +173,7 @@ BEGIN
     USING tmp_pm3_run_tmc_metadata_snapshot_pkey;
 
   -- Create a summary view of the TMC-level FHWA pm3 measure calculations
+  --   because these TMC-level values are reused for different geography levels.
   INSERT INTO tmp_tmc_level_pm3_measures
     WITH cte_pm3_calculations AS (
       SELECT
@@ -167,14 +245,87 @@ BEGIN
                 measure_data->'avgVehicleOccupancy',
                 'null'::JSONB
               )::DOUBLE PRECISION AS occ_fac,
-              NULLIF(
-                measure_data->'nhsPct',
-                'null'::JSONB
+              COALESCE(
+                NULLIF(
+                  measure_data->'nhsPct',
+                  'null'::JSONB
+                ),
+                '0'::JSONB
               )::DOUBLE PRECISION AS nhs_pct,
-              NULLIF(
-                measure_data->'isprimary',
-                'null'::JSONB
-              )::SMALLINT AS isprimary
+              COALESCE(
+                NULLIF(
+                  measure_data->'isprimary',
+                  'null'::JSONB
+                )::INTEGER::BOOLEAN,
+                false
+              ) AS isprimary,
+
+              -- FHWA HIF-18-024
+              --   SELECT * FROM Travel_Time_Metric_Dataset
+              --   WHERE
+              --     (([F_System] =1) AND
+              --     ([Facility_Type] IN (1, 2, 6)) AND
+              --     ([NHS] IN (1, 2, 3, 4, 5, 6, 7, 8, 9)) AND
+              --     ([Urban_Code] > 0))
+              COALESCE(
+                (
+                  (
+                    NULLIF(
+                      measure_data->'fSystem',
+                      'null'::JSONB
+                    )::INTEGER = 1
+                  )
+                  AND
+                  (
+                    NULLIF(
+                      measure_data->'faciltype',
+                      'null'::JSONB
+                    )::INTEGER IN (1,2,6)
+                  )
+                  AND
+                  (
+                    NULLIF(
+                      measure_data->'nhs',
+                      'null'::JSONB
+                    )::INTEGER IN (1,2,3,4,5,6,7,8,9)
+                  )
+                ),
+                false
+              )::BOOLEAN AS is_nhs_interstate,
+
+              -- FHWA HIF-18-024
+              --   SELECT * FROM Travel_Time_Metric_Dataset
+              --     WHERE
+              --       (([F_System] IN (2, 3, 4, 5, 6, 7)) AND
+              --       ([Facility_Type] IN (1, 2, 6)) AND
+              --       ([NHS] IN (1, 2, 3, 4, 5, 6, 7, 8, 9)) AND
+              --       ([Urban_Code] > 0))
+              COALESCE(
+                (
+                  (
+                    NULLIF(
+                      measure_data->'fSystem',
+                      'null'::JSONB
+                    )::INTEGER IN (2,3,4,5,6,7)
+                  )
+                  AND
+                  (
+                    NULLIF(
+                      measure_data->'faciltype',
+                      'null'::JSONB
+                    )::INTEGER IN (1,2,6)
+                  )
+                  AND
+                  (
+                    NULLIF(
+                      measure_data->'nhs',
+                      'null'::JSONB
+                    )::INTEGER IN (1,2,3,4,5,6,7,8,9)
+                  )
+                ),
+                false
+              )::BOOLEAN AS is_nhs_noninterstate
+
             FROM cte_pm3_calculations
             WHERE ( measure = 'TMC_METADATA' )
         ) AS t_tmc_metadata USING (tmc)
@@ -192,7 +343,11 @@ BEGIN
       lottr_interstate     DOUBLE PRECISION,
       lottr_noninterstate  DOUBLE PRECISION,
       tttr_interstate      DOUBLE PRECISION,
-      phed                 DOUBLE PRECISION
+      phed                 DOUBLE PRECISION,
+      interstate_tmcs      INTEGER,
+      interstate_miles     DOUBLE PRECISION,
+      noninterstate_tmcs   INTEGER,
+      noninterstate_miles  DOUBLE PRECISION
     )
   AS $calculate_for_geolevel_fn$
     SELECT
@@ -211,20 +366,22 @@ BEGIN
         ARRAY_AGG(
           DISTINCT state_code ORDER BY state_code
         )::TEXT[] AS state_codes,
+
+        -- LOTTR Interstate
         ROUND(
           SUM(
-            (miles * nhs_pct / 100)
-            * (ROUND(lottr::NUMERIC, 2) < 1.50)::INT
-            * (f_system = 1)::INT
+            (ROUND(lottr::NUMERIC, 2) < 1.50)::INTEGER
+            * (miles * nhs_pct / 100)
+            * ( is_nhs_interstate AND isprimary )::INTEGER
             * ROUND(dir_aadt::NUMERIC, 0)::NUMERIC
             * occ_fac::NUMERIC
           )::NUMERIC
           /
           NULLIF(
             SUM(
-              (miles * nhs_pct / 100)
-              * (lottr IS NOT NULL)::INT
-              * (f_system = 1)::INT
+              (lottr IS NOT NULL)::INTEGER
+              * (miles * nhs_pct / 100)
+              * ( is_nhs_interstate AND isprimary )::INTEGER
               * ROUND(dir_aadt::NUMERIC, 0)::NUMERIC
               * occ_fac::NUMERIC
             )::NUMERIC
@@ -234,11 +391,13 @@ BEGIN
           100 -- To percent
           , 1 -- to nearest 1/10th
         )::DOUBLE PRECISION AS lottr_interstate,
+
+        -- LOTTR Noninterstate
         ROUND(
           SUM(
-            (miles * nhs_pct / 100)
-            * (ROUND(lottr::NUMERIC, 2) < 1.50)::INT
-            * (f_system <> 1)::INT
+            (ROUND(lottr::NUMERIC, 2) < 1.50)::INTEGER
+            * (miles * nhs_pct / 100)
+            * ( is_nhs_noninterstate AND isprimary )::INTEGER
             * ROUND(dir_aadt::NUMERIC, 0)::NUMERIC
             * occ_fac::NUMERIC
           )::NUMERIC
@@ -246,8 +405,8 @@ BEGIN
           NULLIF(
             SUM(
               (miles * nhs_pct / 100)
-              * (lottr IS NOT NULL)::INT
-              * (f_system <> 1)::INT
+              * (lottr IS NOT NULL)::INTEGER
+              * ( is_nhs_noninterstate AND isprimary )::INTEGER
               * ROUND(dir_aadt::NUMERIC, 0)::NUMERIC
               * occ_fac::NUMERIC
             )
@@ -257,36 +416,69 @@ BEGIN
           100 -- To percent
           , 1 -- to nearest 1/10th
         )::DOUBLE PRECISION AS lottr_noninterstate,
+
+        -- TTTR interstate
         ROUND(
           SUM(
-            (miles * nhs_pct / 100)
-            * ROUND((tttr::NUMERIC), 2)::NUMERIC
-            * (f_system = 1)::INT
+            ROUND((tttr::NUMERIC), 2)::NUMERIC
+            * (miles * nhs_pct / 100)
+            * ( is_nhs_interstate AND isprimary )::INTEGER
           )::NUMERIC
           /
           NULLIF(
             SUM(
-              (miles * nhs_pct / 100)
-              * (tttr IS NOT NULL)::INT
-              * (f_system = 1)::INT
+              (tttr IS NOT NULL)::INTEGER
+              * (miles * nhs_pct / 100)
+              * ( is_nhs_interstate AND isprimary )::INTEGER
             )
             , 0
           )::NUMERIC
           , 2 -- to nearest 1/100th
         )::DOUBLE PRECISION AS tttr_interstate,
+
         ROUND(
           -- if (all_xdelay_phrs > 0 && nhsPct > 0 && +isprimary) {
           --   total_phed += _.round(xdelayPHrs * +nhsPct / 100, 3);
           -- }
           SUM(
             ROUND(phed::NUMERIC, 3)
-            *
-            (nhs_pct::NUMERIC / 100::NUMERIC) 
-            *
-            isprimary::NUMERIC
+            * (nhs_pct::NUMERIC / 100::NUMERIC)
+            * (
+                (is_nhs_interstate OR is_nhs_noninterstate)
+                AND isprimary
+              )::INTEGER
           )
           , 1 -- to nearest 1/10th
-        )::DOUBLE PRECISION AS phed
+        )::DOUBLE PRECISION AS phed,
+
+        SUM(
+          -- NOTE: if nhs_pct or f_system is null, not included in sum.
+          ( is_nhs_interstate AND isprimary )::INTEGER -- Converting BOOLEAN to INTEGER yields 0 or 1
+        )::INTEGER AS interstate_tmcs,
+
+        ROUND(
+          -- NOTE: if nhs_pct or f_system is null, not included in sum.
+          SUM(
+            (miles::NUMERIC * nhs_pct::NUMERIC / 100)
+            * ( is_nhs_interstate AND isprimary )::INTEGER
+          )::NUMERIC
+          , 2
+        )::DOUBLE PRECISION AS interstate_miles,
+
+        SUM(
+          -- NOTE: if nhs_pct or f_system is null, not included in sum.
+          ( is_nhs_noninterstate AND isprimary )::INTEGER -- Converting BOOLEAN to INTEGER yields 0 or 1
+        )::INTEGER AS noninterstate_tmcs,
+
+        ROUND(
+          SUM(
+            -- NOTE: if nhs_pct or f_system is null, not included in sum.
+            (miles::NUMERIC * nhs_pct::NUMERIC / 100)
+            * ( is_nhs_noninterstate AND isprimary )::INTEGER
+          )::NUMERIC
+          , 2
+        )::DOUBLE PRECISION AS noninterstate_miles
+
       FROM tmp_pm3_run_tmc_metadata_snapshot
         INNER JOIN tmp_tmc_level_pm3_measures USING (tmc)
       WHERE (
@@ -294,9 +486,9 @@ BEGIN
           WHEN 'STATE' THEN ( state_code IS NOT NULL )
           WHEN 'COUNTY' THEN ( county_code IS NOT NULL )
           WHEN 'UA' THEN (
-            ( ( NOT p_ua_nonurban ) AND ( ua_code <> ALL(ARRAY['99998', '99999']) ) )
+            ( ( NOT p_ua_nonurban ) AND ( ua_code NOT IN ('99998', '99999') ) )
             OR
-            ( ( p_ua_nonurban ) AND ( ua_code = ANY(ARRAY['99998', '99999']) ) )
+            ( ( p_ua_nonurban ) AND ( ua_code IN ('99998', '99999') ) )
           )
           WHEN 'MPO' THEN ( mpo_code IS NOT NULL )
           ELSE false
@@ -323,7 +515,11 @@ BEGIN
     lottr_interstate     DOUBLE PRECISION,
     lottr_noninterstate  DOUBLE PRECISION,
     tttr_interstate      DOUBLE PRECISION,
-    phed                 DOUBLE PRECISION
+    phed                 DOUBLE PRECISION,
+    interstate_tmcs      INTEGER,
+    interstate_miles     DOUBLE PRECISION,
+    noninterstate_tmcs   INTEGER,
+    noninterstate_miles  DOUBLE PRECISION
   ) ON COMMIT DROP;
 
   INSERT INTO tmp_result (
@@ -334,7 +530,11 @@ BEGIN
       lottr_interstate,
       lottr_noninterstate,
       tttr_interstate,
-      phed
+      phed,
+      interstate_tmcs,
+      interstate_miles,
+      noninterstate_tmcs,
+      noninterstate_miles
     )
     SELECT
         t.geolevel,
@@ -344,7 +544,11 @@ BEGIN
         t.lottr_interstate,
         t.lottr_noninterstate,
         t.tttr_interstate,
-        t.phed
+        t.phed,
+        t.interstate_tmcs,
+        t.interstate_miles,
+        t.noninterstate_tmcs,
+        t.noninterstate_miles
       FROM (
         SELECT * FROM pg_temp.calculate_for_geolevel_fn('STATE')
         UNION ALL

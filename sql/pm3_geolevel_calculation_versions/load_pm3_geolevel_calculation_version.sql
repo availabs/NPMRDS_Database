@@ -41,7 +41,11 @@ BEGIN
           lottr_interstate,
           lottr_noninterstate,
           tttr_interstate,
-          phed
+          phed,
+          interstate_tmcs,
+          interstate_miles,
+          noninterstate_tmcs,
+          noninterstate_miles
         )
           SELECT
               pm3calc_ver_id,
@@ -52,12 +56,16 @@ BEGIN
               lottr_interstate,
               lottr_noninterstate,
               tttr_interstate,
-              phed
+              phed,
+              interstate_tmcs,
+              interstate_miles,
+              noninterstate_tmcs,
+              noninterstate_miles
             FROM ' || (
               SELECT
                   CASE minor_version
                     WHEN 1
-                      THEN 'pm3.calculate_pm3_geolevel_calculation_version_v1_1' 
+                      THEN 'pm3.calculate_pm3_geolevel_calculation_version_v1_1'
                     ELSE 'pm3.calculate_pm3_geolevel_calculation_version_v1_2'
                   END || '(''' || (SELECT version_id FROM tmp_version_id_to_load) || '''::TEXT )'
                 FROM pm3.pm3_calculation_versions_view
