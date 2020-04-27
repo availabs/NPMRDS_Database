@@ -338,8 +338,9 @@ BEGIN
           WHEN 'UA' THEN (
             ( ua_code IS NOT NULL )
             AND
-            -- IF cross_state aggregations, we cannot include the 99998 or 99999 UA codes
-            --   because all states have them and they are not cross-state.
+            -- IF cross_state aggregations, we cannot include the
+            --   99998 (Small Urban Sections) or 99999 (Rural Area Sections)
+            --   UA codes because all states have them and they are not cross-state.
             (
               ( NOT p_cross_state )
               OR
