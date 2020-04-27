@@ -313,7 +313,7 @@ yargs
       }
     },
     handler: ({ versionId, pg_env }) => {
-      spawn(
+      const proc = spawn(
         './make_targets/db/pm3/calculateAndLoadGeographyLevelCalculationVersion',
         {
           cwd: __dirname,
@@ -324,6 +324,14 @@ yargs
           })
         }
       );
+
+      proc.on('close', code => {
+        process.exit(code);
+      });
+      proc.on('error', err => {
+        console.error(err);
+        process.exit(1);
+      });
     }
   })
 

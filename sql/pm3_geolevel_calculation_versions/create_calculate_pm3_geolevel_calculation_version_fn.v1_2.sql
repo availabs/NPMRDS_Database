@@ -334,7 +334,7 @@ BEGIN
   CLUSTER tmp_tmc_level_pm3_measures
     USING tmp_tmc_level_pm3_measures_pkey;
 
-  CREATE FUNCTION pg_temp.calculate_for_geolevel_fn (p_geolevel TEXT, p_ua_nonurban BOOLEAN DEFAULT FALSE)
+  CREATE FUNCTION pg_temp.calculate_for_geolevel_fn (p_geolevel TEXT, p_cross_state BOOLEAN DEFAULT FALSE)
     RETURNS TABLE (
       geolevel             TEXT,
       geocode              TEXT,
@@ -498,9 +498,15 @@ BEGIN
           WHEN 'STATE' THEN ( state_code IS NOT NULL )
           WHEN 'COUNTY' THEN ( county_code IS NOT NULL )
           WHEN 'UA' THEN (
-            ( ( NOT p_ua_nonurban ) AND ( ua_code NOT IN ('99998', '99999') ) )
-            OR
-            ( ( p_ua_nonurban ) AND ( ua_code IN ('99998', '99999') ) )
+            ( ua_code IS NOT NULL )
+            AND
+            -- IF cross_state aggregations, we cannot include the 99998 or 99999 UA codes
+            --   because all states have them and they are not cross-state.
+            (
+              ( NOT p_cross_state )
+              OR
+              ( ua_code NOT IN ('99998', '99999') )
+            )
           )
           WHEN 'MPO' THEN ( mpo_code IS NOT NULL )
           ELSE false
@@ -510,11 +516,16 @@ BEGIN
         geolevel,
         geocode,
         CASE
-          -- Urban UAs are cross-state
-          WHEN ( (p_geolevel = 'UA') AND (NOT p_ua_nonurban) ) THEN 'cross-state'
-          -- All the rest are partitioned by state lines
+          -- If cross_state, group by (geolevel, geocode)
+          WHEN p_cross_state THEN 'cross_state'
+          -- If not cross_state, then group by (geolevel, geocode, state)
           ELSE state
         END
+      HAVING (
+        ( p_geolevel <> 'MPO' )
+        OR
+        ( COUNT(1) > 50 )
+      )
   ;
   $calculate_for_geolevel_fn$ LANGUAGE SQL;
 
@@ -563,14 +574,16 @@ BEGIN
         t.noninterstate_miles
       FROM (
         SELECT * FROM pg_temp.calculate_for_geolevel_fn('STATE')
-        UNION ALL
+        UNION
         SELECT * FROM pg_temp.calculate_for_geolevel_fn('COUNTY')
-        UNION ALL
+        UNION
         SELECT * FROM pg_temp.calculate_for_geolevel_fn('UA', false)
-        UNION ALL
+        UNION
         SELECT * FROM pg_temp.calculate_for_geolevel_fn('UA', true)
-        UNION ALL
-        SELECT * FROM pg_temp.calculate_for_geolevel_fn('MPO')
+        UNION
+        SELECT * FROM pg_temp.calculate_for_geolevel_fn('MPO', false)
+        UNION
+        SELECT * FROM pg_temp.calculate_for_geolevel_fn('MPO', true)
       ) AS t
     ;
 
