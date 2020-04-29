@@ -14,6 +14,7 @@ const { to: copyTo } = require('pg-copy-streams');
 const { flatten, isNil } = require('lodash');
 const split2 = require('split2');
 const through2 = require('through2');
+const _ = require('lodash');
 
 const tmcMetadataColMappings = new Map([
   ['State_Code', 'stateCode'],
@@ -86,11 +87,6 @@ const cliArgsSpec = {
     type: 'string',
     demand: true
   },
-  include_non_nhs: {
-    type: 'boolean',
-    demand: false,
-    default: false
-  },
   pg_env: {
     type: 'string',
     demand: false,
@@ -109,7 +105,7 @@ const { argv } = yargs
   .option(cliArgsSpec);
 
 const {
-  argv: { state, version_id, include_non_nhs, pg_env }
+  argv: { state, version_id, pg_env }
 } = yargs
   .strict()
   .parserConfiguration({
@@ -118,12 +114,21 @@ const {
   })
   .option(cliArgsSpec);
 
-const measureClass = version_id.slice(0, 4);
+const [measureClassAndYear, semantic_version] = version_id.split(/:/);
+
+const measureClass = measureClassAndYear.slice(0, 4);
+
+const minor_version = +semantic_version.split(/\./)[1];
 
 if (measureClass !== 'FHWA') {
   console.error(
     'ERROR: version_ids must be for the FHWA measure class versions.'
   );
+  process.exit(1);
+}
+
+if (!_.isNumber(minor_version)) {
+  console.error(`ERROR: Invalid version_id ${version_id}`);
   process.exit(1);
 }
 
@@ -189,13 +194,55 @@ const dumpData = async () => {
       const stream = client.query(copyTo(`COPY (${sql}) TO STDOUT`));
 
       stream
-        .pipe(split2(JSON.parse)) // https://github.com/mcollina/split2#ndj---newline-delimited-json
+        .pipe(split2(JSON.parse))
         .pipe(
           through2.obj(function ndjsonTransformer({ tmc, data }, $, cb) {
-            const nhsPct = +data.TMC_METADATA.nhsPct;
+            const { TMC_METADATA: tmcMetadata } = data;
 
-            if (!(nhsPct || include_non_nhs)) {
+            const nhsPct = +tmcMetadata.nhsPct;
+            const nhsRatio = nhsPct ? nhsPct / 100 : 0;
+
+            const isprimary = +data.TMC_METADATA.isprimary === 1;
+            const fSystem = +tmcMetadata.fSystem;
+            const faciltype = +tmcMetadata.faciltype;
+            const nhs = +tmcMetadata.nhs;
+
+            /* FHWA HIF-18-024
+                SELECT * FROM Travel_Time_Metric_Dataset
+                WHERE
+                  (([F_System] =1) AND
+                  ([Facility_Type] IN (1, 2, 6)) AND
+                  ([NHS] IN (1, 2, 3, 4, 5, 6, 7, 8, 9)) AND
+                  ([Urban_Code] > 0)) */
+            const isInterstate =
+              fSystem === 1 &&
+              [1, 2, 6].includes(faciltype) &&
+              [1, 2, 3, 4, 5, 6, 7, 8, 9].includes(nhs);
+
+            /* FHWA HIF-18-024
+                SELECT * FROM Travel_Time_Metric_Dataset
+                  WHERE
+                    (([F_System] IN (2, 3, 4, 5, 6, 7)) AND
+                    ([Facility_Type] IN (1, 2, 6)) AND
+                    ([NHS] IN (1, 2, 3, 4, 5, 6, 7, 8, 9)) AND
+                    ([Urban_Code] > 0)) */
+            const isNoninterstate =
+              [2, 3, 4, 5, 6, 7].includes(fSystem) &&
+              [1, 2, 6].includes(faciltype) &&
+              [1, 2, 3, 4, 5, 6, 7, 8, 9].includes(nhs);
+
+            // const validFSystemCode = [1, 2, 3, 4, 5, 6, 7].includes(
+            // +data.TMC_METADATA.fSystem
+            // );
+
+            if (!nhsPct) {
               return cb();
+            }
+
+            if (minor_version > 1) {
+              if (!(nhsPct && isprimary && (isInterstate || isNoninterstate))) {
+                return cb();
+              }
             }
 
             const row = {
@@ -218,8 +265,6 @@ const dumpData = async () => {
                   //   select * from tmc_metadata_2018 where (nhs_pct is null or nhs_pct = 0) and border_set <> 'Y';
                   //   (0 rows)
                   const miles = data.TMC_METADATA[v];
-
-                  const nhsRatio = nhsPct ? nhsPct / 100 : 0;
 
                   acc[k] = miles * nhsRatio;
                 } else {
@@ -262,7 +307,13 @@ const dumpData = async () => {
                 return acc;
               }, {}),
               ...[...phedColMappings.entries()].reduce((acc, [k, v]) => {
-                acc[k] = data.PHED && !isNil(data.PHED[v]) ? data.PHED[v] : 0;
+                const phed =
+                  data.PHED && !isNil(data.PHED[v]) ? data.PHED[v] : 0;
+
+                const scaledPhed =
+                  minor_version > 1 ? precisionRound(phed * nhsRatio, 3) : phed;
+
+                acc[k] = scaledPhed;
 
                 return acc;
               }, {})
