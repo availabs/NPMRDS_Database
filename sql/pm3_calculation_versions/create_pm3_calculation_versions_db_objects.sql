@@ -110,8 +110,6 @@ CREATE TRIGGER pm3_calculation_versions_rules_trigger
   EXECUTE FUNCTION pm3_calculation_versions_rules_fn()
 ;
 
-DROP VIEW IF EXISTS pm3.pm3_calculation_versions_view CASCADE;
-
 CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
   AS
     SELECT
@@ -126,6 +124,7 @@ CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
         changelog,
         is_authoritative,
         version_id,
+        state_codes,
         available_measures,
         measure_metadata
       FROM (
@@ -156,8 +155,28 @@ CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
                ELSE ''
              END
             ) AS version_id,
+            sub_available_states.state_codes,
             t.available_measures
           FROM pm3.pm3_calculation_versions AS pcv
+            LEFT OUTER JOIN LATERAL (
+              SELECT
+                  array_agg(
+                    DISTINCT state_code ORDER BY state_code
+                  ) AS state_codes
+                FROM (
+                  SELECT
+                      jsonb_array_elements_text(
+                        metadata->'calculatorSettings'->'states'
+                      ) AS state
+                    FROM pm3.pm3_calculator_metadata AS pcm
+                    WHERE ( pcm.id = ANY( pcv.pm3calc_ids ) )
+                ) AS a INNER JOIN (
+                  SELECT DISTINCT
+                      state, 
+                      state_code
+                    FROM public.fips_codes
+                ) AS b USING (state)
+            ) AS sub_available_states ON (true)
             LEFT OUTER JOIN LATERAL (
               SELECT
                   array_agg(
@@ -170,6 +189,9 @@ CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
                     FROM pm3.pm3_calculator_metadata AS pcm
                     WHERE ( pcm.id = ANY( pcv.pm3calc_ids ) )
                   UNION
+                  -- TMC_METADATA doesn't appear in the metadata.calculators array.
+                  --   So, if TMC_METADATA was output, we need to create a 
+                  --     synthetic measure_calc_config object.
                   SELECT
                       jsonb_build_object(
                         'year',
@@ -186,6 +208,9 @@ CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
                       ( (pcm.metadata->'calculatorSettings'->'outputHPMSRequiredTmcMetadata')::BOOLEAN )
                     )
                   UNION
+                  -- RIS_METADATA doesn't appear in the metadata.calculators array.
+                  --   So, if RIS_METADATA was output, we need to create a 
+                  --     synthetic measure_calc_config object.
                   SELECT
                       jsonb_build_object(
                         'year',
@@ -341,5 +366,6 @@ CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
             ) AS t1
           ) AS t ON (true)
 ;
+
 
 COMMIT;
