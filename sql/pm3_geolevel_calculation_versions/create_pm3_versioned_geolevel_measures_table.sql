@@ -31,13 +31,14 @@ CREATE OR REPLACE VIEW pm3.pm3_geolevel_calculation_versions_view
         pcvv.minor_version,
         pcvv.fix_version,
         pcvv.prerelease_label,
+        pcvv.partial_year_calculation,
         pcvv.pm3calc_ids,
         pcvv.changelog,
         pcvv.is_authoritative,
-        pcvv.version_id
-      FROM pm3.pm3_calculation_versions_view AS pcvv
-        INNER JOIN pm3.pm3_geolevel_calculation_versions AS pgcv
-          USING (pm3calc_ver_id)
+        pcvv.version_id,
+        pcvv.available_measures
+      FROM pm3.pm3_geolevel_calculation_versions AS pgcv
+        INNER JOIN pm3.pm3_calculation_versions_view AS pcvv USING (pm3calc_ver_id)
 ;
 
 COMMIT

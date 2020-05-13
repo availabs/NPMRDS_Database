@@ -120,6 +120,7 @@ CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
         minor_version,
         fix_version,
         prerelease_label,
+        partial_year_calculation,
         pm3calc_ids,
         changelog,
         is_authoritative,
@@ -136,6 +137,7 @@ CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
             minor_version,
             fix_version,
             prerelease_label,
+            (fix_version = 0) AS partial_year_calculation,
             pm3calc_ids,
             changelog,
             is_authoritative,
@@ -366,6 +368,5 @@ CREATE OR REPLACE VIEW pm3.pm3_calculation_versions_view
             ) AS t1
           ) AS t ON (true)
 ;
-
 
 COMMIT;
