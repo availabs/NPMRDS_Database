@@ -36,6 +36,12 @@ do
   )"
 
   if grep -q 'usa' <<< "$countries"; then
+    # In the RITIS Massive Data Downloader,
+    #   we request data for a US state by specifying that state.
+    # We also get the Canadian border TMCs, so in the TMC_Identification file
+    #   there will be multiple entries in the "state" column.
+    # Therefore, we use the Contents.txt file to guarantee that only a single state
+    #   was requested and determine which state that was.
     for state_name in "${!STATE_ABBREVIATIONS[@]}"
     do
       state_name_regex="${state_name_regex}${state_name}|"
@@ -48,6 +54,11 @@ do
     state_name="$( echo "$contents" | grep -Eoiw "$state_name_regex" )"
     state_name="${state_name,,}" # To lower case
   else
+    # In the RITIS Massive Data Downloader,
+    #   we request data for a Canadian provence by specifying the TMCs directly.
+    # There is no "region" option for Canadian provences.
+    # Therefore, we use the TMC_Identificaion file's state column
+    #   to guarantee that only a single state was requested and determine which state that was.
     state_col_num="$(\
       unzip -p "$inf" TMC_Identification.csv |
         head -1 |

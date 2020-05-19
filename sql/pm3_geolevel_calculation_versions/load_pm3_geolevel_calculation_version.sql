@@ -2,6 +2,7 @@ BEGIN;
 
 -- https://stackoverflow.com/a/9981540
 
+-- Can't use psql variables inside the function, so this is a work around.
 CREATE TEMPORARY TABLE tmp_version_id_to_load
   ON COMMIT DROP
   AS SELECT :'VERSION_ID'::TEXT AS version_id;
