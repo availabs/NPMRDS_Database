@@ -51,8 +51,7 @@ CREATE TABLE IF NOT EXISTS highway_data_services.raw_continuous_vehicle_classifi
     day,
     federal_direction,
     lane_code,
-    data_interval,
-    batch_id
+    data_interval
   )
 ) WITH(fillfactor=100);
 

@@ -8,8 +8,8 @@ pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 # source ../../../config/postgres.env.dev
 source ../../config/postgres.env.pluto
 
-ZIP_PATH='./base_data/vehicle_class/Continuous_Class_2015-2019.zip'
-TABLE_NAME="highway_data_services.raw_continuous_vehicle_classification"
+ZIP_PATH='./base_data_bulk/vehicle_class/Continuous_Class_2015-2019.zip'
+TABLE_NAME="highway_data_services_data.raw_continuous_vehicle_classification_bulk"
 
 HEADER="$(
   unzip -p "$ZIP_PATH" |
