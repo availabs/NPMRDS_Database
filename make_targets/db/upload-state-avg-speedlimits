@@ -44,16 +44,14 @@ psql --quiet \
   -c 'BEGIN' \
   -c "CREATE schema IF NOT EXISTS \"$STATE\";" \
   -f ../../sql/avg_speedlimits/create_root_avg_speedlimits_table.sql \
-  -f ../../sql/avg_speedlimits/drop_state_avg_speedlimits.sql \
   -f ../../sql/avg_speedlimits/create_state_avg_speedlimits.sql \
   -f <(
     echo "
-      COPY \"$STATE\".avg_speedlimits (state,tmc,avg_speedlimit)
+      COPY \"$STATE\".avg_speedlimits (state, tmc, avg_speedlimit)
         FROM STDIN CSV HEADER;" &&
     zcat "$AVG_SPEEDLIMITS_GZIP_PATH" &&
     echo '\.'
   ) \
-  -f ../../sql/avg_speedlimits/finish_state_avg_speedlimits.sql \
   -c 'COMMIT;' \
   -c "ANALYZE \"$STATE\".avg_speedlimits;"
 

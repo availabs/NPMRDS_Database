@@ -2,7 +2,7 @@
 
 /* eslint no-unused-expressions: 0, camelcase: 0 */
 
-const { basename, join } = require('path');
+const { basename, join, isAbsolute } = require('path');
 const { spawn } = require('child_process');
 
 const yargs = require('yargs');
@@ -908,6 +908,36 @@ yargs
           `--conflationAvgDailyGTFSTrips='${conflationAvgDailyGTFSTrips}'`,
           `--pg_env=${pg_env}`
         ],
+        opts
+      );
+    }
+  })
+  .command({
+    command: 'load-state-avg-speedlimits',
+    desc: 'Load the TMC avg speedlimits for a state',
+    builder: {
+      state: { type: 'string', demand: true },
+      avgSpeedlimitsGzipPath: {
+        demand: true,
+        type: 'string'
+      }
+    },
+    handler: ({ state, avgSpeedlimitsGzipPath, pg_env }) => {
+      const opts = {
+        cwd: __dirname,
+        shell: '/bin/bash',
+        stdio: 'inherit',
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env,
+          STATE: state,
+          AVG_SPEEDLIMITS_GZIP_PATH: isAbsolute(avgSpeedlimitsGzipPath)
+            ? avgSpeedlimitsGzipPath
+            : join(process.cwd(), avgSpeedlimitsGzipPath)
+        })
+      };
+
+      spawn(
+        join(__dirname, './make_targets/db/upload-state-avg-speedlimits'),
         opts
       );
     }
