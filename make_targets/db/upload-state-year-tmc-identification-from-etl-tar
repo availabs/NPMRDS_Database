@@ -51,25 +51,28 @@ tar xf "$ARCHIVE_BASE_NAME"
 find "${ARCHIVE_BASE_NAME/.tar/}" -type f -name '*raw-inrix*' |
   sort |
   while read -r zip_archive_path; do
-    if [[ -z $wrote_file ]]; then
-      unzip -p "$zip_archive_path" TMC_Identification.csv |
-        sed 's/\r//' \
-      > "$TMP_TMC_IDENTIFICATION_FILE_PATH"
-
-      wrote_file=1
-
-      checksum="$( sort "$TMP_TMC_IDENTIFICATION_FILE_PATH" | md5sum | cut -d' ' -f1 )"
-    else
-      new_checksum="$(
+    # Some TRUCK TMC_Identification files have only the header.
+    if [[ $( unzip -p "$zip_archive_path" TMC_Identification.csv | wc -l ) -ge 2 ]]; then
+      if [[ -z $wrote_file ]]; then
         unzip -p "$zip_archive_path" TMC_Identification.csv |
-          sed 's/\r//' |
-          sort |
-          md5sum |
-          cut -d' ' -f1
-      )"
-      if  [[ "$new_checksum" != "$checksum" ]]; then
-        echo "ERROR: The TMC_Identification files within the ETL archive are not identical."
-        exit 1
+          sed 's/\r//' \
+        > "$TMP_TMC_IDENTIFICATION_FILE_PATH"
+
+        wrote_file=1
+
+        checksum="$( sort "$TMP_TMC_IDENTIFICATION_FILE_PATH" | md5sum | cut -d' ' -f1 )"
+      else
+        new_checksum="$(
+          unzip -p "$zip_archive_path" TMC_Identification.csv |
+            sed 's/\r//' |
+            sort |
+            md5sum |
+            cut -d' ' -f1
+        )"
+        if  [[ "$new_checksum" != "$checksum" ]]; then
+          echo "ERROR: The TMC_Identification files within the ETL archive are not identical."
+          exit 1
+        fi
       fi
     fi
   done

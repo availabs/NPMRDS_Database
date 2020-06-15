@@ -15,8 +15,6 @@ ETL_WORK_DIR="$( readlink -m "$ETL_WORK_DIR" )"
 
 INRIX_DOWNLOAD_ZIP_EXTENSION="${INRIX_DOWNLOAD_ZIP_EXTENSION:=.raw-inrix-download.zip}"
 
-source "$( dirname "${BASH_SOURCE[0]}" )/stateAbbreviations"
-
 # Get the filenames of the downloaded ZIP archives
 read -ra infs <<< "$(find "$ETL_WORK_DIR" -type f -name "*${INRIX_DOWNLOAD_ZIP_EXTENSION}" -printf '%f ')"
 
@@ -31,13 +29,6 @@ do
   if [ -z "$cur_state" ]
   then
     echo "ERROR: unable to parse file name ${inf}"
-    exit
-  fi
-
-  # https://stackoverflow.com/a/15394738/3970755
-  if [[ ! " ${STATE_ABBREVIATIONS[@]} " =~ " ${cur_state} " ]];
-  then
-    echo "ERROR: unable to extract state name from file name ${inf}"
     exit
   fi
 

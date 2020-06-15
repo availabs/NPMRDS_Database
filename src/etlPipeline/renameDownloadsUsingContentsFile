@@ -14,7 +14,6 @@ INRIX_DOWNLOAD_ZIP_EXTENSION="${INRIX_DOWNLOAD_ZIP_EXTENSION:=.raw-inrix-downloa
 
 pushd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null
 
-source ./stateAbbreviations
 source ./datasources
 
 find "$ETL_WORK_DIR" -type f -name "*${INRIX_DOWNLOAD_ZIP_EXTENSION}" |\
@@ -42,17 +41,9 @@ do
     #   there will be multiple entries in the "state" column.
     # Therefore, we use the Contents.txt file to guarantee that only a single state
     #   was requested and determine which state that was.
-    for state_name in "${!STATE_ABBREVIATIONS[@]}"
-    do
-      state_name_regex="${state_name_regex}${state_name}|"
-    done
 
-    contents="$(unzip -p "$inf" Contents.txt)"
-
-    # Extract the part of the description that is '<State Name> (<Number> TMCs)'
-    # Remove ' (<Number> TMCs)'
-    state_name="$( echo "$contents" | grep -Eoiw "$state_name_regex" )"
-    state_name="${state_name,,}" # To lower case
+    # Extract the state name from the contents file
+    state_name="$( unzip -p "$inf" Contents.txt | ./get_state_from_contents_file )"
   else
     # In the RITIS Massive Data Downloader,
     #   we request data for a Canadian provence by specifying the TMCs directly.
@@ -91,7 +82,7 @@ do
   if [[ "${#state_name}" -eq 2 ]]; then
     state="${state_name,,}"
   else
-    state="${STATE_ABBREVIATIONS[${state_name}]}"
+    state="$( ./stateAbbreviations "$state_name" )"
   fi
 
   contents="$(unzip -p "$inf" Contents.txt)"
