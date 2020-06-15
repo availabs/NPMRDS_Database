@@ -87,7 +87,7 @@ if (require.main === module) {
     process.exit(1)
   }
 
-  const cleanedStateName = stateName.toLowerCase().replace(/\?/g, '.').replace(/ /g, '')
+  const cleanedStateName = stateName.toLowerCase().replace(/\?\?/g, '.').replace(/ /g, '')
 
   const regex = new RegExp(`^${cleanedStateName}$`, 'i')
 
