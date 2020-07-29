@@ -2,16 +2,36 @@
 
 /* eslint no-console: 0, no-await-in-loop: 0 */
 
-const { join } = require('path');
 
-const { Client } = require('pg');
+// npmrds_production=# select count(1) from ny.tmc_identification_2019 where nhs is null and aadt is not null;
+//  count
+// -------
+//      0
+// (1 row)
+//
+// npmrds_production=# select count(1) from ny.tmc_identification_2019 where nhs > 0 and aadt is not null;
+//  count
+// -------
+//  21113
+// (1 row)
+//
+// npmrds_production=# select count(1) from ny.tmc_identification_2019 where nhs < 1 and aadt is not null;
+//  count
+// -------
+//    759
+// (1 row)
+
+
+const {join} = require('path');
+
+const {Client} = require('pg');
 const envFile = require('node-env-file');
 
 const yargs = require('yargs');
 
 const csv = require('fast-csv');
-const { to: copyTo } = require('pg-copy-streams');
-const { flatten, isNil } = require('lodash');
+const {to: copyTo} = require('pg-copy-streams');
+const {flatten, isNil} = require('lodash');
 const split2 = require('split2');
 const through2 = require('through2');
 const _ = require('lodash');
@@ -95,7 +115,7 @@ const cliArgsSpec = {
   }
 };
 
-const { argv } = yargs
+const {argv} = yargs
   .strict()
   .parserConfiguration({
     'camel-case-expansion': false,
@@ -105,7 +125,7 @@ const { argv } = yargs
   .option(cliArgsSpec);
 
 const {
-  argv: { state, version_id, pg_env }
+  argv: {state, version_id, pg_env}
 } = yargs
   .strict()
   .parserConfiguration({
@@ -164,7 +184,7 @@ const sql = `
       SELECT
           json_build_object(
             'tmc', tmc,
-            'data', json_object_agg(measure, measure_data) 
+            'data', json_object_agg(measure, measure_data)
           ) AS d
         FROM (
           SELECT
@@ -196,54 +216,25 @@ const dumpData = async () => {
       stream
         .pipe(split2(JSON.parse))
         .pipe(
-          through2.obj(function ndjsonTransformer({ tmc, data }, $, cb) {
-            const { TMC_METADATA: tmcMetadata } = data;
+          through2.obj(function ndjsonTransformer({tmc, data}, _$, cb) {
+            const {TMC_METADATA: tmcMetadata} = data;
 
-            const nhsPct = +tmcMetadata.nhsPct;
+            const isNpmrdsExtended = _.isNil(tmcMetadata.directionalAadt)
+
+
+            if (isNpmrdsExtended) {
+              return cb()
+            }
+
+            const nhsPct = +tmcMetadata.nhsPct || 0;
             const nhsRatio = nhsPct ? nhsPct / 100 : 0;
 
+
+            if (isNpmrdsExtended || !(+tmcMetadata.nhs >= 1)) {
+              return cb()
+            }
+
             const isprimary = +data.TMC_METADATA.isprimary === 1;
-            const fSystem = +tmcMetadata.fSystem;
-            const faciltype = +tmcMetadata.faciltype;
-            const nhs = +tmcMetadata.nhs;
-
-            /* FHWA HIF-18-024
-                SELECT * FROM Travel_Time_Metric_Dataset
-                WHERE
-                  (([F_System] =1) AND
-                  ([Facility_Type] IN (1, 2, 6)) AND
-                  ([NHS] IN (1, 2, 3, 4, 5, 6, 7, 8, 9)) AND
-                  ([Urban_Code] > 0)) */
-            const isInterstate =
-              fSystem === 1 &&
-              [1, 2, 6].includes(faciltype) &&
-              [1, 2, 3, 4, 5, 6, 7, 8, 9].includes(nhs);
-
-            /* FHWA HIF-18-024
-                SELECT * FROM Travel_Time_Metric_Dataset
-                  WHERE
-                    (([F_System] IN (2, 3, 4, 5, 6, 7)) AND
-                    ([Facility_Type] IN (1, 2, 6)) AND
-                    ([NHS] IN (1, 2, 3, 4, 5, 6, 7, 8, 9)) AND
-                    ([Urban_Code] > 0)) */
-            const isNoninterstate =
-              [2, 3, 4, 5, 6, 7].includes(fSystem) &&
-              [1, 2, 6].includes(faciltype) &&
-              [1, 2, 3, 4, 5, 6, 7, 8, 9].includes(nhs);
-
-            // const validFSystemCode = [1, 2, 3, 4, 5, 6, 7].includes(
-            // +data.TMC_METADATA.fSystem
-            // );
-
-            if (!nhsPct) {
-              return cb();
-            }
-
-            if (minor_version > 1) {
-              if (!(nhsPct && isprimary && (isInterstate || isNoninterstate))) {
-                return cb();
-              }
-            }
 
             const row = {
               Year_Record,
@@ -259,6 +250,10 @@ const dumpData = async () => {
                       E: 3,
                       W: 4
                     }[data.TMC_METADATA[v]] || 5;
+                } else if (k === 'NHS') {
+                  const nhs = (isprimary && nhsPct > 0) ? +tmcMetadata.nhs : -1;
+
+                  acc[k] = nhs
                 } else if (k === 'Segment_Length') {
                   // Scale the Segment_Lengths
                   // NOTE:
