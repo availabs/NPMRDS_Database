@@ -18,7 +18,7 @@ source ./datasources
 
 STATE="$(
   find "$ETL_WORK_DIR" -type f -name "*${INRIX_DOWNLOAD_ZIP_EXTENSION}" |\
-  while read -r inf
+  while read -r inf 
   do
     country_col_num="$(\
       unzip -p "$inf" TMC_Identification.csv |
@@ -70,25 +70,39 @@ STATE="$(
       )"
     fi
 
-    if [[ "${#state_name}" -eq 2 ]]; then
-      state="${state_name,,}"
-    else
-      state="$( ./stateAbbreviations "$state_name" )"
-    fi
+    if [[ ! -z "$state_name" ]]; then
+      if [[ "${#state_name}" -eq 2 ]]; then
+        state="${state_name,,}"
+      else
+        state="$( ./stateAbbreviations "$state_name" )"
+      fi
 
-    echo "$state"
+      echo "$state"
+    fi
   done |
   sort -u
 )"
 
-NL='
-'
-case "$STATE" in
-  *"$NL"*) echo 'ERROR: There is more than one state in the download' && exit 1 ;;
-esac
+
+# echo '==========================='
+# echo "$STATE"
+# echo "$NUM_STATES"
+
+NUM_STATES="$( wc -l <<< "$STATE" )"
+
+if [[ "$NUM_STATES" -eq 0 ]]; then
+  echo 'ERROR: Could not determine the download state.'
+  exit 1
+fi
+
+if [[ "$NUM_STATES" -ge 2 ]]; then
+  echo 'ERROR: There is more than one state in the download'
+  exit 1
+fi
+
 
 find "$ETL_WORK_DIR" -type f -name "*${INRIX_DOWNLOAD_ZIP_EXTENSION}" |\
-while read -r inf
+while read -r inf 
 do
   contents="$(unzip -p "$inf" Contents.txt)"
   start_date="$(date -d "$(echo "$contents" | tr '\n' ' ' | sed 's/.*from //g; s/ through.*//g')" '+%Y%m')"
@@ -116,13 +130,13 @@ do
     sed 's/-$//g'
   )"
 
-  if [[ -z "$state" ]] || [[ -z "$date_range" ]] || [[ -z "$datasources" ]]
+  if [[ -z "$STATE" ]] || [[ -z "$date_range" ]] || [[ -z "$datasources" ]]
   then
     echo "Error parsing the Contents.txt for download at $inf"
     exit 1
   fi
 
-  outf="$(dirname "$inf")/${state}.${date_range}.${datasources}${INRIX_DOWNLOAD_ZIP_EXTENSION}"
+  outf="$(dirname "$inf")/${STATE}.${date_range}.${datasources}${INRIX_DOWNLOAD_ZIP_EXTENSION}"
 
   if [ "$inf" != "$outf" ]
   then
