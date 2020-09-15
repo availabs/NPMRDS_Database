@@ -28,5 +28,5 @@ cat \
       done
   ) |
   ./src/sortInputCSV |
-  ./src/transform_to_standard_schema #|
-  # ./src/loadCsvIntoDb
+  ./src/transform_to_standard_schema |
+  ./src/loadCsvIntoDb
