@@ -1,0 +1,112 @@
+#!/usr/bin/env node
+
+/* eslint-disable no-restricted-syntax, no-await-in-loop */
+
+const {existsSync} = require('fs')
+const {execSync} = require('child_process');
+const {join} = require('path');
+
+const Database = require('better-sqlite3');
+
+const yargs = require('yargs');
+
+const envFile = require('node-env-file');
+
+const {Client} = require('pg');
+
+const cliArgsSpec = {
+  // TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
+  // These should be in the conflation output metadata JSON file.
+  year: {type: 'number', demand: true},
+  conflationMapVersion: {type: 'string', demand: true},
+  transitAgency: {type: 'string', demand: true},
+
+  conflationOutputDir: {type: 'string', demand: true},
+
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    default: 'development'
+  },
+};
+
+const {argv} = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const {year, conflationMapVersion, transitAgency, conflationOutputDir, pg_env} = argv;
+
+const version = conflationMapVersion.replace(/\./g, '_')
+const agency = transitAgency.toLowerCase()
+
+const dbPath = join(conflationOutputDir, 'sqlite', 'gtfs_conflation_schedule_join')
+
+if (!existsSync(dbPath)) {
+  console.error('ERROR: no file at', dbPath)
+  process.exit(1)
+}
+
+const sqliteDb = new Database(dbPath)
+
+const configPath = join(
+  __dirname,
+  pg_env === 'production'
+    ? '../../../config/postgres.env.prod'
+    : '../../../config/postgres.env.dev'
+);
+
+envFile(configPath);
+
+execSync(
+  `psql -v YEAR=${year} -v VERSION=${version} -v AGENCY=${agency} -f ${join(
+    __dirname,
+    '../../../sql/gtfs/conflation_map_bus_aadt/create_conflation_map_bus_aadt_tables.sql'
+  )}`
+);
+
+// :schema_name'.conflation_map_bus_aadt_':YEAR'_':AGENCY'_v':VERSION
+const tableName = `gtfs.conflation_map_bus_aadt_${year}_${agency}_v${version}`;
+
+(async () => {
+  const client = new Client();
+  await client.connect();
+
+  try {
+    await client.query(`BEGIN;`);
+    await client.query(`TRUNCATE ${tableName};`);
+
+    const iter = sqliteDb.prepare(`
+      SELECT
+          conflation_map_id,
+          aadt,
+          aadt_by_peak,
+          aadt_by_route
+        FROM conflation_map_aadt_breakdown
+    `).raw().iterate();
+
+    for (const row of iter) {
+      await client.query(`
+        INSERT INTO ${tableName} (
+          conflation_map_id,
+          aadt,
+          aadt_by_peak,
+          aadt_by_route
+        ) VALUES ($1, $2, $3, $4)`, row
+      )
+    }
+
+    await client.query(`CLUSTER ${tableName};`)
+
+    await client.query(`COMMIT;`)
+
+    await client.query(`ANALYZE ${tableName};`)
+  } finally {
+    await client.end()
+  }
+})();
