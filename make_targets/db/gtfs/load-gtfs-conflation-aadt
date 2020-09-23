@@ -55,7 +55,8 @@ const main = async (argv) => {
   const agency = transitAgency.toLowerCase()
 
   // Because Postgres limits table name length, and we want to keep the version suffix intact.
-  const truncatedAgencyName = agency.slice(0, 32 - version.length).replace(/_$/, '')
+  // NOTE: Also need to account for the *_pkey index
+  const truncatedAgencyName = agency.slice(0, 27 - version.length).replace(/_$/, '')
 
   // AGENCY_TRUNC used in table name. AGENCY used as default for agency column and partitioning.
   execSync(
