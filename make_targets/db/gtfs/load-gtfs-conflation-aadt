@@ -54,15 +54,19 @@ const main = async (argv) => {
   const version = conflationMapVersion.replace(/\./g, '_')
   const agency = transitAgency.toLowerCase()
 
+  // Because Postgres limits table name length, and we want to keep the version suffix intact.
+  const truncatedAgencyName = agency.slice(0, 32 - version.length).replace(/_$/, '')
+
+  // AGENCY_TRUNC used in table name. AGENCY used as default for agency column and partitioning.
   execSync(
-    `psql -v YEAR=${year} -v VERSION=${version} -v AGENCY=${agency} -f ${join(
+    `psql -v YEAR=${year} -v VERSION=${version} -v AGENCY_TRUNC=${truncatedAgencyName} -v AGENCY=${agency} -f ${join(
       __dirname,
       '../../../sql/gtfs/conflation_map_bus_aadt/create_conflation_map_bus_aadt_tables.sql'
     )}`
   );
 
-  // :schema_name'.conflation_map_bus_aadt_':YEAR'_':AGENCY'_v':VERSION
-  const tableName = `gtfs_data.conflation_map_bus_aadt_${year}_${agency}_v${version}`;
+  // :schema_name'.conflation_map_bus_aadt_':YEAR'_':AGENCY_TRUNC'_v':VERSION
+  const tableName = `gtfs_data.conflation_map_bus_aadt_${year}_${truncatedAgencyName}_v${version}`;
 
   const client = new Client();
   await client.connect();

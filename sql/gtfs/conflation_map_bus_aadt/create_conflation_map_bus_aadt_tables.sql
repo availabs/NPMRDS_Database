@@ -2,8 +2,8 @@
 \set data_schema_name 'gtfs_data'
 \set root_tbl_name :schema_name'.conflation_map_bus_aadt_v':VERSION
 \set year_tbl_name :schema_name'.conflation_map_bus_aadt_':YEAR'_v':VERSION
-\set tbl_name :data_schema_name'.conflation_map_bus_aadt_':YEAR'_':AGENCY'_v':VERSION
-\set idx_name 'conflation_map_bus_aadt_':YEAR'_':AGENCY'_v':VERSION'_pkey'
+\set tbl_name :data_schema_name'.conflation_map_bus_aadt_':YEAR'_':AGENCY_TRUNC'_v':VERSION
+\set idx_name 'conflation_map_bus_aadt_':YEAR'_':AGENCY_TRUNC'_v':VERSION'_pkey'
 
 BEGIN;
 
