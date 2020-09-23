@@ -14,7 +14,7 @@ const envFile = require('node-env-file');
 
 const {Client} = require('pg');
 
-const cliArgsSpec = {
+const yargsSpec = {
   // TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
   // These should be in the conflation output metadata JSON file.
   year: {type: 'number', demand: true},
@@ -31,49 +31,39 @@ const cliArgsSpec = {
   },
 };
 
-const {argv} = yargs
-  .strict()
-  .parserConfiguration({
-    'camel-case-expansion': false,
-    'flatten-duplicate-arrays': false
-  })
-  .wrap(yargs.terminalWidth() / 1.618)
-  .option(cliArgsSpec);
+const main = async (argv) => {
+  const {year, conflationMapVersion, transitAgency, conflationOutputDir, pg_env} = argv;
 
-const {year, conflationMapVersion, transitAgency, conflationOutputDir, pg_env} = argv;
+  const dbPath = join(conflationOutputDir, 'sqlite', 'gtfs_conflation_schedule_join')
 
-const version = conflationMapVersion.replace(/\./g, '_')
-const agency = transitAgency.toLowerCase()
+  if (!existsSync(dbPath)) {
+    console.error('ERROR: no file at', dbPath)
+    process.exit(1)
+  }
 
-const dbPath = join(conflationOutputDir, 'sqlite', 'gtfs_conflation_schedule_join')
+  const sqliteDb = new Database(dbPath)
 
-if (!existsSync(dbPath)) {
-  console.error('ERROR: no file at', dbPath)
-  process.exit(1)
-}
-
-const sqliteDb = new Database(dbPath)
-
-const configPath = join(
-  __dirname,
-  pg_env === 'production'
-    ? '../../../config/postgres.env.prod'
-    : '../../../config/postgres.env.dev'
-);
-
-envFile(configPath);
-
-execSync(
-  `psql -v YEAR=${year} -v VERSION=${version} -v AGENCY=${agency} -f ${join(
+  const configPath = join(
     __dirname,
-    '../../../sql/gtfs/conflation_map_bus_aadt/create_conflation_map_bus_aadt_tables.sql'
-  )}`
-);
+    pg_env === 'production'
+      ? '../../../config/postgres.env.prod'
+      : '../../../config/postgres.env.dev'
+  );
 
-// :schema_name'.conflation_map_bus_aadt_':YEAR'_':AGENCY'_v':VERSION
-const tableName = `gtfs.conflation_map_bus_aadt_${year}_${agency}_v${version}`;
+  envFile(configPath);
+  const version = conflationMapVersion.replace(/\./g, '_')
+  const agency = transitAgency.toLowerCase()
 
-(async () => {
+  execSync(
+    `psql -v YEAR=${year} -v VERSION=${version} -v AGENCY=${agency} -f ${join(
+      __dirname,
+      '../../../sql/gtfs/conflation_map_bus_aadt/create_conflation_map_bus_aadt_tables.sql'
+    )}`
+  );
+
+  // :schema_name'.conflation_map_bus_aadt_':YEAR'_':AGENCY'_v':VERSION
+  const tableName = `gtfs_data.conflation_map_bus_aadt_${year}_${agency}_v${version}`;
+
   const client = new Client();
   await client.connect();
 
@@ -109,4 +99,21 @@ const tableName = `gtfs.conflation_map_bus_aadt_${year}_${agency}_v${version}`;
   } finally {
     await client.end()
   }
-})();
+}
+
+if (require.main === module) {
+  const {argv} = yargs
+    .strict()
+    .parserConfiguration({
+      'camel-case-expansion': false,
+      'flatten-duplicate-arrays': true
+    })
+    .option(yargsSpec);
+
+  main(argv);
+}
+
+module.exports = {
+  yargsSpec,
+  main
+};

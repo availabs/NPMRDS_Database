@@ -1,12 +1,14 @@
 \set schema_name 'gtfs'
+\set data_schema_name 'gtfs_data'
 \set root_tbl_name :schema_name'.conflation_map_bus_aadt_v':VERSION
 \set year_tbl_name :schema_name'.conflation_map_bus_aadt_':YEAR'_':VERSION
-\set tbl_name :schema_name'.conflation_map_bus_aadt_':YEAR'_':AGENCY'_v':VERSION
+\set tbl_name :data_schema_name'.conflation_map_bus_aadt_':YEAR'_':AGENCY'_v':VERSION
 \set idx_name 'conflation_map_bus_aadt_':YEAR'_':AGENCY'_v':VERSION'_pkey'
 
 BEGIN;
 
 CREATE SCHEMA IF NOT EXISTS :schema_name;
+CREATE SCHEMA IF NOT EXISTS :data_schema_name;
 
 CREATE TABLE IF NOT EXISTS :root_tbl_name (
   conflation_map_id   INTEGER,

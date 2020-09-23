@@ -25,11 +25,11 @@ CREATE VIEW :canonical_view_name
         SUM(aadt) AS aadt,
         -- TODO: use jsonb_each_text to aggregate across agencies.
         json_object_agg(
-          transit_agency,
+          LOWER(transit_agency),
           aadt_by_peak
         ) AS aadt_by_peak,
         json_object_agg(
-          transit_agency,
+          LOWER(transit_agency),
           aadt_by_route
         ) AS aadt_by_route
       FROM :view_name
