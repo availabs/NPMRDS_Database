@@ -1,0 +1,48 @@
+#!/usr/bin/env node
+
+const {writeFileSync} = require('fs')
+const {join} = require('path');
+
+const {Client} = require('pg');
+const envFile = require('node-env-file');
+
+const configPath = join(__dirname, '../../../config/postgres.env.prod')
+envFile(configPath);
+
+const outputFilePath = join(__dirname, '../base_data/npmrdsTablesDiskSpaceStats.json')
+
+const getAllNpmrdsTablesStorageSpace = async client => {
+  const sql = `
+    SELECT
+        state,
+        year,
+        month,
+        table_size_bytes,
+        indexes_size_bytes
+      FROM dbadmin.npmrds_table_storage_space
+      ORDER BY 1, 2, 3
+  `;
+  const {rows} = await client.query(sql);
+
+  return rows;
+};
+
+(async () => {
+  try {
+    const client = new Client();
+    await client.connect();
+
+    try {
+      const stats = await getAllNpmrdsTablesStorageSpace(client);
+
+      writeFileSync(outputFilePath, JSON.stringify(stats))
+    } catch (err) {
+      console.error(err);
+    } finally {
+      client.end();
+    }
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
+})();
