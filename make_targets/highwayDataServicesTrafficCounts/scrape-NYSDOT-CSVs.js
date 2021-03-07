@@ -2,15 +2,15 @@
 
 /* eslint no-continue: 0 */
 
-const { join, isAbsolute } = require('path');
-const { execSync } = require('child_process');
-const { existsSync, readdirSync, unlinkSync, mkdirSync } = require('fs');
-const { fileSync: tmpFileSync, dirSync: tmpDirSync } = require('tmp');
+const {join, isAbsolute} = require('path');
+const {execSync} = require('child_process');
+const {existsSync, readdirSync, unlinkSync, mkdirSync} = require('fs');
+const {fileSync: tmpFileSync, dirSync: tmpDirSync} = require('tmp');
 
-const { padStart } = require('lodash');
+const {padStart} = require('lodash');
 
 const yargs = require('yargs');
-const { sync: rimrafSync } = require('rimraf');
+const {sync: rimrafSync} = require('rimraf');
 
 const YEARS = require('./YEARS');
 const REGIONS = require('./REGIONS');
@@ -59,6 +59,8 @@ const sedProgram =
   's/ *, */,/g; ' +
   // Remove Windows line endings.
   's/\r//; ' +
+  // Empty strings to null
+  's/^" *",/,/; s/," *",/,,/g; s/" *"$//' +
   // Fix the columns where either side of an '/' are many whitespaces apart.
   's# */ *# / #g; ' +
   // Delete the "row selected" lines from the CSV
@@ -69,26 +71,44 @@ const sedProgram =
 
 const getURLDocumentName = (table, region, year) => {
   switch (table) {
+    // === AVGWD ===
     case 'average_weekday_speed':
-      return `SC_Speed_AVGWD_R${padStart(region, 2, '0')}_${year}.zip`;
+      return year <= 2017
+        ? `SC_Speed_AVGWD_R${padStart(region, 2, '0')}_${year}.zip`
+        : `SC_SPEED_AVGWD_R${padStart(region, 2, '0')}_${year}.zip`;
+
     case 'average_weekday_vehicle_classification':
       return `SC_CLASS_AVGWD_R${padStart(region, 2, '0')}_${year}.zip`;
+
     case 'average_weekday_volume':
       return `SC_Volume_AVGWD_R${padStart(region, 2, '0')}_${year}.zip`;
+
+    // === CC ===
     case 'continuous_vehicle_classification':
       return year <= 2015
         ? `CC_CLASS_R${region}_${year}.zip`
         : `CC_Class_Data_R${padStart(region, 2, '0')}_${year}.zip`;
+
     case 'continuous_volume':
       return year <= 2015
         ? `CC_VOL_R${region}_${year}.zip`
         : `CC_Volume_Data_R${padStart(region, 2, '0')}_${year}.zip`;
+
     case 'short_count_speed':
-      return `SC_Speed_Data_R${padStart(region, 2, '0')}_${year}.zip`;
+      return year <= 2017
+        ? `SC_Speed_Data_R${padStart(region, 2, '0')}_${year}.zip`
+        : `SC_SPEED_DATA_R${padStart(region, 2, '0')}_${year}.zip`;
+
     case 'short_count_vehicle_classification':
-      return `SC_Class_Data_R${padStart(region, 2, '0')}_${year}.zip`;
+      return year <= 2017
+        ? `SC_Class_Data_R${padStart(region, 2, '0')}_${year}.zip`
+        : `SC_CLASS_DATA_R${padStart(region, 2, '0')}_${year}.zip`;
+
     case 'short_count_volume':
-      return `SC_Volume_Data_R${padStart(region, 2, '0')}_${year}.zip`;
+      return year <= 2017
+        ? `SC_Volume_Data_R${padStart(region, 2, '0')}_${year}.zip`
+        : `SC_VOLUME_DATA_R${padStart(region, 2, '0')}_${year}.zip`;
+
     default:
       throw new Error('Unrecognized table name');
   }
@@ -96,13 +116,13 @@ const getURLDocumentName = (table, region, year) => {
 
 // https://www.dot.ny.gov/divisions/engineering/technical-services/highway-data-services/hdsb
 const main = argv => {
-  const { years, regions, tables, downloadDir } = argv;
+  const {years, regions, tables, downloadDir} = argv;
 
   const downloadDirAbsPath = isAbsolute(downloadDir)
     ? downloadDir
     : join(process.cwd(), downloadDir);
 
-  mkdirSync(downloadDirAbsPath, { recursive: true });
+  mkdirSync(downloadDirAbsPath, {recursive: true});
 
   for (let i = 0; i < years.length; ++i) {
     const year = years[i];
@@ -124,7 +144,7 @@ const main = argv => {
         const urlDocumentName = getURLDocumentName(table, region, year);
         const url = `${urlPath}/${urlDocumentName}`;
 
-        const { name: tmpDirName } = tmpDirSync();
+        const {name: tmpDirName} = tmpDirSync();
 
         const zipFilePath = join(tmpDirName, urlDocumentName);
         console.log(url, zipFilePath);
@@ -153,7 +173,7 @@ const main = argv => {
           // https://stackoverflow.com/a/20639730/3970755
           // Put the cleaned output into a temporary file
           // Move the cleaned CSV to the output dir with the canonical name
-          const { name: tmpFileName } = tmpFileSync({ dir: tmpDirName });
+          const {name: tmpFileName} = tmpFileSync({dir: tmpDirName});
           execSync(
             `
             sed -i '${sedProgram}' '${dotCSVFileName}';
@@ -185,7 +205,7 @@ const main = argv => {
 };
 
 if (require.main === module) {
-  const { argv } = yargs
+  const {argv} = yargs
     .strict()
     .parserConfiguration({
       'camel-case-expansion': false,

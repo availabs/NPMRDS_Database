@@ -3,19 +3,19 @@
 /* eslint no-console: 0, no-param-reassign: 0, no-continue: 0 */
 
 const assert = require('assert');
-const { execSync } = require('child_process');
-const { existsSync } = require('fs');
-const { join, isAbsolute } = require('path');
+const {execSync} = require('child_process');
+const {existsSync} = require('fs');
+const {join, isAbsolute} = require('path');
 
 const envFile = require('node-env-file');
 const yargs = require('yargs');
-const { difference, padStart } = require('lodash');
+const {difference, padStart} = require('lodash');
 
-const YEARS = require('../../src/highwayDataServicesScrapers/YEARS');
-const REGIONS = require('../../src/highwayDataServicesScrapers/REGIONS');
-const TABLES = require('../../src/highwayDataServicesScrapers/TABLES');
+const YEARS = require('../highwayDataServicesTrafficCounts/YEARS');
+const REGIONS = require('../highwayDataServicesTrafficCounts/REGIONS');
+const TABLES = require('../highwayDataServicesTrafficCounts/TABLES');
 
-const getDataFileName = require('../../src/highwayDataServicesScrapers/getDataFileName');
+const getDataFileName = require('../highwayDataServicesTrafficCounts/getDataFileName');
 
 const yargsSpec = {
   years: {
@@ -49,7 +49,7 @@ const yargsSpec = {
 };
 
 const {
-  argv: { years, regions, tables, dataDir, pg_env }
+  argv: {years, regions, tables, dataDir, pg_env}
 } = yargs
   .strict()
   .parserConfiguration({
@@ -130,7 +130,7 @@ for (let i = 0; i < years.length; ++i) {
           )
         `;
 
-        execSync(cmd, { shell: '/bin/bash' });
+        execSync(cmd, {shell: '/bin/bash'});
       }
     }
   }
