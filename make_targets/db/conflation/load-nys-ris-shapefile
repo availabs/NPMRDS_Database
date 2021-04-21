@@ -1,0 +1,66 @@
+#!/usr/bin/env node
+
+const {execSync} = require('child_process');
+const {join} = require('path');
+
+const yargs = require('yargs');
+const envFile = require('node-env-file');
+const _ = require('lodash');
+
+const cliArgsSpec = {
+  year: {
+    demand: true,
+    type: 'number',
+  },
+  nysRisShapefile: {
+    demand: true,
+    type: 'string'
+  },
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    default: 'development'
+  }
+};
+
+const {argv} = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const {year, nysRisShapefile, pg_env} = argv;
+
+const configPath = join(
+  __dirname,
+  pg_env === 'production'
+    ? '../../../config/postgres.env.prod'
+    : '../../../config/postgres.env.dev'
+);
+envFile(configPath);
+
+const {PGHOST, PGPORT, PGUSER, PGDATABASE, PGPASSWORD} = process.env;
+
+if (_.isNil(PGHOST && PGPORT && PGUSER && PGDATABASE && PGPASSWORD)) {
+  console.error(
+    'The PostgreSQL config file must contain the following credential variables:'
+  );
+  console.error('     PGHOST, PGPORT, PGUSER, PGDATABASE, PGPASSWORD');
+  process.exit(1);
+}
+
+execSync(`psql -c 'CREATE SCHEMA IF NOT EXISTS conflation ;'`)
+
+const databaseTableFullName = `conflation.nys_ris_${year}`
+
+execSync(`
+  ogr2ogr -s_srs EPSG:4326 -t_srs EPSG:4326 \
+    -overwrite \
+    -f PostgreSQL \
+      'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
+    '${nysRisShapefile}' -nln '${databaseTableFullName}'
+`);

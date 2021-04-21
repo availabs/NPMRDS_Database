@@ -56,8 +56,10 @@ const configPath = join(
 );
 envFile(configPath);
 
-if (!/^\d{1,}\.\d{1,}\.\d{1,}$/.test(conflationMapVersion)) {
-  console.error('USAGE: conflationMapVersion should be of the format x.y.z');
+try {
+  ConflationMapDatabaseObjectNames.validateConflationMapVersion(conflationMapVersion)
+} catch (err) {
+  console.error(err.message)
   process.exit(1);
 }
 
@@ -68,14 +70,6 @@ const {
   conflationMapTableGeometryIdxName,
   conflationMapTableGeometryIdxFullName,
 } = new ConflationMapDatabaseObjectNames(year, conflationMapVersion);
-
-console.log(JSON.stringify({
-  conflationSchema,
-  conflationMapTableName,
-  conflationMapTableFullName,
-  conflationMapTableGeometryIdxName,
-  conflationMapTableGeometryIdxFullName,
-}, null, 4))
 
 const timestamp = Math.floor(new Date().getTime() / 1000);
 
