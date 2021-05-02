@@ -47,10 +47,12 @@ FULL_TABLE_NAME="\"${STATE}\".npmrds_y${YEAR}m${MONTH}"
 
 COLS="$(zcat "$DATA_FILE_PATH" | head -1)"
 
-SQL="COPY $FULL_TABLE_NAME ($COLS) FROM STDIN CSV HEADER;"
-
 zcat "$DATA_FILE_PATH" |
-  psql -c "$SQL"
+  psql \
+    -c 'BEGIN;' \
+    -c "DELETE FROM $FULL_TABLE_NAME;" \
+    -c "COPY $FULL_TABLE_NAME ($COLS) FROM STDIN CSV HEADER;" \
+    -c 'COMMIT;'
 
 psql \
   -v STATE="$STATE" \
