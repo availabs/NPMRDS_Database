@@ -9,11 +9,11 @@ We noticed that in the 2020 NPMRDS TMC metadata file *(TMC_Identification.csv)*,
 
 Specifically, we found the following:
 
-* 2019 *aadt\_singl* = 2020 *aadt\_singl* and 2019 *aadt\_combi* = 2020 *aadt\_combi*
-  for **13** TMCs.
+* 2019 *aadt\_singl* equals 2020 *aadt\_singl* and 2019 *aadt\_combi*
+  equals 2020 *aadt\_combi* for **13** TMCs.
 
-* 2019 *aadt\_singl* = 2020 *aadt\_combi* and 2019 *aadt\_combi* = 2020 *aadt\_singl*
-  for **816** TMCs.
+* 2019 *aadt\_singl* equals 2020 *aadt\_combi* and 2019 *aadt\_combi*
+  equals 2020 *aadt\_singl* for **816** TMCs.
 
 * 2019 *aadt\_singl* and 2020 *aadt\_singl* are closer in value
     than 2019 *aadt\_singl* and 2020 *aadt\_combi* for **1142** TMCs.
@@ -21,11 +21,29 @@ Specifically, we found the following:
 * 2019 *aadt\_singl* and 2020 *aadt\_combi* are closer in value
     than 2019 *aadt\_singl* and 2020 *aadt\_singl* for **19,464** TMCs.
 
+Using our OSM/NYS\_RIS/NPMRDS Map conflation tool,
+  we found the following:
+
+* The NPMRDS 2019 *aadt\_singl* equals the 2019 NYS\_RIS *aadt_single_unit* value
+    for approximately **6250** TMCs.
+
+* The NPMRDS 2019 *aadt\_singl* equals the 2019 NYS\_RIS *aadt_combo* value
+    for approximately **10** TMCs.
+
+* The NPMRDS 2020 *aadt\_singl* equals the 2019 NYS\_RIS *aadt_single_unit* value
+    for approximately **30** TMCs.
+
+* The NPMRDS 2020 *aadt\_singl* equals the 2019 NYS\_RIS *aadt_combo* value
+    for **1610** TMCs.
+
+This suggests that the problem is in the 2020 NPMRDS Truck AADT values,
+  not the 2019 NPMRDS truck AADT values.
+
 ## PM3 measure calculations dependencies on Truck AADT
 
 The *Average Vehicle Occupancy Factor* (**AVO**) is required in both the
-  PM3 *Level of Travel Time Reliability* (**LOTTR**) and the
-  *Peak Hour Excessive Delay* (**PHED**) calculations.
+  PM3 aggregate *Level of Travel Time Reliability* (**LOTTR**) and the
+  aggregate *Peak Hour Excessive Delay* (**PHED**) calculations.
 
 See: [
   Federal Highway Administration
@@ -43,15 +61,13 @@ See: [
   Delay Metrics (April 2018)
 ](https://www.fhwa.dot.gov/tpm/guidance/avo_factors.pdf)
 
-Therefore, the PM3 LOTTR and PHED measures depend, indirectly, on the
+Therefore, the aggregate PM3 LOTTR and PHED measures depend, indirectly, on the
   *aadt_singl* and *aadt_combi* values. If they are, in fact, transposed,
   these two measures would be affected by the error.
 
 ## Impact
 
 If it is the case that the *aadt_singl* and *aadt_combi* values are
-  transposed in the 2020 TMC_Identification.csv file,
+  transposed in the 2020 TMC\_Identification.csv file,
   then the following is the effect on the aggregate 2020 PM3 calculations
   for NYS.
-
-
