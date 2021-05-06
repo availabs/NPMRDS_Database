@@ -1,0 +1,226 @@
+#!/usr/bin/env node
+
+// https://wiki.openstreetmap.org/wiki/Way#Examples
+//   The nodes defining the geometry of the way are enumerated in the correct order,
+//     and indicated only by reference using their unique identifier.
+//   These nodes must have been already defined separately with their coordinates.
+//
+// https://wiki.openstreetmap.org/wiki/Relation:restriction
+
+const {execSync} = require('child_process');
+const {createReadStream} = require('fs');
+
+const yargs = require('yargs');
+const XmlStream = require('xml-stream');
+
+const {join} = require('path');
+const envFile = require('node-env-file');
+
+const {Client} = require('pg');
+const {from: copyFrom} = require('pg-copy-streams');
+
+const cliArgsSpec = {
+  osmVersion: {type: 'string', demand: true},
+  osmXmlFile: {
+    demand: true,
+    type: 'string'
+  },
+  pg_env: {
+    type: 'string',
+    demand: false,
+    choices: ['production', 'development'],
+    default: 'development'
+  }
+};
+
+const {argv} = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const {osmVersion, osmXmlFile, pg_env} = argv;
+
+const configPath = join(
+  __dirname,
+  pg_env === 'production'
+    ? '../../../config/postgres.env.prod'
+    : '../../../config/postgres.env.dev'
+);
+
+envFile(configPath);
+
+execSync(
+  `psql -v OSM_VERSION=${osmVersion} -f '${join(__dirname, '../../../sql/osm/create_versioned_osm_nodes_tables.sql')}'`
+);
+
+execSync(
+  `psql -v OSM_VERSION=${osmVersion} -f '${join(__dirname, '../../../sql/osm/create_versioned_osm_ways_tables.sql')}'`
+);
+
+let nodeNum = 0;
+let wayNum = 0;
+
+(async () => {
+  try {
+    const nodesClient = new Client();
+    await nodesClient.connect();
+
+    const nodesCopyStream = nodesClient.query(
+      copyFrom(
+        `COPY osm.osm_nodes_v${osmVersion}(id, tags, wkb_geometry) FROM STDIN WITH (FORMAT CSV)`
+      )
+    );
+
+    const waysClient = new Client();
+    await waysClient.connect();
+
+    const waysCopyStream = waysClient.query(
+      copyFrom(
+        `COPY osm.osm_ways_v${osmVersion}(id, tags, node_ids) FROM STDIN WITH (FORMAT CSV)`
+      )
+    );
+
+    let streamClosed;
+    let streamError;
+
+    const sentinel = new Promise((resolve, reject) => {
+      streamClosed = resolve;
+      streamError = reject;
+    });
+
+    const xml = new XmlStream(
+      createReadStream(osmXmlFile)
+        .on('close', streamClosed)
+        .on('error', streamError),
+    );
+
+    xml.collect('node tag');
+    xml.on('endElement: node', async (d) => {
+      const {
+        $: {id: osmNodeId, lat, lon},
+        tag,
+      } = d;
+
+      const tags = Array.isArray(tag)
+        ? tag.reduce((acc, {$: {k, v}}) => {
+          acc[k] = v;
+          return acc;
+        }, {})
+        : null;
+
+      const escapedTags = tags ? `"${JSON.stringify(tags).replace(/"/g, '""')}"` : ''
+
+      const row = `"${+osmNodeId}",${escapedTags},"SRID=4326;POINT(${lon} ${lat})"\n`
+
+      const good = nodesCopyStream.write(row)
+
+      if (!good) {
+        xml.pause()
+        await new Promise(resolve => nodesCopyStream.on('drain', resolve))
+        xml.resume()
+      }
+
+      ++nodeNum;
+    });
+
+    xml.collect('way nd');
+    xml.collect('way tag');
+    xml.on('endElement: way', async (d) => {
+      const {
+        $: {id: osmWayId},
+        nd,
+        tag,
+      } = d;
+
+      const osmNodeIds = Array.isArray(nd)
+        ? nd.map(({$: {ref}}) => +ref)
+        : null;
+
+      const tags = Array.isArray(tag)
+        ? tag.reduce((acc, {$: {k, v}}) => {
+          acc[k] = v;
+          return acc;
+        }, {})
+        : null;
+
+      const escapedTags = tags ? JSON.stringify(tags).replace(/"/g, '""') : ''
+
+      const row = `"${osmWayId}","${escapedTags}","{${osmNodeIds}}"\n`;
+
+      const good = waysCopyStream.write(row)
+
+      if (!good) {
+        xml.pause()
+        await new Promise(resolve => waysCopyStream.on('drain', resolve))
+        xml.resume()
+      }
+
+      ++wayNum
+    });
+
+    xml.on('end', async () => {
+      console.log('File load complete.')
+      console.log(`  Inserted ${nodeNum} nodes and ${wayNum} ways.`)
+      console.log('Altering columns and indexing tables.')
+
+      await nodesCopyStream.end();
+
+      await waysCopyStream.end();
+
+      await waysClient.query(`
+        BEGIN;
+
+        ALTER TABLE osm.osm_nodes_v${osmVersion}
+          ALTER COLUMN wkb_geometry
+            TYPE public.geometry(Point, 4326)
+            USING public.ST_GeomFromEWKT(wkb_geometry);
+
+        CREATE INDEX osm_nodes_v${osmVersion}_geom_idx
+          ON osm.osm_nodes_v${osmVersion}
+          USING GIST (wkb_geometry) ;
+
+        CLUSTER osm.osm_nodes_v${osmVersion};
+
+        COMMIT;
+      `)
+
+      await nodesClient.query(`CLUSTER osm.osm_nodes_v${osmVersion};`);
+
+      await nodesClient.end();
+
+      await waysClient.query(`
+        BEGIN;
+
+        CREATE OR REPLACE FUNCTION tmp_json_or_null(BIGINT, TEXT)
+        RETURNS JSONB LANGUAGE PLPGSQL IMMUTABLE AS $$
+        BEGIN
+            RETURN $2::JSONB;
+        EXCEPTION
+            WHEN OTHERS THEN
+              RAISE NOTICE 'INVALID JSON FOR WAY %', $1;
+              RETURN NULL;
+        END $$;
+
+        ALTER TABLE osm.osm_ways_v${osmVersion}
+          ALTER COLUMN tags TYPE JSONB USING tmp_json_or_null(id, tags) ;
+
+        DROP FUNCTION tmp_json_or_null(BIGINT, TEXT) ;
+
+        CLUSTER osm.osm_nodes_v${osmVersion};
+
+        COMMIT;
+      `)
+      await waysClient.query(`CLUSTER osm.osm_ways_v${osmVersion};`);
+      await waysClient.end();
+    });
+
+    await sentinel
+  } catch (err) {
+    console.error(err)
+    process.exit(1)
+  }
+})()
