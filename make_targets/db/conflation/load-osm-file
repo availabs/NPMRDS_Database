@@ -120,7 +120,7 @@ let wayNum = 0;
 
       if (!good) {
         xml.pause()
-        await new Promise(resolve => nodesCopyStream.on('drain', resolve))
+        await new Promise(resolve => nodesCopyStream.once('drain', resolve))
         xml.resume()
       }
 
@@ -155,7 +155,7 @@ let wayNum = 0;
 
       if (!good) {
         xml.pause()
-        await new Promise(resolve => waysCopyStream.on('drain', resolve))
+        await new Promise(resolve => waysCopyStream.once('drain', resolve))
         xml.resume()
       }
 
