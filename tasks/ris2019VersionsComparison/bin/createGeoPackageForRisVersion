@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# NOTE: Temporarily punting on a higher level of automation due to source base_data schema inconsistencies.
+#   Handing the changing file and layer names will require more sophisticated code.
+#     It would probably be best to write that code in a language other than Bash.
+#     Therefore, it would probably best to extract the variables below using code on the host machine
+#       and set in the container using ENV variables.
+
+set -e
+
+if [ -z "$GDB_TIMESTAMP" ] || [ -z "$GDB_NAME" ] ; then
+  >&2 echo "USAGE: The GDB_TIMESTAMP and GDB_NAME environment variables are required"
+  exit 1
+fi
+
+# NOTE: These should remain standardized for future storage and tool building.
+GDB_PATH="/base_data/$GDB_NAME"
+
+OUTPUT_LAYER_NAME="roadway_inventory_system"
+GPKG_NAME="${OUTPUT_LAYER_NAME}.${GDB_TIMESTAMP}.gpkg"
+GPKG_PATH="/derived_data/$GPKG_NAME"
+
+pushd  "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null
+
+mkdir -p derived_data/
+
+docker \
+  run \
+  --env GDB_PATH="$GDB_PATH" \
+  --env GPKG_PATH="$GPKG_PATH" \
+  --env OUTPUT_LAYER_NAME="$OUTPUT_LAYER_NAME" \
+  --rm \
+  -v "$PWD/scripts":"/scripts/" \
+  -v "$PWD/base_data/nys_ris_v$GDB_TIMESTAMP":"/base_data/" \
+  -v "$PWD/derived_data/":"/derived_data/" \
+  gdal-with-filegdb:latest /scripts/createGeoPackage
+
+sqlite3 derived_data/roadway_inventory_system.$GDB_TIMESTAMP.gpkg "
+  BEGIN;
+
+  CREATE TABLE roadway_inventory_system_version (
+    version  INTEGER PRIMARY KEY
+  ) ;
+
+  INSERT INTO roadway_inventory_system_version
+    VALUES ($GDB_TIMESTAMP) ;
+
+  COMMIT;
+"
+
+popd >/dev/null

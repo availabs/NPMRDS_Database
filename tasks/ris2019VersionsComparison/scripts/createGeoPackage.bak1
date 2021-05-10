@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# NOTE: In some cases, the NYS RoadwayInventorySystem Geodatabase requires the ogr2ogr FileGDB extension.
+#       That extension is typically not included in the official builds (apt-get).
+#       A special build including FileGDB (ubuntu-full) can be created using the gdal Docker scripts.
+#         See: https://github.com/OSGeo/gdal/tree/v3.3.0/gdal/docker
+
+# NOTE: This script expects the Geodatabase to be in the Docker container's /data directory.
+
+# NOTE: Temporarily punting on a high level of automation due to source data schema inconsistencies.
+#   Handing the changing file and layer names will require more sophisticated code.
+#   Would probably be best to write that code in a language other than Bash.
+#     Therefore, probably best to extract the variables below using code on the host machine
+#     and set in the container using ENV variables.
+
+set -e
+
+# NOTE: User must determine these and set them manually.
+GDB_YEAR=2019
+GDB_TIMESTAMP=20200921
+GDB_NAME='RoadwayInventorySystem2019.gdb'
+
+# NOTE: These should remain standardized for future storage and tool building.
+OUTPUT_LAYER_NAME="nys_ris_${GDB_YEAR}"
+GPK_NAME="${OUTPUT_LAYER_NAME}.${GDB_TIMESTAMP}.gpkg"
+
+pushd /data/ >/dev/null
+
+# ===== Create the GPKG file =====
+
+rm -f "$GPK_NAME"
+
+ogr2ogr \
+  -f GPKG "$GPK_NAME" \
+  -skipfailures \
+  -nln "$OUTPUT_LAYER_NAME" \
+  -nlt MULTILINESTRING \
+  "$GDB_NAME"
+
+# ===== Change GPKG file owner =====
+
+# Because running as docker creates the GPKG as root,
+#   change the owner so UID and GID match this script's owners.
+USER_ID="$( stat -c '%u' "$BASH_SOURCE" )"
+GROUP_ID="$( stat -c '%g' "$BASH_SOURCE" )"
+
+chown "$USER_ID":"$GROUP_ID" "$GPK_NAME"
+
+popd >/dev/null
