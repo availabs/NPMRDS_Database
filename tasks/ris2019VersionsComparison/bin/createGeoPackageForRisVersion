@@ -38,6 +38,8 @@ docker \
 sqlite3 derived_data/roadway_inventory_system.$GDB_TIMESTAMP.gpkg "
   BEGIN;
 
+  DROP TABLE IF EXISTS roadway_inventory_system_version ;
+
   CREATE TABLE roadway_inventory_system_version (
     version  INTEGER PRIMARY KEY
   ) ;
