@@ -50,8 +50,7 @@ const {osmVersion, osmXmlFile, pg_env} = argv;
 const configPath = join(
   __dirname,
   pg_env === 'production'
-    // ? '../../../config/postgres.env.prod'
-    ? 'DO NOT RUN ON PRODUCTION YET'
+    ? '../../../config/postgres.env.prod'
     : '../../../config/postgres.env.dev'
 );
 
