@@ -6,13 +6,15 @@ BEGIN;
 
 CREATE SCHEMA IF NOT EXISTS osm;
 
-DROP TABLE IF EXISTS osm.:tbl_name ;
-
 CREATE TABLE IF NOT EXISTS osm.:tbl_name (
   id            BIGINT PRIMARY KEY,
   tags          JSONB,
-  wkb_geometry  TEXT -- Changed to public.geometry(Point, 4326) after loaded.
-);
+  wkb_geometry  public.geometry(Point, 4326)
+) WITH (fillfactor=100, autovacuum_enabled=false) ;
+
+CREATE INDEX :geom_idx_name
+  ON osm.:tbl_name
+  USING GIST (wkb_geometry) ;
 
 CLUSTER osm.:tbl_name USING :pkey_idx_name;
 
