@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// FIXME: If osm version tables did not exists, drop them if the loader fails
+//        so we don't leave behind empty tables.
+
 // https://wiki.openstreetmap.org/wiki/Way#Examples
 //   The nodes defining the geometry of the way are enumerated in the correct order,
 //     and indicated only by reference using their unique identifier.
@@ -16,7 +19,7 @@ const XmlStream = require('xml-stream');
 const {join} = require('path');
 const envFile = require('node-env-file');
 
-const {Client} = require('pg');
+const {Pool} = require('pg');
 const {from: copyFrom} = require('pg-copy-streams');
 
 const cliArgsSpec = {
@@ -47,40 +50,292 @@ const {osmVersion, osmXmlFile, pg_env} = argv;
 const configPath = join(
   __dirname,
   pg_env === 'production'
-    ? '../../../config/postgres.env.prod'
+    // ? '../../../config/postgres.env.prod'
+    ? 'DO NOT RUN ON PRODUCTION YET'
     : '../../../config/postgres.env.dev'
 );
 
 envFile(configPath);
 
-execSync(
-  `psql -v OSM_VERSION=${osmVersion} -f '${join(__dirname, '../../../sql/osm/create_versioned_osm_nodes_tables.sql')}'`
-);
+const dbConnectionPool = new Pool()
 
-execSync(
-  `psql -v OSM_VERSION=${osmVersion} -f '${join(__dirname, '../../../sql/osm/create_versioned_osm_ways_tables.sql')}'`
-);
+const OSM_SCHEMA = 'osm'
+const OSM_NODES_TABLE_NAME = `osm_nodes_v${osmVersion}`
+const OSM_NODES_TABLE_FULL_NAME = `${OSM_SCHEMA}.${OSM_NODES_TABLE_NAME}`
+const TEMP_NODES_TABLE_FULL_NAME = `${OSM_SCHEMA}.tmp_${OSM_NODES_TABLE_NAME}`
+
+const OSM_WAYS_TABLE_NAME = `osm_ways_v${osmVersion}`
+const OSM_WAYS_TABLE_FULL_NAME = `${OSM_SCHEMA}.${OSM_WAYS_TABLE_NAME}`
+const TEMP_WAYS_TABLE_FULL_NAME = `${OSM_SCHEMA}.tmp_${OSM_WAYS_TABLE_NAME}`
+
+console.log(OSM_NODES_TABLE_FULL_NAME)
+console.log(OSM_WAYS_TABLE_FULL_NAME)
+
+const createNodesTableSqlPath = join(__dirname, '../../../sql/osm/create_versioned_osm_nodes_tables.sql');
+const createWaysTableSqlPath = join(__dirname, '../../../sql/osm/create_versioned_osm_ways_tables.sql');
+
+async function queryOsmTableVersionsExistence(dbConn) {
+  const [nodesTableExistsResult, waysTableExistsResult] = await Promise.all([
+    dbConn.query(`
+      SELECT EXISTS (
+        SELECT
+          FROM information_schema.tables
+          WHERE (
+            ( table_schema = '${OSM_SCHEMA}' )
+            AND
+            ( table_name = '${OSM_NODES_TABLE_NAME}' )
+          )
+      ) ;
+    `),
+    dbConn.query(`
+      SELECT EXISTS (
+        SELECT
+          FROM information_schema.tables
+          WHERE (
+            ( table_schema = '${OSM_SCHEMA}' )
+            AND
+            ( table_name = '${OSM_WAYS_TABLE_NAME}' )
+          )
+      ) ;
+    `)
+  ])
+
+  return {
+    nodesTableExists: nodesTableExistsResult.rows[0].exists,
+    waysTableExists: waysTableExistsResult.rows[0].exists
+  }
+}
+
+// TODO: If tables do not already exists, DROP them if loading fails.
+async function createOsmVersionTables(dbConn) {
+  const {nodesTableExists, waysTableExists} = await queryOsmTableVersionsExistence(dbConn)
+
+  console.log(JSON.stringify({nodesTableExists, waysTableExists}, null, 4))
+
+  if (nodesTableExists && waysTableExists) {
+    return
+  }
+
+  if ((nodesTableExists || waysTableExists) && !(nodesTableExists && waysTableExists)) {
+    throw new Error(
+      `ERROR: Database in inconsistent state.
+
+              ${OSM_NODES_TABLE_FULL_NAME} ${nodesTableExists ? 'EXISTS' : 'DOES NOT EXIST'}
+            while
+              ${OSM_WAYS_TABLE_FULL_NAME} ${waysTableExists ? 'EXISTS' : 'DOES NOT EXIST'}`
+    )
+  }
+
+  try {
+    execSync(`psql -v OSM_VERSION=${osmVersion} -f '${createNodesTableSqlPath}'`);
+
+    execSync(`psql -v OSM_VERSION=${osmVersion} -f '${createWaysTableSqlPath}'`);
+  } catch (err) {
+    dbConn(`
+      BEGIN;
+
+      DROP TABLE IF EXISTS ${OSM_NODES_TABLE_FULL_NAME};
+      DROP TABLE IF EXISTS ${OSM_WAYS_TABLE_FULL_NAME};
+
+      COMMIT;
+    `)
+
+    throw err
+  }
+
+  const verifiedTableExistence = await queryOsmTableVersionsExistence(dbConn)
+
+  if (!(verifiedTableExistence.nodesTableExists && verifiedTableExistence.waysTableExists)) {
+    throw new Error('ERROR: DDL scripts failed to create tables with the expected table.')
+  }
+}
 
 let nodeNum = 0;
 let wayNum = 0;
 
+function initNodeHandler(xml, nodesCopyStream) {
+  xml.collect('node tag');
+  xml.on('endElement: node', async (d) => {
+    const {
+      $: {id: osmNodeId, lat, lon},
+      tag,
+    } = d;
+
+    const tags = Array.isArray(tag)
+      ? tag.reduce((acc, {$: {k, v}}) => {
+        acc[k] = v;
+        return acc;
+      }, {})
+      : null;
+
+    const escapedTags = tags ? `"${JSON.stringify(tags).replace(/"/g, '""')}"` : ''
+
+    const row = `"${+osmNodeId}",${escapedTags},"SRID=4326;POINT(${lon} ${lat})"\n`
+
+    const good = nodesCopyStream.write(row)
+
+    if (!good) {
+      xml.pause()
+      await new Promise(resolve => nodesCopyStream.once('drain', resolve))
+      xml.resume()
+    }
+
+    console.log('node #', ++nodeNum)
+  });
+}
+
+function initWayHandler(xml, waysCopyStream) {
+  xml.collect('way nd');
+  xml.collect('way tag');
+  xml.on('endElement: way', async (d) => {
+    const {
+      $: {id: osmWayId},
+      nd,
+      tag,
+    } = d;
+
+    const osmNodeIds = Array.isArray(nd)
+      ? nd.map(({$: {ref}}) => +ref)
+      : null;
+
+    const tags = Array.isArray(tag)
+      ? tag.reduce((acc, {$: {k, v}}) => {
+        acc[k] = v;
+        return acc;
+      }, {})
+      : null;
+
+    const escapedTags = tags ? JSON.stringify(tags).replace(/"/g, '""') : ''
+
+    const row = `"${osmWayId}","${escapedTags}","{${osmNodeIds}}"\n`;
+
+    const good = waysCopyStream.write(row)
+
+    if (!good) {
+      xml.pause()
+      await new Promise(resolve => waysCopyStream.once('drain', resolve))
+      xml.resume()
+    }
+
+    console.log('way #', ++wayNum)
+  });
+
+}
+
+async function finish(dbConn) {
+  console.time('load nodes')
+  await dbConn.query(`
+    BEGIN;
+
+    CREATE OR REPLACE FUNCTION pg_temp.tmp_json_or_null(BIGINT, TEXT)
+      RETURNS JSONB LANGUAGE PLPGSQL IMMUTABLE AS $$
+    BEGIN
+          RETURN $2::JSONB;
+      EXCEPTION
+          WHEN OTHERS THEN
+            RAISE NOTICE 'INVALID JSON FOR WAY %', $1;
+            RETURN NULL;
+    END $$;
+
+    DELETE FROM ${OSM_NODES_TABLE_FULL_NAME} ;
+
+    INSERT INTO ${OSM_NODES_TABLE_FULL_NAME} (
+      id,
+      tags,
+      wkb_geometry
+    )
+      SELECT
+          id,
+          pg_temp.tmp_json_or_null(id, tags) AS tags,
+          public.ST_GeomFromEWKT(wkb_geometry) AS wkb_geometry
+        FROM ${TEMP_NODES_TABLE_FULL_NAME} ;
+
+    CLUSTER ${OSM_NODES_TABLE_FULL_NAME} ;
+  `);
+  console.timeEnd('load nodes')
+
+  console.time('load ways')
+  await dbConn.query(`
+    DELETE FROM ${OSM_WAYS_TABLE_FULL_NAME} ;
+
+    INSERT INTO ${OSM_WAYS_TABLE_FULL_NAME} (
+      id,
+      tags,
+      node_ids,
+      wkb_geometry
+    )
+      SELECT
+          id,
+          pg_temp.tmp_json_or_null(id, tags) AS tags,
+          node_ids,
+          b.wkb_geometry
+        FROM ${TEMP_WAYS_TABLE_FULL_NAME} AS a
+          INNER JOIN (
+              SELECT
+                  a.id,
+                  ST_MakeLine(c.wkb_geometry ORDER BY pt_idx) AS wkb_geometry
+                FROM ${TEMP_WAYS_TABLE_FULL_NAME} AS a
+                  JOIN LATERAL UNNEST(node_ids) WITH ORDINALITY AS b(pt_id, pt_idx)
+                    ON true
+                  INNER JOIN ${OSM_NODES_TABLE_FULL_NAME} AS c
+                    ON ( b.pt_id = c.id )
+                GROUP BY 1
+            ) AS b
+            USING (id)
+    ;
+
+    CLUSTER ${OSM_WAYS_TABLE_FULL_NAME} ;
+
+    COMMIT;
+  `)
+  console.timeEnd('load ways')
+}
+
 (async () => {
+  const nodesClient = await dbConnectionPool.connect()
+  const waysClient = await dbConnectionPool.connect()
+
   try {
-    const nodesClient = new Client();
-    await nodesClient.connect();
+    await createOsmVersionTables(nodesClient)
+
+    await Promise.all([
+      nodesClient.query(`
+        BEGIN;
+
+        CREATE TABLE ${TEMP_NODES_TABLE_FULL_NAME} (
+          LIKE ${OSM_NODES_TABLE_FULL_NAME}
+        );
+
+        -- Change the column types to TEXT for easier loading.
+        ALTER TABLE ${TEMP_NODES_TABLE_FULL_NAME}
+          ALTER COLUMN tags TYPE TEXT,
+          ALTER COLUMN wkb_geometry TYPE TEXT
+        ;
+      `),
+
+      waysClient.query(`
+        BEGIN;
+
+        CREATE TABLE ${TEMP_WAYS_TABLE_FULL_NAME} (
+          LIKE ${OSM_WAYS_TABLE_FULL_NAME}
+        );
+
+        -- Change the column type to TEXT for easier loading.
+        ALTER TABLE ${TEMP_WAYS_TABLE_FULL_NAME}
+          ALTER COLUMN tags TYPE TEXT
+        ;
+      `)
+    ]);
 
     const nodesCopyStream = nodesClient.query(
       copyFrom(
-        `COPY osm.osm_nodes_v${osmVersion}(id, tags, wkb_geometry) FROM STDIN WITH (FORMAT CSV)`
+        `COPY ${TEMP_NODES_TABLE_FULL_NAME}(id, tags, wkb_geometry) FROM STDIN WITH (FORMAT CSV)`
       )
     );
 
-    const waysClient = new Client();
-    await waysClient.connect();
-
     const waysCopyStream = waysClient.query(
       copyFrom(
-        `COPY osm.osm_ways_v${osmVersion}(id, tags, node_ids) FROM STDIN WITH (FORMAT CSV)`
+        `COPY ${TEMP_WAYS_TABLE_FULL_NAME}(id, tags, node_ids) FROM STDIN WITH (FORMAT CSV)`
       )
     );
 
@@ -92,135 +347,65 @@ let wayNum = 0;
       streamError = reject;
     });
 
-    const xml = new XmlStream(
+    const xml = await new XmlStream(
       createReadStream(osmXmlFile)
         .on('close', streamClosed)
         .on('error', streamError),
     );
 
-    xml.collect('node tag');
-    xml.on('endElement: node', async (d) => {
-      const {
-        $: {id: osmNodeId, lat, lon},
-        tag,
-      } = d;
+    initNodeHandler(xml, nodesCopyStream)
+    initWayHandler(xml, waysCopyStream)
 
-      const tags = Array.isArray(tag)
-        ? tag.reduce((acc, {$: {k, v}}) => {
-          acc[k] = v;
-          return acc;
-        }, {})
-        : null;
+    let finishDone
+    let finishErr
 
-      const escapedTags = tags ? `"${JSON.stringify(tags).replace(/"/g, '""')}"` : ''
-
-      const row = `"${+osmNodeId}",${escapedTags},"SRID=4326;POINT(${lon} ${lat})"\n`
-
-      const good = nodesCopyStream.write(row)
-
-      if (!good) {
-        xml.pause()
-        await new Promise(resolve => nodesCopyStream.once('drain', resolve))
-        xml.resume()
-      }
-
-      ++nodeNum;
-    });
-
-    xml.collect('way nd');
-    xml.collect('way tag');
-    xml.on('endElement: way', async (d) => {
-      const {
-        $: {id: osmWayId},
-        nd,
-        tag,
-      } = d;
-
-      const osmNodeIds = Array.isArray(nd)
-        ? nd.map(({$: {ref}}) => +ref)
-        : null;
-
-      const tags = Array.isArray(tag)
-        ? tag.reduce((acc, {$: {k, v}}) => {
-          acc[k] = v;
-          return acc;
-        }, {})
-        : null;
-
-      const escapedTags = tags ? JSON.stringify(tags).replace(/"/g, '""') : ''
-
-      const row = `"${osmWayId}","${escapedTags}","{${osmNodeIds}}"\n`;
-
-      const good = waysCopyStream.write(row)
-
-      if (!good) {
-        xml.pause()
-        await new Promise(resolve => waysCopyStream.once('drain', resolve))
-        xml.resume()
-      }
-
-      ++wayNum
-    });
+    const finished = new Promise((resolve, reject) => {
+      finishDone = resolve;
+      finishErr = reject
+    })
 
     xml.on('end', async () => {
-      console.log('File load complete.')
-      console.log(`  Inserted ${nodeNum} nodes and ${wayNum} ways.`)
-      console.log('Altering columns and indexing tables.')
+      try {
+        console.log('File load complete.')
+        console.log(`  Inserted ${nodeNum} nodes and ${wayNum} ways.`)
+        console.log('Altering columns and indexing tables.')
 
-      await nodesCopyStream.end();
+        await Promise.all([
+          nodesCopyStream.end(),
+          waysCopyStream.end()
+        ])
 
-      await waysCopyStream.end();
-
-      await waysClient.query(`
-        BEGIN;
-
-        ALTER TABLE osm.osm_nodes_v${osmVersion}
-          ALTER COLUMN wkb_geometry
-            TYPE public.geometry(Point, 4326)
-            USING public.ST_GeomFromEWKT(wkb_geometry);
-
-        CREATE INDEX osm_nodes_v${osmVersion}_geom_idx
-          ON osm.osm_nodes_v${osmVersion}
-          USING GIST (wkb_geometry) ;
-
-        CLUSTER osm.osm_nodes_v${osmVersion};
-
-        COMMIT;
-      `)
-
-      await nodesClient.query(`CLUSTER osm.osm_nodes_v${osmVersion};`);
-
-      await nodesClient.end();
-
-      await waysClient.query(`
-        BEGIN;
-
-        CREATE OR REPLACE FUNCTION tmp_json_or_null(BIGINT, TEXT)
-        RETURNS JSONB LANGUAGE PLPGSQL IMMUTABLE AS $$
-        BEGIN
-            RETURN $2::JSONB;
-        EXCEPTION
-            WHEN OTHERS THEN
-              RAISE NOTICE 'INVALID JSON FOR WAY %', $1;
-              RETURN NULL;
-        END $$;
-
-        ALTER TABLE osm.osm_ways_v${osmVersion}
-          ALTER COLUMN tags TYPE JSONB USING tmp_json_or_null(id, tags) ;
-
-        DROP FUNCTION tmp_json_or_null(BIGINT, TEXT) ;
-
-        CLUSTER osm.osm_nodes_v${osmVersion};
-
-        COMMIT;
-      `)
-      await waysClient.query(`CLUSTER osm.osm_ways_v${osmVersion};`);
-      await waysClient.end();
+        finishDone()
+      } catch (err) {
+        finishErr(err)
+      }
     });
 
     await sentinel
+    await finished
+
+    await Promise.all([
+      nodesClient.query('COMMIT;'),
+      waysClient.query('COMMIT;')
+    ]);
+
+    await waysClient.release()
+    await finish(nodesClient)
   } catch (err) {
     console.error(err)
-    process.exit(1)
+
+    await Promise.all([
+      nodesClient.query('ROLLBACK;'),
+      waysClient.query('ROLLBACK;')
+    ]);
+  } finally {
+    await nodesClient.query(`
+      DROP TABLE IF EXISTS ${TEMP_NODES_TABLE_FULL_NAME} ;
+      DROP TABLE IF EXISTS ${TEMP_WAYS_TABLE_FULL_NAME} ;
+    `)
+
+    await nodesClient.release()
+
+    await dbConnectionPool.end()
   }
 })()
