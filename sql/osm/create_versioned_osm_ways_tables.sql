@@ -1,7 +1,9 @@
+-- https://github.com/sharedstreets/sharedstreets-builder/blob/master/src/main/java/io/sharedstreets/tools/builder/osm/model/Way.java#L104-L130
+
 BEGIN;
 
 \set tbl_name 'osm_ways_v':OSM_VERSION
-\set view_name :tbl_name'_view'
+\set view_name 'osm_roads_v':OSM_VERSION
 \set pkey_idx_name :tbl_name'_pkey'
 \set node_idx_name :tbl_name'_node_idx'
 \set highway_tag_idx :tbl_name'_hwy_idx'
@@ -34,8 +36,10 @@ CREATE VIEW osm.:view_name
         tags,
         node_ids,
         tags->>'highway' AS highway,
-        ( ST_Length(GEOGRAPHY(wkb_geometry)) / 1000.0 ) AS length_km
+        ( ST_Length(GEOGRAPHY(wkb_geometry)) / 1000.0 ) AS length_km,
+        wkb_geometry
       FROM osm.:tbl_name
+      WHERE ( tags->>'highway' IS NOT NULL )
 ;
 
 CLUSTER osm.:tbl_name USING :pkey_idx_name;
