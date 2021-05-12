@@ -1,4 +1,5 @@
--- https://github.com/sharedstreets/sharedstreets-builder/blob/master/src/main/java/io/sharedstreets/tools/builder/osm/model/Way.java#L104-L130
+-- SharedStreets road criteria used for osm_roads_v filter:
+--   https://github.com/sharedstreets/sharedstreets-builder/blob/master/src/main/java/io/sharedstreets/tools/builder/osm/model/Way.java#L61-L94
 
 BEGIN;
 
@@ -7,6 +8,7 @@ BEGIN;
 \set pkey_idx_name :tbl_name'_pkey'
 \set node_idx_name :tbl_name'_node_idx'
 \set highway_tag_idx :tbl_name'_hwy_idx'
+\set service_tag_idx :tbl_name'_svc_idx'
 \set geom_idx_name :tbl_name'_geom_idx'
 
 CREATE SCHEMA IF NOT EXISTS osm;
@@ -25,6 +27,9 @@ CREATE INDEX :node_idx_name
 CREATE INDEX :highway_tag_idx
   ON osm.:tbl_name ((tags->>'highway'));
 
+CREATE INDEX :service_tag_idx
+  ON osm.:tbl_name ((tags->>'service'));
+
 CREATE INDEX :geom_idx_name
   ON osm.:tbl_name
   USING GIST (wkb_geometry) ;
@@ -39,7 +44,31 @@ CREATE VIEW osm.:view_name
         ( ST_Length(GEOGRAPHY(wkb_geometry)) / 1000.0 ) AS length_km,
         wkb_geometry
       FROM osm.:tbl_name
-      WHERE ( tags->>'highway' IS NOT NULL )
+      WHERE (
+        ( tags->>'highway' IN (
+            'motorway',
+            'trunk',
+            'primary',
+            'secondary',
+            'tertiary',
+            'unclassified',
+            'residential',
+            'living_street',
+            'service'
+          )
+        )
+        OR
+        (
+          ( tags->>'highway' = 'service' )
+          AND
+          ( tags->>'service' NOT IN (
+              'parking',
+              'driveway',
+              'drive-through'
+            )
+          )
+        )
+      )
 ;
 
 CLUSTER osm.:tbl_name USING :pkey_idx_name;
