@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# NOTE: Temporarily punting on a higher level of automation due to source base_data schema inconsistencies.
+#   Handing the changing file and layer names will require more sophisticated code.
+#     It would probably be best to write that code in a language other than Bash.
+#     Therefore, it would probably best to extract the variables below using code on the host machine
+#       and set in the container using ENV variables.
+
+set -e
+
+# NOTE: User must determine these and set them manually.
+export GDB_TIMESTAMP=20200921
+export GDB_NAME='RoadwayInventorySystem2019.gdb'
+
+pushd  "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+mkdir -p ../derived_data/
+
+./createFileGDBForRisVersion
+
+popd >/dev/null
+
