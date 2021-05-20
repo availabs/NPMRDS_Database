@@ -17,7 +17,6 @@ rm -f "$GPKG_PATH"
 ogr2ogr \
   -f GPKG "$GPKG_PATH" \
   -skipfailures \
-  -where "County_Name='ALBANY'" \
   -nln "$OUTPUT_LAYER_NAME" \
   -nlt MULTILINESTRING \
   "$GDB_PATH"
