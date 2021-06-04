@@ -12,17 +12,17 @@ CREATE TABLE ny.nysdot_region_names (
 
 INSERT INTO ny.nysdot_region_names (region, name)
 VALUES
-  (1,  'Capital District'),
-  (2,  'Mohawk Valley'),
-  (3,  'Central New York'),
-  (4,  'Genesee Valley'),
-  (5,  'Western New York'),
-  (6,  'Southern Tier/Central New York'),
-  (7,  'North Country'),
-  (8,  'Hudson Valley'),
-  (9,  'Southern Tier'),
-  (10, 'Long Island'),
-  (11, 'New York City ')
+  (1,  'Region 1 - Capital District'),
+  (2,  'Region 2 - Mohawk Valley'),
+  (3,  'Region 3 - Central New York'),
+  (4,  'Region 4 - Genesee Valley'),
+  (5,  'Region 5 - Western New York'),
+  (6,  'Region 6 - Southern Tier/Central New York'),
+  (7,  'Region 7 - North Country'),
+  (8,  'Region 8 - Hudson Valley'),
+  (9,  'Region 9 - Southern Tier'),
+  (10, 'Region 10 - Long Island'),
+  (11, 'Region 11 - New York City ')
 ;
 
 COMMIT;
