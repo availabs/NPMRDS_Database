@@ -58,7 +58,8 @@ execSync(`psql -c 'CREATE SCHEMA IF NOT EXISTS conflation ;'`)
 const databaseTableFullName = `conflation.nys_ris_${year}`
 
 execSync(`
-  ogr2ogr -s_srs EPSG:4326 -t_srs EPSG:4326 \
+  ogr2ogr \
+    -t_srs 'EPSG:4326' \
     -overwrite \
     -f PostgreSQL \
       'PG:host=${PGHOST} port=${PGPORT} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}' \
