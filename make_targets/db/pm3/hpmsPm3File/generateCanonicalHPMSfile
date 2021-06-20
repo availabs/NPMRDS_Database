@@ -20,6 +20,19 @@
 // -------
 //    759
 // (1 row)
+//
+// npmrds_production=# select count(1) from ny.tmc_metadata_2020 where isprimary = 1 and aadt is not null;
+//  count
+// -------
+//  21383
+// (1 row)
+//
+// npmrds_production=# select count(1) from ny.tmc_metadata_2020 where isprimary is null and aadt is not null;
+//  count
+// -------
+//      0
+// (1 row)
+
 
 
 const {join} = require('path');
@@ -229,12 +242,19 @@ const dumpData = async () => {
             const nhsPct = +tmcMetadata.nhsPct || 0;
             const nhsRatio = nhsPct ? nhsPct / 100 : 0;
 
+            /*
+              From: https://npmrds.ritis.org/analytics/help/
 
-            if (isNpmrdsExtended || !(+tmcMetadata.nhs >= 1)) {
-              return cb()
-            }
+              These overlapping TMCs can be identified in the NPMRDS Shapefile
+                where the “IsPrimary” field is “0”; non-overlapping TMCs have a “IsPrimary” value of “1”.
+            */
 
             const isprimary = +data.TMC_METADATA.isprimary === 1;
+
+            // NOTE: The FHWA guidance document (https://www.fhwa.dot.gov/tpm/guidance/hpms.pdf)
+            if (isNpmrdsExtended || !(+tmcMetadata.nhs >= 1) || !isprimary) {
+              return cb();
+            }
 
             const row = {
               Year_Record,
