@@ -1,0 +1,100 @@
+#!/usr/bin/env node
+
+const { spawnSync } = require("child_process");
+const { basename } = require("path");
+
+const yargs = require("yargs");
+
+const { join } = require("path");
+const envFile = require("node-env-file");
+
+const schemaName = "nys_roadway_inventory_system_versions";
+
+const cliArgsSpec = {
+  fileGdbZipPath: {
+    desc:
+      "Path to the NYS Roadway Inventory System FileGDB. The FileGDB is expected to be the standardized output of https://github.com/availabs/avail-gis-toolkit NysRisDao.createFileGDB. Note: Table name generated using the input FileGDB name.",
+    type: "string",
+    demand: true,
+  },
+  pg_env: {
+    type: "string",
+    demand: false,
+    choices: ["production", "development"],
+    default: "development",
+  },
+};
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    "camel-case-expansion": false,
+    "flatten-duplicate-arrays": false,
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const { fileGdbZipPath, pg_env } = argv;
+
+const configPath = join(
+  __dirname,
+  pg_env === "production"
+    ? "../../../config/postgres.env.prod"
+    : "../../../config/postgres.env.dev"
+);
+envFile(configPath);
+
+if (!/\.zip$/.test(fileGdbZipPath)) {
+  throw new Error("ERROR: fileGdbZipPath must be a zipped archive");
+}
+
+const { PGHOST, PGUSER, PGDATABASE, PGPASSWORD } = process.env;
+
+if (!(PGHOST && PGUSER && PGDATABASE && PGPASSWORD)) {
+  throw new Error(
+    "PGHOST && PGUSER && PGDATABASE && PGPASSWORD must be defined in the PostgreSQL config file."
+  );
+}
+
+const tableName = `${schemaName}.${basename(fileGdbZipPath)
+  .replace(/\.zip$/, "")
+  .replace(/[^a-z0-9]+/gi, "_")}`;
+
+console.log(tableName);
+
+console.log(
+  JSON.stringify(
+    {
+      PGHOST,
+      PGUSER,
+      PGDATABASE,
+      tableName,
+    },
+    null,
+    4
+  )
+);
+
+spawnSync("psql", ["-c", `CREATE SCHEMA IF NOT EXISTS ${schemaName};`], {
+  stdio: "inherit",
+});
+
+spawnSync("psql", ["-c", `DROP TABLE IF EXISTS ${tableName};`], {
+  stdio: "inherit",
+});
+
+spawnSync(
+  "ogr2ogr",
+  [
+    "-F",
+    "PostgreSQL",
+    `PG:host=${PGHOST} user=${PGUSER} dbname=${PGDATABASE} password=${PGPASSWORD}`,
+    "-skipfailures",
+    `/vsizip/${fileGdbZipPath}/${basename(fileGdbZipPath, ".zip")}`,
+    "-nln",
+    tableName,
+  ],
+  {
+    stdio: "inherit",
+  }
+);
