@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS :FULL_TABLE_NAME (
   dir                         SMALLINT,
   n                           SMALLINT NOT NULL,
   osm                         INTEGER NOT NULL,
-  ris                         INTEGER,
+  osm_fwd                     INTEGER NOT NULL,
+  ris                         TEXT,
   tmc                         TEXT,
   wkb_geometry                public.geometry(LineString, 4326) NOT NULL
 ) WITH (fillfactor=100, autovacuum_enabled=false) ;

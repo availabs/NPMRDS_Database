@@ -1,65 +1,68 @@
 #!/usr/bin/env node
 
-const {execSync} = require('child_process');
-const {join} = require('path');
+const { execSync } = require("child_process");
+const { join } = require("path");
 
-const yargs = require('yargs');
-const envFile = require('node-env-file');
-const _ = require('lodash');
+const yargs = require("yargs");
+const envFile = require("node-env-file");
+const _ = require("lodash");
 
-const {Client} = require('pg');
+const { Client } = require("pg");
 
-const ConflationMapDatabaseObjectNames = require('./ConflationMapDatabaseObjectNames');
+const ConflationMapDatabaseObjectNames = require("./ConflationMapDatabaseObjectNames");
 
 const createConflationMapVersionDatabaseTableDdlPath = join(
-  __dirname, '../../../sql/conflation_map/createConflationMapTable.sql'
+  __dirname,
+  "../../../sql/conflation_map/createConflationMapTable.sql"
 );
 
 const cliArgsSpec = {
   year: {
     demand: true,
-    type: 'number',
+    type: "number",
   },
   conflationMapVersion: {
     demand: true,
-    type: 'string',
-    describe: 'E.G.: 0.4.2'
+    type: "string",
+    describe: "E.G.: 0.4.2",
   },
   conflationMapShapefile: {
     demand: true,
-    type: 'string'
+    type: "string",
   },
   pg_env: {
-    type: 'string',
+    type: "string",
     demand: false,
-    choices: ['production', 'development'],
-    default: 'development'
-  }
+    choices: ["production", "development"],
+    default: "development",
+  },
 };
 
-const {argv} = yargs
+const { argv } = yargs
   .strict()
   .parserConfiguration({
-    'camel-case-expansion': false,
-    'flatten-duplicate-arrays': false
+    "camel-case-expansion": false,
+    "flatten-duplicate-arrays": false,
   })
   .wrap(yargs.terminalWidth() / 1.618)
   .option(cliArgsSpec);
 
-const {year, conflationMapVersion, conflationMapShapefile, pg_env} = argv;
+const { year, conflationMapVersion, conflationMapShapefile, pg_env } = argv;
 
 const configPath = join(
   __dirname,
-  pg_env === 'production'
-    ? '../../../config/postgres.env.prod'
-    : '../../../config/postgres.env.dev'
+  pg_env === "production"
+    ? "../../../config/postgres.env.prod"
+    : "../../../config/postgres.env.dev"
 );
 envFile(configPath);
 
 try {
-  ConflationMapDatabaseObjectNames.validateConflationMapVersion(conflationMapVersion)
+  ConflationMapDatabaseObjectNames.validateConflationMapVersion(
+    conflationMapVersion
+  );
 } catch (err) {
-  console.error(err.message)
+  console.error(err.message);
   process.exit(1);
 }
 
@@ -77,19 +80,20 @@ const timestamp = Math.floor(new Date().getTime() / 1000);
 const tmpVersionedConflationMapTableName = `tmp_${conflationMapTableName}_${timestamp}`;
 const tmpVersionedConflationMapTableFullName = `${conflationSchema}.${tmpVersionedConflationMapTableName}`;
 
-const {PGHOST, PGPORT, PGUSER, PGDATABASE, PGPASSWORD} = process.env;
+const { PGHOST, PGPORT, PGUSER, PGDATABASE, PGPASSWORD } = process.env;
 
 if (_.isNil(PGHOST && PGPORT && PGUSER && PGDATABASE && PGPASSWORD)) {
   console.error(
-    'The PostgreSQL config file must contain the following credential variables:'
+    "The PostgreSQL config file must contain the following credential variables:"
   );
-  console.error('     PGHOST, PGPORT, PGUSER, PGDATABASE, PGPASSWORD');
+  console.error("     PGHOST, PGPORT, PGUSER, PGDATABASE, PGPASSWORD");
   process.exit(1);
 }
 
 const createConflationMapVersionDatabaseTable = () => {
   // Using psql so we can use script variables.
-  execSync(`
+  execSync(
+    `
       psql \
         --quiet \
         -v YEAR=${year} \
@@ -104,10 +108,10 @@ const createConflationMapVersionDatabaseTable = () => {
       // env: Object.assign({}, process.env, {
       // PGOPTIONS: '--client-min-messages=error'
       // }),
-      shell: '/bin/sh'
+      shell: "/bin/sh",
     }
   );
-}
+};
 
 const loadConflationMapShapefileIntoTemporaryTable = () => {
   console.log(
@@ -132,7 +136,7 @@ const loadConflationMapShapefileIntoTemporaryTable = () => {
   // `);
 };
 
-const integrateNewMapIntoDatabase = async client => {
+const integrateNewMapIntoDatabase = async (client) => {
   const sql = `
     BEGIN ;
 
@@ -145,6 +149,7 @@ const integrateNewMapIntoDatabase = async client => {
       dir,
       n,
       osm,
+      osm_fwd,
       ris,
       tmc,
       wkb_geometry
@@ -154,6 +159,7 @@ const integrateNewMapIntoDatabase = async client => {
           dir,
           n,
           osm,
+          osm_fwd,
           ris,
           tmc,
           wkb_geometry
@@ -177,28 +183,28 @@ const integrateNewMapIntoDatabase = async client => {
   await client.connect();
 
   try {
-    await client.query('BEGIN;')
-    createConflationMapVersionDatabaseTable()
+    await client.query("BEGIN;");
+    createConflationMapVersionDatabaseTable();
 
-    let task = 'load conflation map shapefile into temporary table';
+    let task = "load conflation map shapefile into temporary table";
     console.time(task);
     await loadConflationMapShapefileIntoTemporaryTable(client);
     console.timeEnd(task);
 
-    task = 'integrate new conflation map into database';
+    task = "integrate new conflation map into database";
     console.time(task);
     await integrateNewMapIntoDatabase(client);
     console.timeEnd(task);
 
-    await client.query('COMMIT;')
+    await client.query("COMMIT;");
   } catch (err) {
-    await client.query('ROLLBACK')
+    await client.query("ROLLBACK");
     console.error(err);
   } finally {
     try {
-      await client.query(
-        `DROP TABLE IF EXISTS ${tmpVersionedConflationMapTableFullName} ;`
-      );
+      // await client.query(
+      // `DROP TABLE IF EXISTS ${tmpVersionedConflationMapTableFullName} ;`
+      // );
     } catch (err2) {
       console.error(err2);
     }
