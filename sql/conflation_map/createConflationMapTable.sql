@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS :FULL_TABLE_NAME (
   year                        SMALLINT NOT NULL DEFAULT :YEAR,
   dir                         SMALLINT,
   n                           SMALLINT NOT NULL,
-  osm                         INTEGER NOT NULL,
-  osm_fwd                     INTEGER NOT NULL,
+  osm                         INTEGER,
+  osm_fwd                     INTEGER,
   ris                         TEXT,
   tmc                         TEXT,
   wkb_geometry                public.geometry(LineString, 4326) NOT NULL
