@@ -208,7 +208,7 @@ DELETE FROM conflation.:conflation_nodes_table
 DROP INDEX IF EXISTS conflation.:conflation_nodes_geojson_idx ;
 
 CREATE INDEX IF NOT EXISTS :conflation_nodes_gix
-  ON conflation.:conflation_nodes_table (wkb_geometry) ;
+  ON conflation.:conflation_nodes_table USING GIST (wkb_geometry) ;
 
 CLUSTER conflation.:conflation_nodes_table
   USING :conflation_nodes_gix ;
@@ -218,6 +218,7 @@ CLUSTER conflation.:conflation_ways_table
 
 COMMIT ;
 
+/*
 ANALYZE conflation.:conflation_nodes_table ;
 ANALYZE conflation.:conflation_ways_table ;
 
@@ -261,3 +262,4 @@ SELECT
 ;
 
 COMMIT;
+*/
