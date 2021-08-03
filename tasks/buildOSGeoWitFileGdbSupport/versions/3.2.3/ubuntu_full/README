@@ -1,1 +1,0 @@
-docker build --build-arg GDAL_VERSION=v3.2.3 --build-arg WITH_FILEGDB=yes . &> build.$(date +%s).log
