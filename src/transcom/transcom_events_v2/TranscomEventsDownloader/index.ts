@@ -204,7 +204,7 @@ export default class TranscomEventsDownloader {
       .replace(/-|:/g, "")
       .replace(/ /, "T");
 
-    const outputFileName = `${startTimestamp}-${endTimestamp}.${this.downloadTimestamp}.geojsonl.gz`;
+    const outputFileName = `${startTimestamp}-${endTimestamp}.${this.downloadTimestamp}.ndjson.gz`;
 
     return join(this.outputDir, outputFileName);
   }
@@ -246,7 +246,7 @@ export default class TranscomEventsDownloader {
       resp_stream,
       split(JSON.parse),
       through.obj(function fn({ Data: { Events } }, _$: any, cb: Function) {
-        // One event GeoJSON point per line
+        // One event per line
         if (Array.isArray(Events)) {
           for (let i = 0; i < Events.length; ++i) {
             this.push(`${JSON.stringify(Events[i])}\n`);
@@ -271,7 +271,7 @@ export default class TranscomEventsDownloader {
       const tmpDir = createTmpDir();
       const partitionedDateTimes = this.partitionedDateTimes;
 
-      const tmpFilePath = join(tmpDir, "transcom_event.geojsonl");
+      const tmpFilePath = join(tmpDir, "transcom_event.ndjson");
 
       for (let i = 0; i < partitionedDateTimes.length; ++i) {
         const dateRange = partitionedDateTimes[i];

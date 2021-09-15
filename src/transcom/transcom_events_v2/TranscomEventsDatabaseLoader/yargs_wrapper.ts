@@ -5,8 +5,8 @@ import TranscomEventsDownloader, { TranscomEventsDownloaderParams } from ".";
 const command = "load_transcom_historical_events";
 
 const builder = {
-  transcom_events_geojsonl_gzip: {
-    desc: "Path to the GZipped Transcom Events GeoJSONL file",
+  transcom_events_ndjson_gzip: {
+    desc: "Path to the GZipped Transcom Events NDJSON file",
     type: "string",
     demand: true,
   },

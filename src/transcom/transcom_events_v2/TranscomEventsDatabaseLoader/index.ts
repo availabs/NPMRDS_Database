@@ -28,26 +28,26 @@ function getSql(fName: string) {
 }
 
 export type TranscomEventsDownloaderParams = {
-  transcom_events_geojsonl_gzip: string;
+  transcom_events_ndjson_gzip: string;
   pg_env: PGEnv;
 };
 
-// TODO: params = pgEnv, transcomEventsGeoJsonlGzipPath
+// TODO: params = pgEnv, transcomEventsNdjsonGzipPath
 export default class TranscomEventsDatabaseLoader {
   private static getTmpTableName() {
     return `tmp_transcom_v2_${new Date().getTime()}`;
   }
 
   private readonly pgEnv: PGEnv;
-  private readonly transcomEventsGeoJsonlGzipPath: string;
+  private readonly transcomEventsNdjsonGzipPath: string;
   private readonly tmpTableName: string;
 
   constructor({
     pg_env,
-    transcom_events_geojsonl_gzip,
+    transcom_events_ndjson_gzip,
   }: TranscomEventsDownloaderParams) {
     this.pgEnv = pg_env;
-    this.transcomEventsGeoJsonlGzipPath = transcom_events_geojsonl_gzip;
+    this.transcomEventsNdjsonGzipPath = transcom_events_ndjson_gzip;
     this.tmpTableName = TranscomEventsDatabaseLoader.getTmpTableName();
   }
 
@@ -159,7 +159,7 @@ export default class TranscomEventsDatabaseLoader {
       await db.connect();
 
       const transcomEventsCsvStream = createTranscomEventsCsvStream(
-        this.transcomEventsGeoJsonlGzipPath
+        this.transcomEventsNdjsonGzipPath
       );
 
       await this.createTranscomTableIfNotExists(db);

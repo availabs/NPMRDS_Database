@@ -10,11 +10,7 @@ import _ from "lodash";
 import eventTypes2Categories from "./eventTypes2Categories";
 import transcomEventsDatabaseTableColumns from "./transcomEventsDatabaseTableColumns";
 
-import {
-  TranscomEvent,
-  TranscomEventProperties,
-  TranscomEventDatabaseRow,
-} from "../../types";
+import { TranscomEvent, TranscomEventDatabaseRow } from "../../types";
 
 export type TranscomEventsCsvStream = CsvFormatterStream<
   TranscomEventDatabaseRow,
@@ -22,52 +18,51 @@ export type TranscomEventsCsvStream = CsvFormatterStream<
 >;
 
 export function transformEventSchema(
-  props: TranscomEventProperties
+  e: TranscomEvent
 ): TranscomEventDatabaseRow {
   const row = {
-    event_id: props.EventID,
-    event_state: props.EventState,
-    icon_file: props.IconFile,
-    event_type: props.EventType,
-    facility: props.Facility,
-    playback_text: props.PlaybackText,
-    latitude: props.Latitude,
-    longitude: props.Longitude,
-    full_text: props.FullText,
-    sort_order: props.SortOrder,
-    state: props.State,
-    county: props.County,
-    event_impact: props.EventImpact,
-    relationship: props.Relationship,
-    mile_marker: props.MileMarker,
-    events_layer: props.EventsLayer,
-    last_update_date: props.LastUpdateDate,
-    direction: props.Direction,
-    notes: props.Notes,
-    class_name: props.ClassName,
-    image_name: props.ImageName,
-    show_route_no: props.ShowRouteNo,
-    route_no: props.RouteNo,
-    overlap_events_with_length: props.OverlapEventsWithLength,
-    last_update_date_string: props.LastUpdateDate_String,
-    end_date: props.EndDate,
-    end_date_string: props.EndDate_String,
-    start_date_time: props.StartDateTime,
-    category_name: props.CategoryName,
-    is_latest_event: props.IsLatestEvent,
-    is_highway: props.IsHighway,
-    to_latitude: props.ToLatitude,
-    to_longitude: props.ToLongitude,
-    event_msg: props.EventMsg,
-    to_state: props.ToState,
-    to_city: props.ToCity,
-    to_facility: props.ToFacility,
-    to_direction: props.ToDirection,
-    is_overlapping: props.IsOverlapping,
+    event_id: e.EventID,
+    event_state: e.EventState,
+    icon_file: e.IconFile,
+    event_type: e.EventType,
+    facility: e.Facility,
+    playback_text: e.PlaybackText,
+    latitude: e.Latitude,
+    longitude: e.Longitude,
+    full_text: e.FullText,
+    sort_order: e.SortOrder,
+    state: e.State,
+    county: e.County,
+    event_impact: e.EventImpact,
+    relationship: e.Relationship,
+    mile_marker: e.MileMarker,
+    events_layer: e.EventsLayer,
+    last_update_date: e.LastUpdateDate,
+    direction: e.Direction,
+    notes: e.Notes,
+    class_name: e.ClassName,
+    image_name: e.ImageName,
+    show_route_no: e.ShowRouteNo,
+    route_no: e.RouteNo,
+    overlap_events_with_length: e.OverlapEventsWithLength,
+    last_update_date_string: e.LastUpdateDate_String,
+    end_date: e.EndDate,
+    end_date_string: e.EndDate_String,
+    start_date_time: e.StartDateTime,
+    category_name: e.CategoryName,
+    is_latest_event: e.IsLatestEvent,
+    is_highway: e.IsHighway,
+    to_latitude: e.ToLatitude,
+    to_longitude: e.ToLongitude,
+    event_msg: e.EventMsg,
+    to_state: e.ToState,
+    to_city: e.ToCity,
+    to_facility: e.ToFacility,
+    to_direction: e.ToDirection,
+    is_overlapping: e.IsOverlapping,
 
     event_category:
-      (props.EventType &&
-        eventTypes2Categories[props.EventType.toLowerCase()]) ||
+      (e.EventType && eventTypes2Categories[e.EventType.toLowerCase()]) ||
       "other",
   };
 
@@ -81,7 +76,7 @@ export function transformEventSchema(
 }
 
 export default function createTranscomEventsCsvStream(
-  transcomEventsGeoJsonlGzipPath: string
+  transcomEventsNdjsonGzipPath: string
 ): TranscomEventsCsvStream {
   const csvStream = csvFormat({
     headers: transcomEventsDatabaseTableColumns,
@@ -90,13 +85,11 @@ export default function createTranscomEventsCsvStream(
   });
 
   return pipeline(
-    createReadStream(transcomEventsGeoJsonlGzipPath),
+    createReadStream(transcomEventsNdjsonGzipPath),
     createGunzip(),
     split(JSON.parse),
     through.obj(function f(transcomEvent: TranscomEvent, _$, cb) {
-      const { properties } = transcomEvent;
-
-      this.push(transformEventSchema(properties));
+      this.push(transformEventSchema(transcomEvent));
 
       cb();
     }),
