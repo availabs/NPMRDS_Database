@@ -66,7 +66,9 @@ export function transformEventSchema(
     is_overlapping: props.IsOverlapping,
 
     event_category:
-      eventTypes2Categories[props.EventType?.toLowerCase()] || "other",
+      (props.EventType &&
+        eventTypes2Categories[props.EventType.toLowerCase()]) ||
+      "other",
   };
 
   Object.keys(row).forEach((col) => {
