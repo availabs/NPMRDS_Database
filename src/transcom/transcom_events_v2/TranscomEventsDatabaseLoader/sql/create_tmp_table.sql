@@ -1,0 +1,14 @@
+-- Need to create a TEMP table when loading with a COPY FROM stream to handle PRIMARY KEY conflicts.
+--   See https://stackoverflow.com/a/13949654/3970755
+
+BEGIN;
+
+DROP TABLE IF EXISTS __TMP_TABLE_NAME__ ;
+
+CREATE TEMP TABLE __TMP_TABLE_NAME__
+  AS
+    SELECT *
+      FROM transcom.transcom_historical_events_v2
+      WITH NO DATA;
+
+COMMIT;
