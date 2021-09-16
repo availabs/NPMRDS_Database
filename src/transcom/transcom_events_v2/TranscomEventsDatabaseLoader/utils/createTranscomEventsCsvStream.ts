@@ -69,15 +69,31 @@ export default function createTranscomEventsCsvStream(
     quoteColumns: true,
   });
 
+  const gzipReadStream = createReadStream(transcomEventsNdjsonGzipPath);
+
+  const transformer = through.obj(async function f(
+    transcomEvent: TranscomEvent,
+    _$,
+    cb
+  ) {
+    const good = this.push(transformEventSchema(transcomEvent));
+
+    if (!good) {
+      gzipReadStream.pause();
+      csvStream.once("drain", () => {
+        gzipReadStream.resume();
+        cb();
+      });
+    } else {
+      cb();
+    }
+  });
+
   return pipeline(
-    createReadStream(transcomEventsNdjsonGzipPath),
+    gzipReadStream,
     createGunzip(),
     split(JSON.parse),
-    through.obj(function f(transcomEvent: TranscomEvent, _$, cb) {
-      this.push(transformEventSchema(transcomEvent));
-
-      cb();
-    }),
+    transformer,
     csvStream,
     (err) => {
       if (err) {
