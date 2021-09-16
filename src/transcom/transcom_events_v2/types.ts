@@ -1,7 +1,8 @@
 export type PGEnv = "development" | "production";
 
 export type TranscomEventID = string;
-export type TranscomEventTimestamp = string;
+
+export type TranscomEventTimestamp = string; // "MM/DD/YYYY hh:mm:ss aa"
 
 export enum TranscomEventCategory {
   ACCIDENT = "accident",
@@ -9,88 +10,91 @@ export enum TranscomEventCategory {
   OTHER = "other",
 }
 
+export enum TransomEventDirection {
+  ALL_DIRECTIONS = "all directions",
+  BOTH_DIRECTIONS = "both directions",
+  EASTBOUND = "eastbound",
+  NEGATIVE_DIRECTION = "negative direction",
+  NORTHBOUND = "northbound",
+  NOT_DIRECTIONAL = "not directional",
+  POSITIVE_DIRECTION = "positive direction",
+  SOUTHBOUND = "southbound",
+  UNKNOWN = "unknown",
+  WESTBOUND = "westbound",
+}
+
+export enum TranscomEventStatus {
+  CLOSED = "Closed",
+  "NEW" = "New",
+  "UPDATED" = "Updated",
+}
+
 export type TranscomEvent = {
-  EventID: TranscomEventID;
-  EventState: number;
-  IconFile: string;
-  EventType: string;
-  Facility: string;
-  PlaybackText: string;
-  Latitude: number;
-  Longitude: number;
-  FullText: string;
-  SortOrder: number;
-  State: string;
-  County: string;
-  EventImpact: string;
-  Relationship: string;
-  MileMarker: string;
-  EventsLayer: string;
-  LastUpdateDate: TranscomEventTimestamp;
-  Direction: string;
-  Notes: string;
-  ClassName: string;
-  ImageName: string;
-  ShowRouteNo: number;
-  RouteNo: string;
-  OverlapEventsWithLength: string;
-  LastUpdateDate_String: TranscomEventTimestamp;
-  EndDate: null;
-  EndDate_String: string;
-  StartDateTime: TranscomEventTimestamp;
-  CategoryName: string;
-  IsLatestEvent: boolean;
-  IsHighway: boolean;
-  ToLatitude: number;
-  ToLongitude: number;
-  EventMsg: string | null;
-  ToState: string;
-  ToCity: string;
-  ToFacility: string;
-  ToDirection: string;
-  IsOverlapping: number;
+  id: string;
+
+  facility?: string;
+  eventType?: "Other";
+  summaryDescription?: string;
+  state?: string;
+  county?: string;
+  city?: string;
+  lastUpdate?: string;
+  eventDuration?: TranscomEventTimestamp;
+  startDateTime?: TranscomEventTimestamp;
+  manualCloseDate?: TranscomEventTimestamp;
+
+  linkCount?: number;
+  ToCity?: string;
+
+  pointLAT?: number;
+  pointLON?: number;
+
+  PrimaryMarker?: number;
+  secondaryMarker?: number;
+  FromCity?: string;
+  eventTypeDescId?: number;
+  eventCategory?: string;
+  reportingOrgId?: number;
+
+  direction?: TransomEventDirection | null;
+  eventstatus?: string;
+  year?: number;
+  dataSource?: "Y" | null;
+  dataSourceValue?: string; // Always null in the data seen so far.
+  tmclist?: string;
+  recoverytime?: number;
+  RecoveryTimeInFormate?: string;
+  recoverydatetime?: TranscomEventTimestamp;
+
+  isHighway?: number;
 };
 
-export type TranscomEventDatabaseRow = {
-  event_id: TranscomEvent["EventID"];
-  event_state: TranscomEvent["EventState"] | null;
-  icon_file: TranscomEvent["IconFile"] | null;
-  event_type: TranscomEvent["EventType"] | null;
-  facility: TranscomEvent["Facility"] | null;
-  playback_text: TranscomEvent["PlaybackText"] | null;
-  latitude: TranscomEvent["Latitude"] | null;
-  longitude: TranscomEvent["Longitude"] | null;
-  full_text: TranscomEvent["FullText"] | null;
-  sort_order: TranscomEvent["SortOrder"] | null;
-  state: TranscomEvent["State"] | null;
-  county: TranscomEvent["County"] | null;
-  event_impact: TranscomEvent["EventImpact"] | null;
-  relationship: TranscomEvent["Relationship"] | null;
-  mile_marker: TranscomEvent["MileMarker"] | null;
-  events_layer: TranscomEvent["EventsLayer"] | null;
-  last_update_date: TranscomEvent["LastUpdateDate"] | null;
-  direction: TranscomEvent["Direction"] | null;
-  notes: TranscomEvent["Notes"] | null;
-  class_name: TranscomEvent["ClassName"] | null;
-  image_name: TranscomEvent["ImageName"] | null;
-  show_route_no: TranscomEvent["ShowRouteNo"] | null;
-  route_no: TranscomEvent["RouteNo"] | null;
-  overlap_events_with_length: TranscomEvent["OverlapEventsWithLength"] | null;
-  last_update_date_string: TranscomEvent["LastUpdateDate_String"] | null;
-  end_date: TranscomEvent["EndDate"] | null;
-  end_date_string: TranscomEvent["EndDate_String"] | null;
-  start_date_time: TranscomEvent["StartDateTime"] | null;
-  category_name: TranscomEvent["CategoryName"] | null;
-  is_latest_event: TranscomEvent["IsLatestEvent"] | null;
-  is_highway: TranscomEvent["IsHighway"] | null;
-  to_latitude: TranscomEvent["ToLatitude"] | null;
-  to_longitude: TranscomEvent["ToLongitude"] | null;
-  event_msg: TranscomEvent["EventMsg"] | null;
-  to_state: TranscomEvent["ToState"] | null;
-  to_city: TranscomEvent["ToCity"] | null;
-  to_facility: TranscomEvent["ToFacility"] | null;
-  to_direction: TranscomEvent["ToDirection"] | null;
-  is_overlapping: TranscomEvent["IsOverlapping"] | null;
+// We want the TranscomEventDatabaseRow to have null if a property is undefined.
+type Complete<T> = {
+  [P in keyof Required<T>]: T[P];
+};
 
+type TranscomEventComplete = Complete<TranscomEvent>;
+
+export type TranscomEventDatabaseRow = {
+  event_id: TranscomEventComplete["id"];
+  event_type: TranscomEventComplete["eventType"] | null;
+  facility: TranscomEventComplete["facility"] | null;
+  creation: TranscomEventComplete["startDateTime"] | null;
+  open_time: TranscomEventComplete["lastUpdate"] | null;
+  close_time: TranscomEventComplete["manualCloseDate"] | null;
+  duration: TranscomEventComplete["eventDuration"] | null;
+  description: TranscomEventComplete["summaryDescription"] | null;
+  from_city: TranscomEventComplete["FromCity"] | null;
+  from_count: TranscomEventComplete["county"] | null;
+  to_city: TranscomEventComplete["ToCity"] | null;
+  state: TranscomEventComplete["state"] | null;
+  from_mile_marker: TranscomEventComplete["PrimaryMarker"] | null;
+  to_mile_marker: TranscomEventComplete["secondaryMarker"] | null;
+  latitude: TranscomEventComplete["pointLAT"] | null;
+  longitude: TranscomEventComplete["pointLON"] | null;
+  direction: TranscomEventComplete["direction"] | null;
+  recovery_time: TranscomEventComplete["RecoveryTimeInFormate"] | null;
+  recovery_date_time: TranscomEventComplete["recoverydatetime"] | null;
   event_category: TranscomEventCategory;
 };
