@@ -100,8 +100,6 @@ export default class TranscomEventsDatabaseLoader {
 
     const nullableCols = _.difference(transcomEventsDatabaseTableColumns, [
       "event_id",
-      "longitude",
-      "latitude",
     ]);
 
     const sql = getSql("copy_from.sql")
