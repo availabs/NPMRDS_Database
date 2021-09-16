@@ -7,6 +7,7 @@ INSERT INTO transcom.transcom_historical_events_v2
         --         __TMP_TABLE_NAME__ created as SELECT * FROM transcom_historical_events_v2
         *
       FROM __TMP_TABLE_NAME__
+      ORDER BY creation DESC
   ON CONFLICT ON CONSTRAINT transcom_historical_events_v2_pkey
     DO UPDATE
       SET
