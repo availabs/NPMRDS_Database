@@ -38,7 +38,7 @@ export type TranscomEventsDownloaderParams = {
 
 export default class TranscomEventsDownloader {
   private static TRANSCOM_URI =
-    "https://opsmapwidget.xcmdata.org/API/RegionalCondition/GetEvents";
+    "https://eventsearch.xcmdata.org/HistoricalEventSearch/xcmEvent/getEventGridData";
 
   private static DEFAULT_START_TIMESTAMP = "2000-01-01 00:00:00";
 
@@ -214,48 +214,54 @@ export default class TranscomEventsDownloader {
     outputStream: WriteStream
   ) {
     const reqBody = {
-      CountyIds: "",
-      StateIds: "NJ~NY~CT",
-      SearchByRoad: "",
-      Organization: "ALL",
-      Facility: "ALL",
-      EventType: "ALL",
-      StartDate: startDateTime,
-      EndDate: endDateTime,
-      IsDateConsider: 0,
-      EventMode: 0,
-      geom: "0",
-      RegionID: 1,
-      Longnitude: null,
-      Latitude: null,
-      Radius: 5,
-      SearchType: 0,
+      // See ./documentation/EventCategoryIds.md
+      eventCategoryIds: "1,2,3,4,13",
+      eventStatus: "",
+      eventType: "",
+      state: "",
+      county: "",
+      city: "",
+      reportingOrg: "",
+      facility: "",
+      primaryLoc: "",
+      secondaryLoc: "",
+      eventDuration: null,
+      startDateTime: startDateTime,
+      endDateTime: endDateTime,
+      orgID: "15",
+      direction: "",
+      iseventbyweekday: 1,
+      tripIds: "",
     };
 
     const options = {
+      searchParams: {
+        userId: 78,
+      },
+
       json: reqBody,
     };
 
-    const resp_stream = got.stream.post(
-      TranscomEventsDownloader.TRANSCOM_URI,
-      options
-    );
-
-    // Write the transcom events to the outputStream.
-    await pipelineAsync(
-      resp_stream,
-      split(JSON.parse),
-      through.obj(function fn({ Data: { Events } }, _$: any, cb: Function) {
-        // One event per line
-        if (Array.isArray(Events)) {
-          for (let i = 0; i < Events.length; ++i) {
-            this.push(`${JSON.stringify(Events[i])}\n`);
+    try {
+      // Write the transcom events to the outputStream.
+      await pipelineAsync(
+        got.stream.post(TranscomEventsDownloader.TRANSCOM_URI, options),
+        split(JSON.parse),
+        through.obj(function fn({ data }, _$: any, cb: Function) {
+          // One event per line
+          if (Array.isArray(data)) {
+            for (let i = 0; i < data.length; ++i) {
+              this.push(`${JSON.stringify(data[i])}\n`);
+            }
           }
-        }
-        return cb();
-      }),
-      outputStream
-    );
+          return cb();
+        }),
+        outputStream
+      );
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
   }
 
   private async copyTmpOutputToOutputDir(tmpFilePath: string) {
