@@ -10,6 +10,7 @@ BEGIN;
 \set tbl_name :"STATE"'.tmc_metadata_':YEAR'_v':TMC_METADATA_VERSION
 \set idx_name 'tmc_metadata_':YEAR'_v':TMC_METADATA_VERSION'_pkey'
 \set tmc_ident_tbl :"STATE"'.tmc_identification_':YEAR
+\set shp_tbl :"STATE"'.npmrds_shapefile_':YEAR
 
 CREATE TEMPORARY TABLE tmp_tmc2mpo
   ON COMMIT DROP
@@ -47,7 +48,7 @@ CREATE TEMPORARY TABLE tmp_tmc2mpo
           FROM (
             SELECT
                 shp.*
-              FROM npmrds_shapefile_:YEAR AS shp
+              FROM :shp_tbl AS shp
                 INNER JOIN state_abbreviations AS sabbr
                   ON (UPPER(shp.state) = UPPER(sabbr.state_name))
               WHERE ( sabbr.abbreviation = :'STATE' )
@@ -55,7 +56,8 @@ CREATE TEMPORARY TABLE tmp_tmc2mpo
               ON ( mpob.wkb_geometry && state_shp.wkb_geometry )
       ) AS t
       WHERE (
-        ( ( miles_in_mpo / tmc_miles )
+        (
+          ( miles_in_mpo / tmc_miles )
           >=
           (1::NUMERIC / 2::NUMERIC)
         )
@@ -157,7 +159,6 @@ CREATE TEMPORARY TABLE tmp_speed_reduction_factor
 ;
 
 ALTER TABLE tmp_speed_reduction_factor ADD PRIMARY KEY (tmc);
-
 
 CREATE TEMPORARY TABLE tmp_directionality_factors
   ON COMMIT DROP
@@ -342,7 +343,8 @@ INSERT INTO :tbl_name (
     ua_name,
     congestion_level,
     directionality,
-    bounding_box
+    bounding_box,
+    region_code
   )
   SELECT
       tmc_identification.tmc,
@@ -407,6 +409,7 @@ INSERT INTO :tbl_name (
 
       avg_speedlimits.avg_speedlimit,
 
+      -- FIXME: NYC's specific vehicle occupancy
       (
         (
           (
@@ -450,7 +453,9 @@ INSERT INTO :tbl_name (
           ),
           4326
         )
-      ) AS bounding_box
+      ) AS bounding_box,
+
+      regions.region AS region_code
 
   FROM :tmc_ident_tbl AS tmc_identification
     LEFT OUTER JOIN (
@@ -497,6 +502,11 @@ INSERT INTO :tbl_name (
           )
       )
     )
+    -- FIXME: Currently, only NYSDOT regions supported.
+    LEFT OUTER JOIN "ny".nysdot_regions AS regions
+      ON (
+        (fips_codes_counties.state_code || fips_codes_counties.county_code) = regions.fips_codes
+      )
   WHERE (
     (LOWER(tmc_identification.state) = LOWER(:'STATE'))
   )
