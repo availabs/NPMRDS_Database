@@ -119,6 +119,13 @@ export default class TranscomEventsDatabaseLoader {
     `);
   }
 
+  private async setDurationIntervalInTmpTable(db: Client) {
+    await db.query(`
+      UPDATE ${this.tmpTableName}
+        SET duration_interval = (close_time - creation);
+    `);
+  }
+
   private async copyFromTempIntoTransconEventTable(db: Client) {
     const sql = getSql("load_table_from_tmp.sql").replace(
       /__TMP_TABLE_NAME__/g,
@@ -165,6 +172,7 @@ export default class TranscomEventsDatabaseLoader {
 
       await this.populateTempTable(db, transcomEventsCsvStream);
       await this.setPointGeomInTmpTable(db);
+      await this.setDurationIntervalInTmpTable(db);
       await this.copyFromTempIntoTransconEventTable(db);
       await this.finishUp(db);
     } catch (err) {

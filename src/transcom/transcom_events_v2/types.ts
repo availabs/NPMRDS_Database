@@ -38,8 +38,8 @@ export type TranscomEvent = {
   state?: string;
   county?: string;
   city?: string;
-  lastUpdate?: string;
-  eventDuration?: TranscomEventTimestamp;
+  lastUpdate?: TranscomEventTimestamp;
+  eventDuration?: string;
   startDateTime?: TranscomEventTimestamp;
   manualCloseDate?: TranscomEventTimestamp;
 
