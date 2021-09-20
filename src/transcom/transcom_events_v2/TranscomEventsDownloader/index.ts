@@ -120,7 +120,7 @@ export default class TranscomEventsDownloader {
 
       const result = client.querySync(`
         SELECT
-            to_char(MAX(last_update_date), 'YYYY-MM-DD HH24:MI:SS') AS latest
+            to_char(MAX(creation), 'YYYY-MM-DD HH24:MI:SS') AS latest
           FROM transcom.transcom_historical_events_v2;
       `);
 
