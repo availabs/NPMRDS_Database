@@ -24,6 +24,7 @@ INSERT INTO transcom.transcom_historical_events_archive (
   recovery_date_time,
   duration_interval,
   point_geom,
+  congestion_data,
   _created_timestamp,
   _modified_timestamp
 )
@@ -50,6 +51,7 @@ INSERT INTO transcom.transcom_historical_events_archive (
       a.recovery_date_time,
       a.duration_interval,
       a.point_geom,
+      a.congestion_data,
       a._created_timestamp,
       a._modified_timestamp
     FROM transcom.transcom_historical_events_v2 AS a
@@ -169,7 +171,21 @@ INSERT INTO transcom.transcom_historical_events_v2 (
         recovery_time       =  EXCLUDED.recovery_time,
         recovery_date_time  =  EXCLUDED.recovery_date_time,
         duration_interval   =  EXCLUDED.duration_interval,
-        point_geom          =  EXCLUDED.point_geom
+        point_geom          =  EXCLUDED.point_geom,
+        -- Set the congestion_data to NULL if either the duration or the location changed.
+        congestion_data     =
+            CASE
+              WHEN (
+                ( transcom_historical_events_v2.creation    <> EXCLUDED.creation   )
+                OR
+                ( transcom_historical_events_v2.close_time  <> EXCLUDED.close_time )
+                OR
+                ( transcom_historical_events_v2.longitude   <> EXCLUDED.longitude  )
+                OR
+                ( transcom_historical_events_v2.latitude    <> EXCLUDED.latitude   )
+              ) THEN NULL
+                ELSE transcom_historical_events_v2.congestion_data
+            END
 ;
 
 COMMIT;
