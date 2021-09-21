@@ -171,21 +171,8 @@ INSERT INTO transcom.transcom_historical_events_v2 (
         recovery_time       =  EXCLUDED.recovery_time,
         recovery_date_time  =  EXCLUDED.recovery_date_time,
         duration_interval   =  EXCLUDED.duration_interval,
-        point_geom          =  EXCLUDED.point_geom,
-        -- Set the congestion_data to NULL if either the duration or the location changed.
-        congestion_data     =
-            CASE
-              WHEN (
-                ( transcom_historical_events_v2.creation    <> EXCLUDED.creation   )
-                OR
-                ( transcom_historical_events_v2.close_time  <> EXCLUDED.close_time )
-                OR
-                ( transcom_historical_events_v2.longitude   <> EXCLUDED.longitude  )
-                OR
-                ( transcom_historical_events_v2.latitude    <> EXCLUDED.latitude   )
-              ) THEN NULL
-                ELSE transcom_historical_events_v2.congestion_data
-            END
+        point_geom          =  EXCLUDED.point_geom
+        -- NOTE: congestion_data updated by transcom_historical_events_v2_update_trigger
 ;
 
 COMMIT;

@@ -34,13 +34,28 @@ CREATE TABLE IF NOT EXISTS transcom.transcom_historical_events_v2 (
 
   event_category          TEXT,
 
+  -- Generated columns
+  duration_interval       INTERVAL,
+
   point_geom              public.Geometry(Point,4326),
+
+  congestion_data         JSONB,
 
   _created_timestamp      TIMESTAMP WITHOUT TIME ZONE NOT NULL,
   _modified_timestamp     TIMESTAMP WITHOUT TIME ZONE NOT NULL
-);
+) WITH (fillfactor=100, autovacuum_enabled=false);
 
-CREATE OR REPLACE FUNCTION transcom.transcom_historical_events_v2_trg_created_ts()
+
+-- ===== Archive table for modified TranscomEvents =====
+
+CREATE TABLE IF NOT EXISTS transcom.transcom_historical_events_archive (
+  LIKE transcom.transcom_historical_events_v2
+) WITH (fillfactor=100, autovacuum_enabled=false);
+
+
+-- ===== Created/Modified Triggers =====
+
+CREATE OR REPLACE FUNCTION transcom.transcom_historical_events_v2_insert_fn()
   RETURNS TRIGGER AS $$
     BEGIN
       NEW._created_timestamp = NOW();
@@ -49,35 +64,65 @@ CREATE OR REPLACE FUNCTION transcom.transcom_historical_events_v2_trg_created_ts
     END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS transcom_historical_events_v2_created_timestamp
+DROP TRIGGER IF EXISTS transcom_historical_events_v2_insert_trigger
   ON transcom.transcom_historical_events_v2
 ;
 
-CREATE TRIGGER transcom_historical_events_v2_created_timestamp
+CREATE TRIGGER transcom_historical_events_v2_insert_trigger
   BEFORE
     INSERT ON transcom.transcom_historical_events_v2
   FOR EACH ROW
-    EXECUTE PROCEDURE transcom.transcom_historical_events_v2_trg_created_ts()
+    EXECUTE PROCEDURE transcom.transcom_historical_events_v2_insert_fn()
 ;
 
-CREATE OR REPLACE FUNCTION transcom.transcom_historical_events_v2_trg_modified_ts()
+CREATE OR REPLACE FUNCTION transcom.transcom_historical_events_v2_update_fn()
   RETURNS TRIGGER AS $$
     BEGIN
       NEW._modified_timestamp = NOW();
+
+      NEW.congestion_data =
+        CASE
+          WHEN (
+            (
+              COALESCE(OLD.creation, '1900-01-01 00:00:00')
+              <> COALESCE(NEW.creation, '1900-01-01 00:00:00')
+            )
+            OR
+            (
+              COALESCE(OLD.close_time, '1900-01-01 00:00:00')
+              <> COALESCE(NEW.close_time, '1900-01-01 00:00:00')
+            )
+            OR
+            (
+              COALESCE(OLD.longitude, -1.0)
+              <> COALESCE(NEW.longitude, -1.0)
+            )
+            OR
+            (
+              COALESCE(OLD.latitude, -1.0)
+              <> COALESCE(NEW.latitude, -1.0)
+            )
+          ) THEN NULL
+            ELSE OLD.congestion_data
+        END;
+
       RETURN NEW;
     END;
 $$ LANGUAGE plpgsql ;
 
-DROP TRIGGER IF EXISTS transcom_historical_events_v2_modified_timestamp
+DROP TRIGGER IF EXISTS transcom_historical_events_v2_update_trigger
   ON transcom.transcom_historical_events_v2
 ;
 
-CREATE TRIGGER transcom_historical_events_v2_modified_timestamp
+CREATE TRIGGER transcom_historical_events_v2_update_trigger
  BEFORE
    UPDATE ON transcom.transcom_historical_events_v2
  FOR EACH ROW
-   EXECUTE PROCEDURE transcom.transcom_historical_events_v2_trg_modified_ts()
+   EXECUTE PROCEDURE transcom.transcom_historical_events_v2_update_fn()
 ;
+
+
+-- ===== Indexes =====
 
 CREATE INDEX IF NOT EXISTS transcom_historical_events_v2_date_index
   ON transcom.transcom_historical_events_v2 (open_time, close_time)
