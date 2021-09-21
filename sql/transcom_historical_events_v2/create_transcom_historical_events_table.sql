@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS transcom.transcom_historical_events_archive (
 
 -- ===== Created/Modified Triggers =====
 
-CREATE OR REPLACE FUNCTION transcom.transcom_historical_events_v2_insert_fn()
+CREATE OR REPLACE FUNCTION transcom.transcom_historical_events_insert_fn()
   RETURNS TRIGGER AS $$
     BEGIN
       NEW._created_timestamp = NOW();
@@ -64,18 +64,18 @@ CREATE OR REPLACE FUNCTION transcom.transcom_historical_events_v2_insert_fn()
     END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS transcom_historical_events_v2_insert_trigger
+DROP TRIGGER IF EXISTS transcom_historical_events_insert_trigger
   ON transcom.transcom_historical_events_v2
 ;
 
-CREATE TRIGGER transcom_historical_events_v2_insert_trigger
+CREATE TRIGGER transcom_historical_events_insert_trigger
   BEFORE
     INSERT ON transcom.transcom_historical_events_v2
   FOR EACH ROW
-    EXECUTE PROCEDURE transcom.transcom_historical_events_v2_insert_fn()
+    EXECUTE PROCEDURE transcom.transcom_historical_events_insert_fn()
 ;
 
-CREATE OR REPLACE FUNCTION transcom.transcom_historical_events_v2_update_fn()
+CREATE OR REPLACE FUNCTION transcom.transcom_historical_events_update_fn()
   RETURNS TRIGGER AS $$
     BEGIN
       NEW._modified_timestamp = NOW();
@@ -110,15 +110,15 @@ CREATE OR REPLACE FUNCTION transcom.transcom_historical_events_v2_update_fn()
     END;
 $$ LANGUAGE plpgsql ;
 
-DROP TRIGGER IF EXISTS transcom_historical_events_v2_update_trigger
+DROP TRIGGER IF EXISTS transcom_historical_events_update_trigger
   ON transcom.transcom_historical_events_v2
 ;
 
-CREATE TRIGGER transcom_historical_events_v2_update_trigger
+CREATE TRIGGER transcom_historical_events_update_trigger
  BEFORE
    UPDATE ON transcom.transcom_historical_events_v2
  FOR EACH ROW
-   EXECUTE PROCEDURE transcom.transcom_historical_events_v2_update_fn()
+   EXECUTE PROCEDURE transcom.transcom_historical_events_update_fn()
 ;
 
 
