@@ -155,7 +155,7 @@ export default class TranscomEventsDatabaseLoader {
     const { PGDATABASE, PGHOST, PGPORT } = process.env;
 
     console.error(
-      `Loading ${PGDATABASE} at ${PGHOST}:${PGPORT} transcom.transcom_historical_events_v2.`
+      `Loading ${PGDATABASE}.transcom.transcom_historical_events_v2 at ${PGHOST}:${PGPORT}.`
     );
 
     const db = new Client();
