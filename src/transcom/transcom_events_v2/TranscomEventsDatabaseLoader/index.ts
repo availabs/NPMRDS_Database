@@ -35,7 +35,7 @@ export type TranscomEventsDownloaderParams = {
 // TODO: params = pgEnv, transcomEventsNdjsonGzipPath
 export default class TranscomEventsDatabaseLoader {
   private static getTmpTableName() {
-    return `tmp_transcom_v2_${new Date().getTime()}`;
+    return `tmp_transcom_${new Date().getTime()}`;
   }
 
   private readonly pgEnv: PGEnv;
@@ -62,7 +62,7 @@ export default class TranscomEventsDatabaseLoader {
           WHERE (
             ( table_schema = 'transcom' )
             AND
-            ( table_name   = 'transcom_historical_events_v2' )
+            ( table_name   = 'transcom_historical_events' )
           )
        ) AS exists;
     `);
@@ -71,7 +71,7 @@ export default class TranscomEventsDatabaseLoader {
       const sql = readFileSync(
         join(
           __dirname,
-          "../../../../sql/transcom_historical_events_v2/create_transcom_historical_events_table.sql"
+          "../../../../sql/transcom_historical_events/create_transcom_historical_events_table.sql"
         ),
         {
           encoding: "utf8",
@@ -141,9 +141,9 @@ export default class TranscomEventsDatabaseLoader {
 
   private async finishUp(db: Client) {
     await db.query(`
-      CLUSTER transcom.transcom_historical_events_v2 ;
+      CLUSTER transcom.transcom_historical_events ;
 
-      ANALYZE transcom.transcom_historical_events_v2;
+      ANALYZE transcom.transcom_historical_events;
     `);
   }
 
@@ -155,7 +155,7 @@ export default class TranscomEventsDatabaseLoader {
     const { PGDATABASE, PGHOST, PGPORT } = process.env;
 
     console.error(
-      `Loading ${PGDATABASE}.transcom.transcom_historical_events_v2 at ${PGHOST}:${PGPORT}.`
+      `Loading ${PGDATABASE}.transcom.transcom_historical_events at ${PGHOST}:${PGPORT}.`
     );
 
     const db = new Client();

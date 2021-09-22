@@ -54,7 +54,7 @@ INSERT INTO transcom.transcom_historical_events_archive (
       a.congestion_data,
       a._created_timestamp,
       a._modified_timestamp
-    FROM transcom.transcom_historical_events_v2 AS a
+    FROM transcom.transcom_historical_events AS a
       INNER JOIN __TMP_TABLE_NAME__ AS b
         USING (event_id)
     WHERE (
@@ -98,7 +98,7 @@ INSERT INTO transcom.transcom_historical_events_archive (
     )
 ;
 
-INSERT INTO transcom.transcom_historical_events_v2 (
+INSERT INTO transcom.transcom_historical_events (
   event_id,
   event_type,
   facility,
@@ -147,7 +147,7 @@ INSERT INTO transcom.transcom_historical_events_v2 (
         point_geom
       FROM __TMP_TABLE_NAME__
       ORDER BY event_id, open_time DESC
-  ON CONFLICT ON CONSTRAINT transcom_historical_events_v2_pkey
+  ON CONFLICT ON CONSTRAINT transcom_historical_events_pkey
     DO UPDATE
       SET
         event_id            =  EXCLUDED.event_id,
@@ -172,7 +172,7 @@ INSERT INTO transcom.transcom_historical_events_v2 (
         recovery_date_time  =  EXCLUDED.recovery_date_time,
         duration_interval   =  EXCLUDED.duration_interval,
         point_geom          =  EXCLUDED.point_geom
-        -- NOTE: congestion_data updated by transcom_historical_events_v2_update_trigger
+        -- NOTE: congestion_data updated by transcom_historical_events_update_trigger
 ;
 
 COMMIT;

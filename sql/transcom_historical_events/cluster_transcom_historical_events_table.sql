@@ -1,2 +1,0 @@
-CLUSTER transcom.transcom_historical_events
-  USING transcom_historical_events_pkey;

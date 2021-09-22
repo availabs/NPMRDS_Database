@@ -8,7 +8,7 @@ DROP TABLE IF EXISTS __TMP_TABLE_NAME__ ;
 CREATE TEMP TABLE __TMP_TABLE_NAME__
   AS
     SELECT *
-      FROM transcom.transcom_historical_events_v2
+      FROM transcom.transcom_historical_events
       WITH NO DATA;
 
 COMMIT;
