@@ -265,11 +265,15 @@ export default class TranscomEventsDownloader {
   }
 
   private async copyTmpOutputToOutputDir(tmpFilePath: string) {
+    const outputFilePath = this.outputFilePath;
+
     await pipelineAsync(
       createReadStream(tmpFilePath),
       createGzip({ level: 9 }),
       createWriteStream(this.outputFilePath)
     );
+
+    return outputFilePath;
   }
 
   async run() {
@@ -291,9 +295,9 @@ export default class TranscomEventsDownloader {
 
       mkdirSync(this.outputDir, { recursive: true });
 
-      await this.copyTmpOutputToOutputDir(tmpFilePath);
+      const outputFilePath = await this.copyTmpOutputToOutputDir(tmpFilePath);
 
-      console.error("Transcom events written to", this.outputFilePath);
+      console.error("Transcom events written to", outputFilePath);
 
       return this.outputFilePath;
     } catch (err) {
