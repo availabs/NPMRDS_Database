@@ -205,6 +205,10 @@ export default class NpmrdsMonthlyAvgTravelTimesLoader {
     for (const { state, year, month } of emptyTables) {
       const mm = `0${month}`.slice(-2);
 
+      console.log(
+        `LOADING: "${state}".npmrds_monthly_avg_tt_by_hour_y${year}m${mm}`
+      );
+
       this.client.querySync(`
         BEGIN ;
 
