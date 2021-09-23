@@ -505,7 +505,7 @@ INSERT INTO :tbl_name (
     -- FIXME: Currently, only NYSDOT regions supported.
     LEFT OUTER JOIN "ny".nysdot_regions AS regions
       ON (
-        (fips_codes_counties.state_code || fips_codes_counties.county_code) = regions.fips_codes
+        ( (fips_codes_counties.state_code || fips_codes_counties.county_code) = regions.fips_code )
       )
   WHERE (
     (LOWER(tmc_identification.state) = LOWER(:'STATE'))

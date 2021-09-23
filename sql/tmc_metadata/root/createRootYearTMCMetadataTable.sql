@@ -58,5 +58,6 @@ CREATE TABLE public.tmc_metadata_:YEAR (
   isprimary                SMALLINT,
   timezone_name            CHARACTER VARYING,
   active_start_date        DATE,
-  active_end_date          DATE
+  active_end_date          DATE,
+  region_code              CHARACTER VARYING
 );
