@@ -222,6 +222,11 @@ export default class NpmrdsMonthlyAvgTravelTimesLoader {
               (epoch / 12)::INTEGER AS hour,
               AVG(travel_time_all_vehicles)::REAL AS avg_tt
             FROM "${state}".npmrds_y${year}m${mm}
+            WHERE (
+              ( travel_time_all_vehicles IS NOT NULL )
+              AND
+              ( EXTRACT(DOW FROM date) IN (2,3,4,5,6) )
+            )
             GROUP BY 1, 2
         ;
 
