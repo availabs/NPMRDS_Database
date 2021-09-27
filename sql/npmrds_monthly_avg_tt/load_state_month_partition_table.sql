@@ -35,99 +35,99 @@ INSERT INTO :tbl_name (
   SELECT
       tmc,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER =  0 )::INTEGER, 0 )
       )::REAL AS hr_0,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER =  1 )::INTEGER, 0 )
       )::REAL AS hr_1,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER =  2 )::INTEGER, 0 )
       )::REAL AS hr_2,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER =  3 )::INTEGER, 0 )
       )::REAL AS hr_3,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER =  4 )::INTEGER, 0 )
       )::REAL AS hr_4,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER =  5 )::INTEGER, 0 )
       )::REAL AS hr_5,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER =  6 )::INTEGER, 0 )
       )::REAL AS hr_6,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER =  7 )::INTEGER, 0 )
       )::REAL AS hr_7,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER =  8 )::INTEGER, 0 )
       )::REAL AS hr_8,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER =  9 )::INTEGER, 0 )
       )::REAL AS hr_9,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 10 )::INTEGER, 0 )
       )::REAL AS hr_10,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 11 )::INTEGER, 0 )
       )::REAL AS hr_11,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 12 )::INTEGER, 0 )
       )::REAL AS hr_12,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 13 )::INTEGER, 0 )
       )::REAL AS hr_13,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 14 )::INTEGER, 0 )
       )::REAL AS hr_14,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 15 )::INTEGER, 0 )
       )::REAL AS hr_15,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 16 )::INTEGER, 0 )
       )::REAL AS hr_16,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 17 )::INTEGER, 0 )
       )::REAL AS hr_17,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 18 )::INTEGER, 0 )
       )::REAL AS hr_18,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 19 )::INTEGER, 0 )
       )::REAL AS hr_19,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 20 )::INTEGER, 0 )
       )::REAL AS hr_20,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 21 )::INTEGER, 0 )
       )::REAL AS hr_21,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 22 )::INTEGER, 0 )
       )::REAL AS hr_22,
       AVG(
-        travel_time_all_vehicles::NUMERIC
+        travel_time_all_vehicles::DOUBLE PRECISION
         * NULLIF( ( (epoch / 12)::INTEGER = 23 )::INTEGER, 0 )
       )::REAL AS hr_23
 
@@ -146,5 +146,3 @@ CLUSTER :tbl_name ;
 COMMIT ;
 
 ANALYZE :tbl_name ;
-
-COMMIT;
