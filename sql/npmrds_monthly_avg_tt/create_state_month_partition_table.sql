@@ -1,10 +1,9 @@
 -- Requires STATE, YEAR, MONTH
 
-\set parent_tbl_name 'npmrds_monthly_avg_tt_by_hour_partitions.npmrds_monthly_avg_tt_by_hour_y':YEAR'm':MONTH
-\set npmrds_tbl_name :"STATE"'.npmrds_y':YEAR'm':MONTH
-\set tbl_name :"STATE"'.npmrds_monthly_avg_tt_by_hour_y':YEAR'm':MONTH
-\set pkey_idx_name 'npmrds_monthly_avg_tt_by_hour_y':YEAR'm':MONTH'_pkey'
-\set fkey_constraint_name 'npmrds_monthly_avg_tt_by_hour_y':YEAR'm':MONTH'_fkey'
+\set parent_tbl_name 'npmrds_monthly_avg_tt_partitions.npmrds_monthly_avg_tt_y':YEAR'm':MONTH
+\set tbl_name :"STATE"'.npmrds_monthly_avg_tt_y':YEAR'm':MONTH
+\set pkey_idx_name 'npmrds_monthly_avg_tt_y':YEAR'm':MONTH'_pkey'
+\set full_pkey_idx_name :"STATE"'.':pkey_idx_name
 
 BEGIN;
 
@@ -33,8 +32,11 @@ ALTER TABLE :tbl_name
 
 ALTER TABLE :tbl_name
   ADD CONSTRAINT :pkey_idx_name
-    PRIMARY KEY (tmc, hour)
+    PRIMARY KEY (tmc)
 ;
+
+ALTER INDEX :full_pkey_idx_name
+  SET (fillfactor = 100);
 
 CLUSTER :tbl_name USING :pkey_idx_name;
 

@@ -7,7 +7,7 @@ import Client from "pg-native";
 
 import { getPostgresConfigurationFilePath } from "../../../make_targets/utils";
 
-const sqlDir = join(__dirname, "../../../sql/npmrds_monthly_avg_tt_by_hour");
+const sqlDir = join(__dirname, "../../../sql/npmrds_monthly_avg_tt");
 
 export default class NpmrdsMonthlyAvgTravelTimesLoader {
   private client: Client;
@@ -32,7 +32,7 @@ export default class NpmrdsMonthlyAvgTravelTimesLoader {
           WHERE (
             ( t.table_schema = 'public' )
             AND
-            ( t.table_name = 'npmrds_monthly_avg_tt_by_hour' )
+            ( t.table_name = 'npmrds_monthly_avg_tt' )
           )
       ) AS exists
     `);
@@ -47,6 +47,7 @@ export default class NpmrdsMonthlyAvgTravelTimesLoader {
       execSync(`
         psql \
           -v ON_ERROR_STOP=1 \
+          --quiet \
           -f ${createRootTableSqlPath}
       `);
     }
@@ -70,13 +71,13 @@ export default class NpmrdsMonthlyAvgTravelTimesLoader {
         EXCEPT
 
         SELECT
-            SUBSTRING( t.table_name FROM 32 FOR 4 )::INTEGER AS year,
-            SUBSTRING( t.table_name FROM 37 FOR 2 )::INTEGER AS month
+            SUBSTRING( t.table_name FROM 24 FOR 4 )::INTEGER AS year,
+            SUBSTRING( t.table_name FROM 29 FOR 2 )::INTEGER AS month
           FROM information_schema.tables t
           WHERE (
-            ( t.table_schema = 'npmrds_monthly_avg_tt_by_hour_partitions' )
+            ( t.table_schema = 'npmrds_monthly_avg_tt_partitions' )
             AND
-            ( t.table_name ~ '^npmrds_monthly_avg_tt_by_hour_y\\d{4}m\\d{2}$'::text )
+            ( t.table_name ~ '^npmrds_monthly_avg_tt_y\\d{4}m\\d{2}$'::text )
           )
 
         ORDER BY year, month
@@ -97,6 +98,7 @@ export default class NpmrdsMonthlyAvgTravelTimesLoader {
       execSync(`
         psql \
           -v ON_ERROR_STOP=1 \
+          --quiet \
           -v YEAR=${year} \
           -v MONTH=${mm} \
           -v NEXT_YEAR=${year + 1} \
@@ -127,13 +129,13 @@ export default class NpmrdsMonthlyAvgTravelTimesLoader {
 
         SELECT
             t.table_schema AS state,
-            SUBSTRING( t.table_name FROM 32 FOR 4 )::INTEGER AS year,
-            SUBSTRING( t.table_name FROM 37 FOR 2 )::INTEGER AS month
+            SUBSTRING( t.table_name FROM 24 FOR 4 )::INTEGER AS year,
+            SUBSTRING( t.table_name FROM 29 FOR 2 )::INTEGER AS month
           FROM information_schema.tables t
           WHERE (
-            ( t.table_schema <> 'npmrds_monthly_avg_tt_by_hour_partitions' )
+            ( t.table_schema <> 'npmrds_monthly_avg_tt_partitions' )
             AND
-            ( t.table_name ~ '^npmrds_monthly_avg_tt_by_hour_y\\d{4}m\\d{2}$'::text )
+            ( t.table_name ~ '^npmrds_monthly_avg_tt_y\\d{4}m\\d{2}$'::text )
           )
 
         ORDER BY state, year, month
@@ -172,13 +174,13 @@ export default class NpmrdsMonthlyAvgTravelTimesLoader {
     const existingTables = this.client.querySync(`
       SELECT
           t.table_schema AS state,
-          SUBSTRING( t.table_name FROM 32 FOR 4 )::INTEGER AS year,
-          SUBSTRING( t.table_name FROM 37 FOR 2 )::INTEGER AS month
+          SUBSTRING( t.table_name FROM 24 FOR 4 )::INTEGER AS year,
+          SUBSTRING( t.table_name FROM 29 FOR 2 )::INTEGER AS month
         FROM information_schema.tables t
         WHERE (
-          ( t.table_schema <> 'npmrds_monthly_avg_tt_by_hour_partitions' )
+          ( t.table_schema <> 'npmrds_monthly_avg_tt_partitions' )
           AND
-          ( t.table_name ~ '^npmrds_monthly_avg_tt_by_hour_y\\d{4}m\\d{2}$'::text )
+          ( t.table_name ~ '^npmrds_monthly_avg_tt_y\\d{4}m\\d{2}$'::text )
         )
         ORDER BY 1,2,3
     `);
@@ -190,7 +192,7 @@ export default class NpmrdsMonthlyAvgTravelTimesLoader {
         SELECT NOT EXISTS (
           SELECT
               1
-            FROM "${state}".npmrds_monthly_avg_tt_by_hour_y${year}m${mm}
+            FROM "${state}".npmrds_monthly_avg_tt_y${year}m${mm}
         ) AS not_exists
       `);
 
@@ -201,40 +203,26 @@ export default class NpmrdsMonthlyAvgTravelTimesLoader {
   }
 
   private loadEmptyStateYearMonthPartitionTables() {
+    const loadMonthPartitionSqlPath = join(
+      sqlDir,
+      "load_state_month_partition_table.sql"
+    );
+
     const emptyTables = this.emptyStateYearMonthPartitionTables;
+
     for (const { state, year, month } of emptyTables) {
       const mm = `0${month}`.slice(-2);
 
-      console.log(
-        `LOADING: "${state}".npmrds_monthly_avg_tt_by_hour_y${year}m${mm}`
-      );
+      console.log(`LOADING: "${state}".npmrds_monthly_avg_tt_y${year}m${mm}`);
 
-      this.client.querySync(`
-        BEGIN ;
-
-        INSERT INTO "${state}".npmrds_monthly_avg_tt_by_hour_y${year}m${mm} (
-          tmc,
-          hour,
-          avg_tt
-        )
-          SELECT
-              tmc,
-              (epoch / 12)::INTEGER AS hour,
-              AVG(travel_time_all_vehicles)::REAL AS avg_tt
-            FROM "${state}".npmrds_y${year}m${mm}
-            WHERE (
-              ( travel_time_all_vehicles IS NOT NULL )
-              AND
-              ( EXTRACT(DOW FROM date) IN (2,3,4,5,6) )
-            )
-            GROUP BY 1, 2
-        ;
-
-        CLUSTER "${state}".npmrds_monthly_avg_tt_by_hour_y${year}m${mm} ;
-
-        COMMIT ;
-
-        ANALYZE "${state}".npmrds_monthly_avg_tt_by_hour_y${year}m${mm} ;
+      execSync(`
+        psql \
+          -v ON_ERROR_STOP=1 \
+          --quiet \
+          -v STATE=${state} \
+          -v YEAR=${year} \
+          -v MONTH=${mm} \
+          -f ${loadMonthPartitionSqlPath}
       `);
     }
   }
