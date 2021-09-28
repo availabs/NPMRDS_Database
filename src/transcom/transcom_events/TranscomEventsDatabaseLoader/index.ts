@@ -67,6 +67,8 @@ export default class TranscomEventsDatabaseLoader {
        ) AS exists;
     `);
 
+    console.log("EXISTS:", exists);
+
     if (!exists) {
       const sql = readFileSync(
         join(
@@ -167,20 +169,44 @@ export default class TranscomEventsDatabaseLoader {
         this.transcomEventsNdjsonGzipPath
       );
 
+      // console.time("createTranscomTableIfNotExists");
       await this.createTranscomTableIfNotExists(db);
-      await this.createTempTable(db);
+      // console.timeEnd("createTranscomTableIfNotExists");
 
+      // console.time("createTempTable");
+      await this.createTempTable(db);
+      // console.timeEnd("createTempTable");
+
+      // console.time("populateTempTable");
       await this.populateTempTable(db, transcomEventsCsvStream);
+      // console.timeEnd("populateTempTable");
+
+      // console.time("setPointGeomInTmpTable");
       await this.setPointGeomInTmpTable(db);
+      // console.timeEnd("setPointGeomInTmpTable");
+
+      // console.time("setDurationIntervalInTmpTable");
       await this.setDurationIntervalInTmpTable(db);
+      // console.timeEnd("setDurationIntervalInTmpTable");
+
+      // console.time("copyFromTempIntoTransconEventTable");
       await this.copyFromTempIntoTransconEventTable(db);
+      // console.timeEnd("copyFromTempIntoTransconEventTable");
+
+      // console.time("finishUp");
       await this.finishUp(db);
+      // console.timeEnd("finishUp");
     } catch (err) {
       console.error(err);
       throw err;
     } finally {
+      // console.time("dropTempTable");
       await this.dropTempTable(db);
+      // console.timeEnd("dropTempTable");
+
+      // console.time("end");
       await db.end();
+      // console.timeEnd("end");
     }
   }
 }

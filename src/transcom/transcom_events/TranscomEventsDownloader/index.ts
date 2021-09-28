@@ -104,20 +104,20 @@ export default class TranscomEventsDownloader {
   }
 
   private get latestEventTimestampInDatabase() {
+    const configPath = getPostgresConfigurationFilePath(this.pgEnv);
+
+    dotenv.config({ path: configPath });
+
+    const { PGDATABASE, PGHOST, PGPORT } = process.env;
+
+    console.error(
+      `Querying ${PGDATABASE} at ${PGHOST}:${PGPORT} for the most recent Transcom event timestamp.`
+    );
+
+    const client = new Client();
+    client.connectSync();
+
     try {
-      const configPath = getPostgresConfigurationFilePath(this.pgEnv);
-
-      dotenv.config({ path: configPath });
-
-      const { PGDATABASE, PGHOST, PGPORT } = process.env;
-
-      console.error(
-        `Querying ${PGDATABASE} at ${PGHOST}:${PGPORT} for the most recent Transcom event timestamp.`
-      );
-
-      const client = new Client();
-      client.connectSync();
-
       const result = client.querySync(`
         SELECT
             to_char(MAX(creation), 'YYYY-MM-DD HH24:MI:SS') AS latest
@@ -134,6 +134,8 @@ export default class TranscomEventsDownloader {
       throw new Error(
         "Could not connect to retreive the latest event from the database."
       );
+    } finally {
+      client.end();
     }
   }
 

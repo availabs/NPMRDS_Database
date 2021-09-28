@@ -1,0 +1,38 @@
+#!/usr/bin/env node
+
+const yargs = require("yargs");
+
+require("ts-node").register();
+
+const {
+  downloadTranscomEvents,
+} = require("./TranscomEventsDownloader/yargs_wrapper");
+
+const {
+  loadTranscomEvents,
+} = require("./TranscomEventsDatabaseLoader/yargs_wrapper");
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    "camel-case-expansion": false,
+    "flatten-duplicate-arrays": false,
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(downloadTranscomEvents.builder);
+
+(async () => {
+  try {
+    const transcom_events_ndjson_gzip = await downloadTranscomEvents.handler(
+      argv
+    );
+
+    await loadTranscomEvents.handler({
+      transcom_events_ndjson_gzip,
+      pg_env: argv.pg_env,
+    });
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
+})();
