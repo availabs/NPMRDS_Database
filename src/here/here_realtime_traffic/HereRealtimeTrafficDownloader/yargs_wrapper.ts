@@ -4,8 +4,6 @@ import HereRealtimeTrafficDownloader, {
   HereRealtimeTrafficDownloaderParams,
 } from ".";
 
-const command = "download_here_realtime_traffic";
-
 const builder = {
   output_dir: {
     desc: "Directory into which write the HERE realtime traffic data.",
@@ -15,17 +13,26 @@ const builder = {
   },
 };
 
-const handler = async (argv: HereRealtimeTrafficDownloaderParams) => {
-  const downloader = new HereRealtimeTrafficDownloader(argv);
-
-  const outputFilePath = await downloader.downloadHereRealtimeTraffic();
-
-  return outputFilePath;
-};
-
 export const downloadHereRealtimeTraffic = {
   desc: "Download the HERE Realtime Traffic Data",
-  command,
+  command: "download_here_realtime_traffic",
   builder,
-  handler,
+  async handler(argv: HereRealtimeTrafficDownloaderParams) {
+    const downloader = new HereRealtimeTrafficDownloader(argv);
+
+    return downloader.downloadHereRealtimeTraffic();
+  },
+};
+
+export const scrapeHereRealtimeTraffic = {
+  desc: "Every two minutes download the HERE Realtime Traffic Data",
+  command: "scrape_here_realtime_traffic",
+  builder,
+  async handler(argv: HereRealtimeTrafficDownloaderParams) {
+    const downloader = new HereRealtimeTrafficDownloader(argv);
+
+    for await (const tstamp of downloader.scrapeHereRealtimeTraffic()) {
+      console.log(tstamp);
+    }
+  },
 };

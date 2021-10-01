@@ -74,4 +74,28 @@ export default class HereRealtimeTrafficDownloader {
       throw err;
     }
   }
+
+  private get nextEvenMinuteSemaphore(): Promise<void> {
+    const m = new Date().getMinutes();
+
+    return new Promise((resolve) => {
+      const x = setInterval(() => {
+        const n = new Date().getMinutes();
+
+        if (n > m && n % 2 === 0) {
+          clearInterval(x);
+          resolve();
+        }
+      }, 100);
+    });
+  }
+
+  async *scrapeHereRealtimeTraffic(): AsyncGenerator<HereRealtimeTrafficDownloadFilePath> {
+    while (true) {
+      // yield await this.downloadHereRealtimeTraffic();
+      yield new Date().toString();
+
+      await this.nextEvenMinuteSemaphore;
+    }
+  }
 }
