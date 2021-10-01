@@ -52,10 +52,6 @@ export default class HereRealtimeTrafficDownloader {
     );
   }
 
-  test() {
-    console.log(HereRealtimeTrafficDownloader.HERE_REALTIME_TRAFFIC_URL);
-  }
-
   async downloadHereRealtimeTraffic(): Promise<HereRealtimeTrafficDownloadFilePath> {
     try {
       mkdirSync(this.outputDir, { recursive: true });
@@ -92,8 +88,7 @@ export default class HereRealtimeTrafficDownloader {
 
   async *scrapeHereRealtimeTraffic(): AsyncGenerator<HereRealtimeTrafficDownloadFilePath> {
     while (true) {
-      // yield await this.downloadHereRealtimeTraffic();
-      yield new Date().toString();
+      yield await this.downloadHereRealtimeTraffic();
 
       await this.nextEvenMinuteSemaphore;
     }
