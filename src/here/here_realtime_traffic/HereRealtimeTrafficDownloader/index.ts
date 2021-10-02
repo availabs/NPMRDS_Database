@@ -78,7 +78,7 @@ export default class HereRealtimeTrafficDownloader {
       const x = setInterval(() => {
         const n = new Date().getMinutes();
 
-        if (n > m && n % 2 === 0) {
+        if (n !== m && n % 2 === 0) {
           clearInterval(x);
           resolve();
         }
