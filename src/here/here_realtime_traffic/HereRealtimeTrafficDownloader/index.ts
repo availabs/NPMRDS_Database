@@ -88,7 +88,11 @@ export default class HereRealtimeTrafficDownloader {
 
   async *scrapeHereRealtimeTraffic(): AsyncGenerator<HereRealtimeTrafficDownloadFilePath> {
     while (true) {
-      yield await this.downloadHereRealtimeTraffic();
+      try {
+        yield await this.downloadHereRealtimeTraffic();
+      } catch (err) {
+        console.error(err);
+      }
 
       await this.nextEvenMinuteSemaphore;
     }
