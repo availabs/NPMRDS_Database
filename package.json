@@ -65,6 +65,7 @@
     "@types/split2": "^3.2.1",
     "@types/tape": "^4.13.2",
     "@types/through2": "^2.0.36",
+    "@types/tmp": "^0.2.1",
     "@types/yargs": "^17.0.2",
     "@typescript-eslint/eslint-plugin": "^4.31.1",
     "@typescript-eslint/parser": "^4.31.1",
