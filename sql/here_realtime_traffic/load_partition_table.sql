@@ -105,4 +105,13 @@ ALTER TABLE public.here_realtime_traffic
 
 CLUSTER :full_tbl_name USING :pkey_idx_name;
 
+CREATE OR REPLACE VIEW public.here_realtime_traffic_current
+  AS
+    SELECT
+        *
+      FROM :full_tbl_name
+;
+
 COMMIT;
+
+ANALYZE :full_tbl_name ;

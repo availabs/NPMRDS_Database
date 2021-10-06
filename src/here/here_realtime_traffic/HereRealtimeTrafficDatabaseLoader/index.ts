@@ -205,6 +205,8 @@ export default class HereRealtimeTrafficDatabaseLoader {
           `TABLE_COLS=${tableCols}`,
           "-f",
           loadPartitionTableSql,
+          "-c",
+          "CALL here_realtime_traffic_partitions._admin_consolidate_partitions() ;",
         ],
         {
           env: {

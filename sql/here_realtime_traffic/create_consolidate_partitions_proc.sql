@@ -5,8 +5,6 @@
 */
 BEGIN;
 
-DROP PROCEDURE IF EXISTS here_realtime_traffic_partitions._admin_consolidate_partitions_sub();
-DROP FUNCTION IF EXISTS here_realtime_traffic_partitions._admin_consolidate_partitions();
 DROP PROCEDURE IF EXISTS here_realtime_traffic_partitions._admin_consolidate_partitions();
 
 --  CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions._admin_consolidate_partitions_sub()
@@ -88,7 +86,9 @@ CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions._admin_consolidate_
                 RAISE WARNING '%', exception_detail;
                 RAISE WARNING '%', exception_hint;
           END;
+
         COMMIT;
+
         END;
 
       END LOOP;
