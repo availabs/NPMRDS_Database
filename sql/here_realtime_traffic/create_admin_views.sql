@@ -85,6 +85,8 @@ CREATE OR REPLACE VIEW here_realtime_traffic_partitions._admin_condensible_parti
                 ( a.start_year = b.start_year )
                 AND
                 ( a.start_month < b.start_month )
+                AND
+                ( LENGTH(a.table_name) > 30 )
               )
     ), cte_week_condensible AS (
       SELECT DISTINCT
@@ -116,6 +118,8 @@ CREATE OR REPLACE VIEW here_realtime_traffic_partitions._admin_condensible_parti
                 ( a.start_month = b.start_month )
                 AND
                 ( a.start_week < b.start_week )
+                AND
+                ( LENGTH(a.table_name) > 32 )
               )
           WHERE (
             (a.table_schema, a.table_name) NOT IN (
@@ -152,6 +156,8 @@ CREATE OR REPLACE VIEW here_realtime_traffic_partitions._admin_condensible_parti
                 ( a.start_week = b.start_week )
                 AND
                 ( a.start_day < b.start_day )
+                AND
+                ( LENGTH(a.table_name) > 35 )
               )
           WHERE (
             (a.table_schema, a.table_name) NOT IN (
@@ -196,6 +202,8 @@ CREATE OR REPLACE VIEW here_realtime_traffic_partitions._admin_condensible_parti
                 ( a.start_day = b.start_day )
                 AND
                 ( a.start_hour < b.start_hour )
+                AND
+                ( LENGTH(a.table_name) > 38 )
               )
           WHERE (
             (a.table_schema, a.table_name) NOT IN (
