@@ -1,13 +1,12 @@
 /*
   here_realtime_traffic_partitions table rolling
 
-    Consolidates partition tables without locking the root table.
+    Consolidates smaller time unit partition tables into larger time unit partitions.
 */
 BEGIN;
 
 DROP PROCEDURE IF EXISTS here_realtime_traffic_partitions._admin_consolidate_partitions();
 
---  CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions._admin_consolidate_partitions_sub()
 CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions._admin_consolidate_partitions()
   LANGUAGE plpgsql
   AS $$
@@ -30,8 +29,13 @@ CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions._admin_consolidate_
             exception_detail  text;
             exception_hint    text;
 
-        -- https://www.postgresql.org/docs/11/plpgsql-control-structures.html#PLPGSQL-ERROR-TRAPPING
+        --  See:
+        --      * https://www.postgresql.org/docs/11/plpgsql-transactions.html
+        --      * https://www.postgresql.org/docs/11/plpgsql-control-structures.html#PLPGSQL-ERROR-TRAPPING
         BEGIN
+
+          --  Need this nested block because of the exception handler within it.
+          --    "A transaction cannot be ended inside a block with exception handlers."
           BEGIN
 
             RAISE NOTICE 'Creating %', r.full_tbl_name;
@@ -87,6 +91,8 @@ CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions._admin_consolidate_
                 RAISE WARNING '%', exception_hint;
           END;
 
+        -- Key for not locking the root public.here_realtime_traffic table.
+        --   Breaks each partition tables roll into its own transaction.
         COMMIT;
 
         END;
