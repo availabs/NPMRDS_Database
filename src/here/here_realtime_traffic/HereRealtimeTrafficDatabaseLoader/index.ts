@@ -76,7 +76,17 @@ export default class HereRealtimeTrafficDatabaseLoader {
       HereRealtimeTrafficDatabaseLoader.fileNameParserRE
     );
 
-    return { year, month, day, hour, minute, second };
+    // Closest preceding even minute
+    const closestLowerEvenMinute = zpad(Math.floor(+minute / 2) * 2, 2);
+
+    return {
+      year,
+      month,
+      day,
+      hour,
+      minute: closestLowerEvenMinute,
+      second,
+    };
   }
 
   static getPartitionTableSuffix({
@@ -182,6 +192,7 @@ export default class HereRealtimeTrafficDatabaseLoader {
         hereRealtimeTrafficJsonGzipPath
       );
 
+    // TODO: Make sure load doesn't rollback if consolidate procedure fails.
     await new Promise((resolve, reject) => {
       const cproc = spawn(
         "psql",
