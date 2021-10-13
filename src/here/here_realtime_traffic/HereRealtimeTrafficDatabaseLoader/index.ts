@@ -1,7 +1,10 @@
 import { spawn } from "child_process";
+import EventEmitter from "events";
 import { readFileSync } from "fs";
 import { pipeline } from "stream";
 import { join, basename } from "path";
+import memoizeOne from "memoize-one";
+import through from "through2";
 
 import dotenv from "dotenv";
 import _ from "lodash";
@@ -34,15 +37,17 @@ export type HereRealtimeTrafficDownloadTimeObj = {
 export const zpad = (d: string | number, n: number) =>
   `${"0".repeat(n)}${d}`.slice(-n);
 
-function getPsqlCredentials(pgEnv: PGEnv) {
+const getPsqlCredentials = memoizeOne((pgEnv: PGEnv) => {
   const configPath = getPostgresConfigurationFilePath(pgEnv);
   const configContents = readFileSync(configPath);
 
   return dotenv.parse(configContents);
-}
+});
+
+const soleValidConstuctorKey = Symbol();
 
 // TODO: params = pgEnv, hereRealtimeTrafficJsonGzipPath
-export default class HereRealtimeTrafficDatabaseLoader {
+export class HereRealtimeTrafficDatabaseLoader {
   static createHereRealtimeTrafficCsvStreamChain =
     createHereRealtimeTrafficCsvStreamChain;
 
@@ -63,30 +68,46 @@ export default class HereRealtimeTrafficDatabaseLoader {
     );
   }
 
-  static parseHereRealtimeTrafficFileName(
-    hereRealtimeTrafficJsonGzipPath: string
-  ): HereRealtimeTrafficDownloadTimeObj {
-    const f = basename(hereRealtimeTrafficJsonGzipPath);
+  static parseHereRealtimeTrafficFileName = memoizeOne(
+    (
+      hereRealtimeTrafficJsonGzipPath: string
+    ): HereRealtimeTrafficDownloadTimeObj => {
+      const f = basename(hereRealtimeTrafficJsonGzipPath);
 
-    if (!HereRealtimeTrafficDatabaseLoader.isValidFileName(f)) {
-      throw new Error(`Invalid hereRealtimeTrafficJsonGzip file name: ${f}`);
+      if (!HereRealtimeTrafficDatabaseLoader.isValidFileName(f)) {
+        throw new Error(`Invalid hereRealtimeTrafficJsonGzip file name: ${f}`);
+      }
+
+      const [, year, month, day, hour, minute, second] = f.match(
+        HereRealtimeTrafficDatabaseLoader.fileNameParserRE
+      );
+
+      return {
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        second,
+      };
     }
+  );
 
-    const [, year, month, day, hour, minute, second] = f.match(
-      HereRealtimeTrafficDatabaseLoader.fileNameParserRE
+  static getHereRealtimeTrafficFileTimestamp(
+    hereRealtimeTrafficJsonGzipPath: string
+  ) {
+    const partitionTimeObj =
+      HereRealtimeTrafficDatabaseLoader.parseHereRealtimeTrafficFileName(
+        hereRealtimeTrafficJsonGzipPath
+      );
+
+    const { year, month, day, hour, minute } = partitionTimeObj;
+
+    const downloadTimestamp = new Date(
+      `${year}-${month}-${day} ${hour}:${minute}:00`
     );
 
-    // Closest preceding even minute
-    const closestLowerEvenMinute = zpad(Math.floor(+minute / 2) * 2, 2);
-
-    return {
-      year,
-      month,
-      day,
-      hour,
-      minute: closestLowerEvenMinute,
-      second,
-    };
+    return downloadTimestamp;
   }
 
   static getPartitionTableSuffix({
@@ -153,13 +174,26 @@ export default class HereRealtimeTrafficDatabaseLoader {
     return { start, end };
   }
 
-  private readonly pgEnv: PGEnv;
+  private hereRealtimeTrafficDataFileQueue: string[];
 
-  constructor({ pg_env }: HereRealtimeTrafficDownloaderParams) {
-    this.pgEnv = pg_env;
+  private loadingQueuedDataFiles: boolean;
+
+  private loadStatusEventEmitter: EventEmitter;
+
+  constructor(private readonly pgEnv: PGEnv, constructorKey: Symbol) {
+    if (constructorKey !== soleValidConstuctorKey) {
+      throw new Error(
+        "HereRealtimeTrafficDatabaseLoaders must be created using the HereRealtimeTrafficDatabaseLoaderFactory."
+      );
+    }
+
+    this.hereRealtimeTrafficDataFileQueue = [];
+    this.loadingQueuedDataFiles = false;
+    this.loadStatusEventEmitter = new EventEmitter();
+    this.loadStatusEventEmitter.setMaxListeners(Infinity);
   }
 
-  async loadHereRealtimeTrafficData(hereRealtimeTrafficJsonGzipPath: string) {
+  private async load(hereRealtimeTrafficJsonGzipPath: string) {
     const partitionTimeObj =
       HereRealtimeTrafficDatabaseLoader.parseHereRealtimeTrafficFileName(
         hereRealtimeTrafficJsonGzipPath
@@ -174,14 +208,6 @@ export default class HereRealtimeTrafficDatabaseLoader {
       HereRealtimeTrafficDatabaseLoader.getPartitionPostgresTimestampExtent(
         partitionTimeObj
       );
-
-    const { year, month, day, hour, minute } = partitionTimeObj;
-
-    const date = new Date(+year, +month - 1, +day);
-    const nextDate = new Date(date);
-    nextDate.setDate(date.getDate() + 1);
-
-    const epoch = +hour * 12 + Math.floor(+minute / 5);
 
     const tableCols = hereRealtimeTrafficDatabaseTableColumns.join();
 
@@ -207,17 +233,9 @@ export default class HereRealtimeTrafficDatabaseLoader {
           "-v",
           `TIME_RANGE_END=${end}`,
           "-v",
-          `DATE=${date.toISOString().replace(/T.*/, "")}`,
-          "-v",
-          `NEXT_DATE=${nextDate.toISOString().replace(/T.*/, "")}`,
-          "-v",
-          `EPOCH=${epoch}`,
-          "-v",
           `TABLE_COLS=${tableCols}`,
           "-f",
           loadPartitionTableSql,
-          "-c",
-          "CALL here_realtime_traffic_partitions._admin_consolidate_partitions() ;",
         ],
         {
           env: {
@@ -225,13 +243,19 @@ export default class HereRealtimeTrafficDatabaseLoader {
             ...creds,
             PGOPTIONS: "--client_min_messages=error",
           },
-          stdio: ["pipe", "inherit", "inherit"],
+          stdio: ["pipe", "inherit", "pipe"],
         }
       );
 
+      // collect STDERR for potential Error message.
+      let stdoutMessages = `Loading ${basename(
+        hereRealtimeTrafficJsonGzipPath
+      )}:\n`;
+
       cproc.on("close", (code) => {
         if (code !== 0) {
-          return reject(new Error(`psql exited with code ${code}`));
+          const errMsg = stdoutMessages || `psql exited with code ${code}`;
+          return reject(new Error(errMsg));
         }
 
         resolve(null);
@@ -247,10 +271,24 @@ export default class HereRealtimeTrafficDatabaseLoader {
         ],
         (err) => {
           // NOTE: Resolving or rejecting in here may cause deadlocks in Postgres
+          //       That's why we resolve in the psql process' "close" event listener.
           if (err) {
-            console.error(err);
+            // console.error(err);
             // Error in the CSV stream. Kill the child process.
             cproc.kill("SIGINT");
+          }
+        }
+      );
+
+      pipeline(
+        cproc.stderr,
+        through((chunk, _$, cb) => {
+          stdoutMessages = `${stdoutMessages}${chunk}`;
+          cb();
+        }),
+        (err) => {
+          if (err) {
+            console.error(err);
           }
         }
       );
@@ -259,5 +297,163 @@ export default class HereRealtimeTrafficDatabaseLoader {
     return HereRealtimeTrafficDatabaseLoader.getPartitionTableFullName(
       partitionTimeObj
     );
+  }
+
+  private async loadQueuedDataFiles() {
+    // Loading MUST be serial. This prevents concurrency.
+    if (this.loadingQueuedDataFiles) {
+      return;
+    }
+
+    this.loadingQueuedDataFiles = true;
+
+    while (this.hereRealtimeTrafficDataFileQueue.length) {
+      // Sort because priority queue based on time precedence.
+      const [hereRealtimeTrafficJsonGzipPath] =
+        this.hereRealtimeTrafficDataFileQueue.sort();
+
+      try {
+        const partitionTableFullName = await this.load(
+          hereRealtimeTrafficJsonGzipPath
+        );
+
+        this.loadStatusEventEmitter.emit("success", {
+          hereRealtimeTrafficJsonGzipPath,
+          partitionTableFullName,
+        });
+      } catch (error) {
+        this.loadStatusEventEmitter.emit("failure", {
+          hereRealtimeTrafficJsonGzipPath,
+          error,
+        });
+      }
+
+      // Remove the loaded file from the queue AFTER loading so code awaiting file[s] load
+      //   will know when loading that file[s] is done.
+      //
+      //   NOTE: While awaiting load, this.hereRealtimeTrafficDataFileQueue may have changed.
+      //         Cannot assume still the first element of the array.
+      const index = this.hereRealtimeTrafficDataFileQueue.findIndex(
+        (f) => f === hereRealtimeTrafficJsonGzipPath
+      );
+
+      this.hereRealtimeTrafficDataFileQueue.splice(index, 1);
+    }
+
+    // this.hereRealtimeTrafficDataFileQueue is empty
+    this.loadingQueuedDataFiles = false;
+  }
+
+  private addHereRealtimeTrafficDataFileToLoaderQueue(
+    hereRealtimeTrafficJsonGzipPath: string
+  ) {
+    if (
+      !this.hereRealtimeTrafficDataFileQueue.includes(
+        hereRealtimeTrafficJsonGzipPath
+      )
+    ) {
+      this.hereRealtimeTrafficDataFileQueue.push(
+        hereRealtimeTrafficJsonGzipPath
+      );
+    }
+
+    process.nextTick(this.loadQueuedDataFiles.bind(this));
+  }
+
+  async bulkLoadDataFiles(
+    hereRealtimeTrafficJsonGzipPaths: string[]
+  ): Promise<Array<string | Error>> {
+    const files = _.uniq(hereRealtimeTrafficJsonGzipPaths).sort();
+
+    const awaiting = new Set(files);
+
+    const partitionTableFullNamesByFilePath = {};
+    const loadErrorsByFilePath = {};
+
+    const successHandler = ({
+      hereRealtimeTrafficJsonGzipPath,
+      partitionTableFullName,
+    }) => {
+      awaiting.delete(hereRealtimeTrafficJsonGzipPath);
+
+      // console.error("SUCCESS:", basename(hereRealtimeTrafficJsonGzipPath));
+      // console.error();
+
+      partitionTableFullNamesByFilePath[hereRealtimeTrafficJsonGzipPath] =
+        partitionTableFullName;
+    };
+
+    const failureHandler = ({ hereRealtimeTrafficJsonGzipPath, error }) => {
+      awaiting.delete(hereRealtimeTrafficJsonGzipPath);
+
+      // console.error("FAIL:", basename(hereRealtimeTrafficJsonGzipPath));
+      // console.error(error.message);
+      // console.error();
+
+      loadErrorsByFilePath[hereRealtimeTrafficJsonGzipPath] = error;
+    };
+
+    this.loadStatusEventEmitter.on("success", successHandler);
+    this.loadStatusEventEmitter.on("failure", failureHandler);
+
+    files.forEach((f) => this.addHereRealtimeTrafficDataFileToLoaderQueue(f));
+
+    return new Promise((resolve) => {
+      const x = setInterval(() => {
+        if (awaiting.size === 0) {
+          clearInterval(x);
+
+          this.loadStatusEventEmitter.off("success", successHandler);
+          this.loadStatusEventEmitter.off("failure", failureHandler);
+
+          const results = hereRealtimeTrafficJsonGzipPaths.map(
+            (f) =>
+              partitionTableFullNamesByFilePath[f] || loadErrorsByFilePath[f]
+          );
+
+          return resolve(results);
+        }
+      }, 0);
+    });
+  }
+
+  async loadHereRealtimeTrafficDataFile(
+    hereRealtimeTrafficJsonGzipPath: string
+  ): Promise<string> {
+    const [result] = await this.bulkLoadDataFiles([
+      hereRealtimeTrafficJsonGzipPath,
+    ]);
+
+    if (result instanceof Error) {
+      throw result;
+    }
+
+    return result;
+  }
+}
+
+// @ts-ignore
+const loadersByPgEnv: Record<PGEnv, HereRealtimeTrafficDatabaseLoader> = {};
+
+// Loaders MUST be singletons to guarantee loading is done serially.
+//    The below factory guarantees a single loader per database within a process.
+//      TODO: add a PID file to be xtra safe and guarantee single loader per machine.
+//   Requiring the factory create instances causes a bit of an inconvenience with static members.
+//     To access a static member bar on an instance of class Foo: foo.constructor.bar
+//   See: https://stackoverflow.com/questions/19470559/how-to-access-static-member-on-instance
+export default class HereRealtimeTrafficDatabaseLoaderFactory {
+  static makeHereRealtimeTrafficDatabaseLoader(
+    pgEnv: PGEnv
+  ): HereRealtimeTrafficDatabaseLoader {
+    if (loadersByPgEnv[pgEnv]) {
+      return loadersByPgEnv[pgEnv];
+    }
+
+    loadersByPgEnv[pgEnv] = new HereRealtimeTrafficDatabaseLoader(
+      pgEnv,
+      soleValidConstuctorKey
+    );
+
+    return loadersByPgEnv[pgEnv];
   }
 }

@@ -11,19 +11,34 @@ CREATE TABLE IF NOT EXISTS public.here_realtime_traffic (
   jam_factor      REAL
 ) PARTITION BY RANGE (timestamp) ;
 
-CREATE OR REPLACE VIEW public.here_realtime_npmrds
-  AS
-    SELECT
-        tmc,
-        timestamp::DATE AS date,
-        (
-          ( EXTRACT(HOUR FROM timestamp) * 12 )
-          +
-          FLOOR( EXTRACT(MINUTE FROM timestamp) / 5 )
-        )::SMALLINT AS epoch,
-        AVG(travel_time) AS travel_time_all_vehicles
-      FROM public.here_realtime_traffic
-      GROUP BY 1,2,3
-;
+-- Because CREATE VIEW IF NOT EXISTS is not a thing,
+--   and we do not want to replace here_realtime_traffic_current
+--   if it already exists.
+DO
+$$
+BEGIN
+
+  IF NOT EXISTS (
+      SELECT
+          *
+        FROM pg_views
+        WHERE (
+          ( schemaname = 'public' )
+          AND
+          ( viewname = 'here_realtime_traffic_current' )
+        )
+    ) THEN
+
+      CREATE VIEW public.here_realtime_traffic_current
+        AS
+          SELECT
+              *
+            FROM public.here_realtime_traffic
+      ;
+
+  END IF;
+
+END
+$$;
 
 COMMIT;

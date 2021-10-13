@@ -4,8 +4,8 @@ CREATE SCHEMA IF NOT EXISTS here_realtime_traffic_partitions;
 
 -- Below VIEW based on https://dba.stackexchange.com/a/221283
 
---  DROP VIEW IF EXISTS here_realtime_traffic_partitions._admin_parititon_summaries ;
-CREATE OR REPLACE VIEW here_realtime_traffic_partitions._admin_parititon_summaries
+--  DROP VIEW IF EXISTS here_realtime_traffic_partitions._admin_here_realtime_partition_summaries ;
+CREATE OR REPLACE VIEW here_realtime_traffic_partitions._admin_here_realtime_partition_summaries
   AS
     SELECT
         table_schema,
@@ -79,8 +79,8 @@ CREATE OR REPLACE VIEW here_realtime_traffic_partitions._admin_condensible_parti
             a.table_name,
             DATE_TRUNC('MONTH', a.start_timestamp) AS start_timestamp,
             (DATE_TRUNC('MONTH', a.start_timestamp) + INTERVAL '1 month') AS end_timestamp
-          FROM here_realtime_traffic_partitions._admin_parititon_summaries AS a
-            INNER JOIN here_realtime_traffic_partitions._admin_parititon_summaries AS b
+          FROM here_realtime_traffic_partitions._admin_here_realtime_partition_summaries AS a
+            INNER JOIN here_realtime_traffic_partitions._admin_here_realtime_partition_summaries AS b
               ON (
                 ( a.start_year = b.start_year )
                 AND
@@ -110,8 +110,8 @@ CREATE OR REPLACE VIEW here_realtime_traffic_partitions._admin_condensible_parti
               ),
               (DATE_TRUNC('MONTH', a.start_timestamp) + INTERVAL '1 month')
             ) AS end_timestamp
-          FROM here_realtime_traffic_partitions._admin_parititon_summaries AS a
-            INNER JOIN here_realtime_traffic_partitions._admin_parititon_summaries AS b
+          FROM here_realtime_traffic_partitions._admin_here_realtime_partition_summaries AS a
+            INNER JOIN here_realtime_traffic_partitions._admin_here_realtime_partition_summaries AS b
               ON (
                 ( a.start_year = b.start_year )
                 AND
@@ -146,8 +146,8 @@ CREATE OR REPLACE VIEW here_realtime_traffic_partitions._admin_condensible_parti
               DATE_TRUNC('DAY', a.start_timestamp)
               + INTERVAL '1 day'
             ) AS end_timestamp
-          FROM here_realtime_traffic_partitions._admin_parititon_summaries AS a
-            INNER JOIN here_realtime_traffic_partitions._admin_parititon_summaries AS b
+          FROM here_realtime_traffic_partitions._admin_here_realtime_partition_summaries AS a
+            INNER JOIN here_realtime_traffic_partitions._admin_here_realtime_partition_summaries AS b
               ON (
                 ( a.start_year = b.start_year )
                 AND
@@ -190,8 +190,8 @@ CREATE OR REPLACE VIEW here_realtime_traffic_partitions._admin_condensible_parti
               DATE_TRUNC('HOUR', a.start_timestamp)
               + INTERVAL '1 hour'
             ) AS end_timestamp
-          FROM here_realtime_traffic_partitions._admin_parititon_summaries AS a
-            INNER JOIN here_realtime_traffic_partitions._admin_parititon_summaries AS b
+          FROM here_realtime_traffic_partitions._admin_here_realtime_partition_summaries AS a
+            INNER JOIN here_realtime_traffic_partitions._admin_here_realtime_partition_summaries AS b
               ON (
                 ( a.start_year = b.start_year )
                 AND
