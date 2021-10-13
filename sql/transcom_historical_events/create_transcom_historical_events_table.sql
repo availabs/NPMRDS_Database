@@ -80,7 +80,8 @@ CREATE OR REPLACE FUNCTION transcom.transcom_historical_events_update_fn()
     BEGIN
       NEW._modified_timestamp = NOW();
 
-      NEW.congestion_data =
+      NEW.congestion_data = COALESCE(
+        NEW.congestion_data,
         CASE
           WHEN (
             (
@@ -104,7 +105,8 @@ CREATE OR REPLACE FUNCTION transcom.transcom_historical_events_update_fn()
             )
           ) THEN NULL
             ELSE OLD.congestion_data
-        END;
+        END
+      );
 
       RETURN NEW;
     END;
