@@ -71,7 +71,14 @@ export default class HereRealtimeTrafficDownloader {
       });
 
       await pipelineAsync(
-        got.stream.get(HereRealtimeTrafficDownloader.HERE_REALTIME_TRAFFIC_URL),
+        got.stream.get(
+          HereRealtimeTrafficDownloader.HERE_REALTIME_TRAFFIC_URL,
+          {
+            headers: {
+              "Cache-Control": "no-cache",
+            },
+          }
+        ),
         createGzip({ level: 9 }),
         hashUpdater,
         createWriteStream(downloadFilePath)

@@ -6,7 +6,7 @@ import HereRealtimeTrafficDownloader, {
 
 const builder = {
   output_dir: {
-    desc: "Directory into which write the HERE realtime traffic data.",
+    desc: "Directory into which write the HERE realtime traffic data responses.",
     demand: false,
     type: "string",
     default: join(__dirname, "../../../../data/here"),
