@@ -172,6 +172,13 @@ export default class TranscomEventsDownloader {
           const s_dd = isStartMonth ? startDate : 1;
           const s_time = isStartMonth ? startTime : "00:00:00";
 
+          // NOTE: JavaScript Date months start at zero.
+          //       Using date 0 means the last day of the preceeding month.
+          //       Therefore, the date below represents the last day of the
+          //         mm-th month.
+          //       E.G.:
+          //              new Date(2021, 1, 0).getDate() === 31
+          //
           const e_dd = isEndMonth ? endDate : new Date(year, mm, 0).getDate();
 
           const e_time = isEndMonth ? endTime : "23:59:59";
