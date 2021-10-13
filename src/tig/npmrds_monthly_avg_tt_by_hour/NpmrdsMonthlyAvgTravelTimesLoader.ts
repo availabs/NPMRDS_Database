@@ -113,33 +113,35 @@ export default class NpmrdsMonthlyAvgTravelTimesLoader {
     year: number;
     month: number;
   }[] {
-    const missingYearMonths = this.client.querySync(`
-        SELECT
-            t.table_schema AS state,
-            SUBSTRING( t.table_name FROM 9 FOR 4 )::INTEGER AS year,
-            SUBSTRING( t.table_name FROM 14 FOR 2 )::INTEGER AS month
-          FROM information_schema.tables t
-          WHERE (
-            ( t.table_schema <> 'public' )
-            AND
-            ( t.table_name ~ '^npmrds_y\\d{4}m\\d{2}$'::text )
-          )
+    const sql = `
+      SELECT
+          t.table_schema AS state,
+          SUBSTRING( t.table_name FROM 9 FOR 4 )::INTEGER AS year,
+          SUBSTRING( t.table_name FROM 14 FOR 2 )::INTEGER AS month
+        FROM information_schema.tables t
+        WHERE (
+          ( t.table_schema <> 'public' )
+          AND
+          ( t.table_name ~ '^npmrds_y\\d{4}m\\d{2}$'::text )
+        )
 
-        EXCEPT
+      EXCEPT
 
-        SELECT
-            t.table_schema AS state,
-            SUBSTRING( t.table_name FROM 24 FOR 4 )::INTEGER AS year,
-            SUBSTRING( t.table_name FROM 29 FOR 2 )::INTEGER AS month
-          FROM information_schema.tables t
-          WHERE (
-            ( t.table_schema <> 'npmrds_monthly_avg_tt_partitions' )
-            AND
-            ( t.table_name ~ '^npmrds_monthly_avg_tt_y\\d{4}m\\d{2}$'::text )
-          )
+      SELECT
+          t.table_schema AS state,
+          SUBSTRING( t.table_name FROM 24 FOR 4 )::INTEGER AS year,
+          SUBSTRING( t.table_name FROM 29 FOR 2 )::INTEGER AS month
+        FROM information_schema.tables t
+        WHERE (
+          ( t.table_schema <> 'npmrds_monthly_avg_tt_partitions' )
+          AND
+          ( t.table_name ~ '^npmrds_monthly_avg_tt_y\\d{4}m\\d{2}$'::text )
+        )
 
-        ORDER BY state, year, month
-      `);
+      ORDER BY state, year, month
+    `;
+
+    const missingYearMonths = this.client.querySync(sql);
 
     return missingYearMonths;
   }
@@ -188,7 +190,7 @@ export default class NpmrdsMonthlyAvgTravelTimesLoader {
     const emptyTables = existingTables.filter(({ state, year, month }) => {
       const mm = `0${month}`.slice(-2);
 
-      const not_exists = this.client.querySync(`
+      const [{ not_exists }] = this.client.querySync(`
         SELECT NOT EXISTS (
           SELECT
               1
@@ -237,6 +239,8 @@ export default class NpmrdsMonthlyAvgTravelTimesLoader {
           missingYearMonthPartitionTables: this.missingYearMonthPartitionTables,
           missingStateYearMonthPartitionTables:
             this.missingStateYearMonthPartitionTables,
+          emptyStateYearMonthPartitionTables:
+            this.emptyStateYearMonthPartitionTables,
         },
         null,
         4

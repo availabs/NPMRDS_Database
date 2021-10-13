@@ -17,6 +17,7 @@ const builder = {
 const handler = async (argv: { pg_env: "development" | "production" }) => {
   const loader = new NpmrdsMonthlyAvgTravelTimesLoader(argv.pg_env);
 
+  // loader.test();
   loader.run();
 };
 
