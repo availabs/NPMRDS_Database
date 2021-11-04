@@ -5,9 +5,9 @@
 */
 BEGIN;
 
-DROP PROCEDURE IF EXISTS here_realtime_traffic_partitions._admin_consolidate_partitions();
+DROP PROCEDURE IF EXISTS here_realtime_traffic_partitions.concatenate_here_realtime_partitions_proc();
 
-CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions._admin_consolidate_partitions()
+CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions.concatenate_here_realtime_partitions_proc()
   LANGUAGE plpgsql
   AS $$
     DECLARE
@@ -16,18 +16,17 @@ CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions._admin_consolidate_
     BEGIN
       FOR r IN
           SELECT
-              'here_realtime_traffic_partitions.' || condensed_table_name AS full_tbl_name,
-              condensed_table_name AS tbl_name,
+              'here_realtime_traffic_partitions.' || target_table_name AS full_tbl_name,
+              target_table_name AS tbl_name,
               start_timestamp,
               end_timestamp,
-              included_tables
-            FROM here_realtime_traffic_partitions._admin_condensible_partitions
-            --  LIMIT 1
+              source_tables
+            FROM here_realtime_traffic_partitions._admin_pending_realtime_concatenations
       LOOP
         DECLARE
-            error_message     text;
-            exception_detail  text;
-            exception_hint    text;
+            error_message     TEXT;
+            exception_detail  TEXT;
+            exception_hint    TEXT;
 
         --  See:
         --      * https://www.postgresql.org/docs/11/plpgsql-transactions.html
@@ -38,25 +37,27 @@ CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions._admin_consolidate_
           --    "A transaction cannot be ended inside a block with exception handlers."
           BEGIN
 
-            RAISE NOTICE 'Creating %', r.full_tbl_name;
+            RAISE NOTICE 'Concatenting into %', r.full_tbl_name;
 
             EXECUTE '
               CREATE TABLE ' || r.full_tbl_name || ' (
                   LIKE public.here_realtime_traffic
                 )
               ;
+            ';
 
-              INSERT INTO ' || r.full_tbl_name || '
-                SELECT
-                    *
-                  FROM public.here_realtime_traffic
-                  WHERE ( 
-                    ( timestamp >= ''' || r.start_timestamp || '''::TIMESTAMP WITHOUT TIME ZONE )
-                    AND
-                    ( timestamp < ''' || r.end_timestamp || '''::TIMESTAMP WITHOUT TIME ZONE )
-                  )
-              ;
+            FOREACH t IN ARRAY r.source_tables::TEXT[]
+            LOOP
+              EXECUTE '
+                INSERT INTO ' || r.full_tbl_name || '
+                  SELECT
+                      *
+                    FROM ' || t || '
+                ;
+              ';
+            END LOOP;
 
+            EXECUTE '
               ALTER TABLE ' || r.full_tbl_name || '
                 ADD CONSTRAINT ' || r.tbl_name || '_pkey
                   PRIMARY KEY (tmc, timestamp)
@@ -69,7 +70,7 @@ CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions._admin_consolidate_
               CLUSTER ' || r.full_tbl_name || ' USING ' || r.tbl_name || '_pkey;
             ';
 
-            FOREACH t IN ARRAY r.included_tables::TEXT[]
+            FOREACH t IN ARRAY r.source_tables::TEXT[]
             LOOP
               EXECUTE 'DROP TABLE ' || t || ';';
             END LOOP;

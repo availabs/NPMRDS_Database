@@ -1,4 +1,4 @@
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import EventEmitter from "events";
 import { readFileSync } from "fs";
 import { pipeline } from "stream";
@@ -191,6 +191,32 @@ export class HereRealtimeTrafficDatabaseLoader {
     this.loadingQueuedDataFiles = false;
     this.loadStatusEventEmitter = new EventEmitter();
     this.loadStatusEventEmitter.setMaxListeners(Infinity);
+  }
+
+  initializeDatabase() {
+    const creds = getPsqlCredentials(this.pgEnv);
+
+    execSync(
+      `
+      psql \
+        -q \
+        -f create_root_tables.sql \
+        -f create_here_timestamp_handler_functions.sql \
+        -f create_admin_views.sql \
+        -f create_concatenate_here_realtime_partitions_proc.sql \
+        -f create_concatenate_here_npmrds_schema_partitions_proc.sql \
+        -f create_update_here_npmrds_schema_tables_proc.sql
+      `,
+      {
+        cwd: join(__dirname, "../../../../sql/here_realtime_traffic"),
+        env: {
+          ...process.env,
+          ...creds,
+          PGOPTIONS: "--client_min_messages=error",
+        },
+        stdio: ["ignore", "inherit", "inherit"],
+      }
+    );
   }
 
   private async load(hereRealtimeTrafficJsonGzipPath: string) {

@@ -137,6 +137,8 @@ if (rootTableExists() || partitionSchemaExists()) {
 */
 
 function cleanDatabase() {
+  return;
+  /*
   spawnSync(
     "psql",
     [
@@ -148,7 +150,9 @@ function cleanDatabase() {
         BEGIN;
 
         DROP TABLE IF EXISTS public.here_realtime_traffic CASCADE;
+        DROP TABLE IF EXISTS public.here_npmrds_schema CASCADE;
         DROP SCHEMA IF EXISTS here_realtime_traffic_partitions CASCADE;
+        DROP SCHEMA IF EXISTS here_npmrds_schema_partitions CASCADE;
 
         COMMIT;
       `,
@@ -166,6 +170,7 @@ function cleanDatabase() {
       },
     }
   );
+  */
 }
 
 test("HereRealtimeTrafficDatabaseLoader must be created through factory", async (t) => {
@@ -253,8 +258,10 @@ test("Load single file", async (t) => {
 
 let seriallyBulkLoadedTables: string[] = [];
 
-test("Serially bulk load multiple files", async (t) => {
+test.only("Serially bulk load multiple files", async (t) => {
   cleanDatabase();
+
+  loader.initializeDatabase();
 
   // const files = hereRealtimeTrafficJsonGzips.slice(0, 3);
   const files = hereRealtimeTrafficJsonGzips;

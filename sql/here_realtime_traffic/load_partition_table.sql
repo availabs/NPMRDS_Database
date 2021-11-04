@@ -93,12 +93,12 @@ ALTER TABLE :full_tbl_name
 ALTER INDEX :full_pkey_idx_name
   SET (fillfactor = 100);
 
+CLUSTER :full_tbl_name USING :pkey_idx_name;
+
 ALTER TABLE public.here_realtime_traffic
   ATTACH PARTITION :full_tbl_name
     FOR VALUES FROM (:'TIME_RANGE_START') TO (:'TIME_RANGE_END')
 ;
-
-CLUSTER :full_tbl_name USING :pkey_idx_name;
 
 CREATE OR REPLACE VIEW public.here_realtime_traffic_current
   AS
@@ -115,4 +115,8 @@ ANALYZE :full_tbl_name ;
 --
 --             Pro: Tightly couples partition rolling with loading.
 --             Con: Potentially slows down realtime loader.
-CALL here_realtime_traffic_partitions._admin_consolidate_partitions() ;
+CALL here_realtime_traffic_partitions.concatenate_here_realtime_partitions_proc() ;
+
+CALL here_npmrds_schema_partitions.update_here_npmrds_schema_tables_proc(
+  :'TIME_RANGE_START'::TIMESTAMP
+);
