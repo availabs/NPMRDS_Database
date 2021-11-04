@@ -347,6 +347,8 @@ export class HereRealtimeTrafficDatabaseLoader {
           hereRealtimeTrafficJsonGzipPath,
           partitionTableFullName,
         });
+
+        console.log("loaded", partitionTableFullName);
       } catch (error) {
         this.loadStatusEventEmitter.emit("failure", {
           hereRealtimeTrafficJsonGzipPath,
