@@ -84,7 +84,7 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.concatenate_here_npmrd
                 INSERT INTO ' || r.full_tbl_name || '
                   SELECT
                       *
-                    FROM ' || t || '
+                    FROM ONLY ' || t || '
                 ;
               ';
             END LOOP;

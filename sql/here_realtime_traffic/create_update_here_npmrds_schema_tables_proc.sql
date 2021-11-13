@@ -1,5 +1,5 @@
 /*
-  TODO: Run npmrds-schema tables concatenation.
+  TODO: If ERROR encountered, loop should stop.
 */
 BEGIN;
 
@@ -20,12 +20,22 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
       tstamp_date                               DATE ;
       tstamp_epoch                              SMALLINT ;
       epoch_start_tstamp                        TIMESTAMP ;
+
+      error_message                             TEXT ;
+      exception_detail                          TEXT ;
+      exception_hint                            TEXT ;
     BEGIN
+
+      -- Get 5 minutes past the current here_npmrds_schema timestamp.
       SELECT
           date + ((epoch * 5)::TEXT || ' minutes')::INTERVAL
         INTO latest_npmrds_schema_epoch_timestamp
-        FROM public.here_npmrds_schema_current ;
+        FROM public.here_npmrds_schema_current
+        LIMIT 1
+      ;
 
+      -- If public.here_npmrds_schema_current was empty,
+      --   get the earliest epoch start timestamp from the realtime data.
       IF ( latest_npmrds_schema_epoch_timestamp IS NULL )
         THEN
             DECLARE
@@ -98,41 +108,78 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
       FOREACH epoch_start_tstamp IN ARRAY pending_epoch_tstamps
       LOOP
         DECLARE
-            epoch_end_tstamp        TIMESTAMP ;
+            npmrds_schema_current_timestamp TIMESTAMP ;
 
-            tstamp_date             DATE ;
-            tstamp_epoch            SMALLINT ;
+            epoch_end_tstamp                  TIMESTAMP ;
 
-            hour_start_epoch        SMALLINT ;
-            hour_end_epoch          SMALLINT ;
 
-            prev_epoch_date         DATE ;
-            prev_epoch_epoch        SMALLINT ;
+            bin_start_timestamp_incl          TIMESTAMP ;
+            bin_end_timestamp_excl            TIMESTAMP ;
 
-            full_parent_table_name  TEXT ;
-            tbl_name                TEXT ;
-            full_tbl_name           TEXT ;
+            bin_realtime_first_tstamp_incl    TIMESTAMP ;
+            bin_realtime_last_tstamp_incl     TIMESTAMP ;
 
-            error_message           TEXT;
-            exception_detail        TEXT;
-            exception_hint          TEXT ;
+            tstamp_date                       DATE ;
+            tstamp_epoch                      SMALLINT ;
+
+            hour_start_epoch                  SMALLINT ;
+            hour_end_epoch                    SMALLINT ;
+
+            prev_bin_date                     DATE ;
+            prev_bin_epoch                    SMALLINT ;
+
+            full_parent_table_name            TEXT ;
+            tbl_name                          TEXT ;
+            full_tbl_name                     TEXT ;
+
 
         --  See:
         --      * https://www.postgresql.org/docs/11/plpgsql-transactions.html
         --      * https://www.postgresql.org/docs/11/plpgsql-control-structures.html#PLPGSQL-ERROR-TRAPPING
         BEGIN
 
-          --  Need this nested block because of the exception handler within it.
-          --    "A transaction cannot be ended inside a block with exception handlers."
           BEGIN
+
+            -- Timestamp minutes are a multiple of 5.
+            IF ( ( EXTRACT('MINUTE' FROM epoch_start_tstamp)::INTEGER % 5 ) <> 0 )
+              THEN
+                RAISE EXCEPTION 'epoch_start_tstamp minutes must be a multiple of 5' ;
+            END IF ;
+
+            SELECT
+                ( date + ( ( epoch * 5 )::TEXT || ' minutes' )::INTERVAL )
+                INTO npmrds_schema_current_timestamp
+                FROM public.here_npmrds_schema_current
+            ;
+
+            -- ===== Ensure no gaps in public.here_npmrds_schema =====
+            -- It must be the case that either public.here_npmrds_schema_current is empty or
+            --   its timestamp preceeds epoch_start_tstamp by exactly 5 minutes.
+            IF (
+                ( npmrds_schema_current_timestamp IS NOT NULL )
+                AND
+                ( ( epoch_start_tstamp - npmrds_schema_current_timestamp ) <> '5 minutes'::INTERVAL )
+              ) THEN
+                 RAISE EXCEPTION 'epoch_start_tstamp MUST be 5 minutes past public.here_npmrds_schema_current' ;
+            END IF ;
 
             RAISE NOTICE 'Creating table for %', epoch_start_tstamp;
 
-            epoch_end_tstamp := epoch_start_tstamp + '5 minutes'::INTERVAL ;
+            epoch_end_tstamp    := epoch_start_tstamp + '5 minutes'::INTERVAL ;
 
-            --  ASSERT DATE_TRUNC('HOUR', epoch_start_tstamp) = DATE_TRUNC('HOUR', epoch_end_tstamp),
-              --  'epoch_start_tstamp and epoch_end_tstamp must be within the same hour'
-            --  ;
+            -- We potentially collect data from the previous/following 5min bin
+            --   if the realtime data intervals overlap the current 5min bin.
+            -- For example:
+            --     12:00     12:05     12:10     12:15    -------- 5 minute bins
+            --       |              |          |
+            --     12:00          12:07      12:12        -------- Realtime bins
+            --
+            -- The 12:00-12:07 realtime data timebin overlaps the 12:05-12:10 5min time bin.
+            --   Therefore, the measurements of the realtime bin should be included in the
+            --   5min bin weighted average.
+            bin_start_timestamp_incl := epoch_start_tstamp - '5 minutes'::INTERVAL ;
+            bin_end_timestamp_excl   := epoch_end_tstamp   + '5 minutes'::INTERVAL ;
+
 
             tstamp_date  := epoch_start_tstamp::DATE ;
             tstamp_epoch := (
@@ -146,12 +193,14 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
 
             IF tstamp_epoch > 0
               THEN
-                prev_epoch_date  := tstamp_date ;
-                prev_epoch_epoch := tstamp_epoch - 1 ;
+                prev_bin_date  := tstamp_date ;
+                prev_bin_epoch := tstamp_epoch - 1 ;
             ELSE
-                prev_epoch_date  := ( tstamp_date - '1 day'::INTERVAL ) ;
-                prev_epoch_epoch := 287 ;
+                prev_bin_date  := ( tstamp_date - '1 day'::INTERVAL ) ;
+                prev_bin_epoch := 287 ;
             END IF ;
+
+            -- ===== Create the here_npmrds_schema tables =====
 
             EXECUTE '
               SELECT
@@ -173,9 +222,8 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
 
             full_tbl_name := 'here_npmrds_schema_partitions.' || tbl_name ;
 
-            -- TODO: Create parent day-level table
-            --       Create hour table partitioning the day-level table
             EXECUTE '
+              -- Create parent day-level table as a partition of the root here_npmrds_schema table.
               CREATE TABLE IF NOT EXISTS ' || full_parent_table_name || '
                 PARTITION OF public.here_npmrds_schema
                 FOR VALUES
@@ -183,9 +231,9 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
                   TO (''' || ( tstamp_date + '1 day'::INTERVAL ) || ''')
                 PARTITION BY RANGE (epoch)
               ;
-            ';
 
-            EXECUTE '
+              -- Create the hour-level table as a partition of the day-level table.
+              -- NOTE: MUST raise exception if the table exists.
               CREATE TABLE IF NOT EXISTS ' || full_tbl_name || '
                 PARTITION OF ' || full_parent_table_name || '
                 ( PRIMARY KEY (tmc, date, epoch) )
@@ -193,121 +241,133 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
                   FROM ( ' || hour_start_epoch || ' )
                   TO   ( ' || hour_end_epoch   || ' )
               ;
-            ';
-
--- RAISE NOTICE '';
--- RAISE NOTICE '';
--- RAISE NOTICE '';
--- RAISE NOTICE 'epoch_start_tstamp: %', epoch_start_tstamp;
--- RAISE NOTICE 'epoch_end_tstamp: %', epoch_end_tstamp;
--- RAISE NOTICE 'tstamp_date: %', tstamp_date;
--- RAISE NOTICE 'tstamp_epoch: %', tstamp_epoch;
--- RAISE NOTICE '';
--- RAISE NOTICE '';
--- RAISE NOTICE '';
+            ' ;
 
             EXECUTE '
-              INSERT INTO ' || full_tbl_name || ' (
-                tmc,
-                date,
-                epoch,
-                travel_time_all_vehicles,
-                staleness_minutes
-              )
-                WITH cte_nearby_tstamps AS (
-                  SELECT DISTINCT
-                      timestamp
-                    FROM public.here_realtime_traffic
-                    WHERE (
-                      ( timestamp  > ''' || (epoch_start_tstamp - '5 minutes'::INTERVAL) || '''::TIMESTAMP )
-                      AND
-                      ( timestamp  < ''' || (epoch_end_tstamp   + '5 minutes'::INTERVAL) || '''::TIMESTAMP )
-                    )
-                ), cte_immediate_neighbor_timestamps AS (
-                  SELECT
-                      MAX(
-                        LEAST(
-                          timestamp,
-                          ''' || ( epoch_start_tstamp - '5 minutes'::INTERVAL ) || '''::TIMESTAMP
-                        )
-                      ) AS immediate_predecessor_tstamp,
-                      MIN(
-                        GREATEST(
-                          timestamp,
-                          ''' || (epoch_end_tstamp   + '5 minutes'::INTERVAL) || '''::TIMESTAMP
-                        )
-                      ) AS immediate_successor_tstamp
-                    FROM cte_nearby_tstamps
-                ), cte_bin_tstamps AS (
-                  SELECT
-                      a.timestamp
-                    FROM cte_nearby_tstamps AS a
-                      INNER JOIN cte_immediate_neighbor_timestamps AS b
-                        ON (
-                          ( a.timestamp >= b.immediate_predecessor_tstamp )
-                          AND
-                          ( a.timestamp <= b.immediate_successor_tstamp )
-                        )
-                  UNION
-                  SELECT ''' || epoch_end_tstamp || '''::TIMESTAMP
-                ), cte_timebin_weights AS (
-                  SELECT
-                      bin_start_timestamp,
-                      EXTRACT(EPOCH FROM UPPER(bin_overlap_range) - LOWER(bin_overlap_range)) AS weight
-                    FROM (
-                      SELECT
-                          bin_start_timestamp,
-                          (
-                            bin_range
-                            *
+              CREATE TEMPORARY TABLE tmp_included_realtime_timebins
+                ON COMMIT DROP
+                AS
+                  WITH cte_candidate_bin_timestamps AS (
+                    SELECT DISTINCT
+                        timestamp
+                      FROM public.here_realtime_traffic
+                      WHERE (
+                        timestamp
+                          BETWEEN
+                            ''' || bin_start_timestamp_incl || '''
+                            AND
+                            ''' || bin_end_timestamp_excl   || '''
+                      )
+                    UNION
+                      SELECT ''' || bin_end_timestamp_excl || '''::TIMESTAMP AS timestamp
+                  ), cte_candidate_realtime_bins AS (
+                    SELECT DISTINCT
+                        start_ts AS realtime_bin_start_timestamp,
+                        tsrange(start_ts, end_ts) AS realtime_bin_timerange
+                      FROM (
+                        SELECT
+                            a.timestamp AS start_ts,
+                            MIN(b.timestamp) OVER (PARTITION BY a.timestamp) AS end_ts
+                          FROM cte_candidate_bin_timestamps AS a
+                            INNER JOIN cte_candidate_bin_timestamps AS b
+                              ON ( a.timestamp < b.timestamp )
+                      ) AS t
+                  )
+                    SELECT
+                        realtime_bin_start_timestamp,
+                        realtime_bin_timerange,
+                        EXTRACT(
+                          EPOCH FROM UPPER(bin_overlap_range) - LOWER(bin_overlap_range)
+                        ) AS bins_overlap_seconds
+                      FROM (
+                        SELECT
+                            realtime_bin_start_timestamp,
+                            realtime_bin_timerange,
+                            (
+                              realtime_bin_timerange
+                              *
+                              tsrange(
+                                ''' || epoch_start_tstamp || '''::TIMESTAMP,
+                                ''' || epoch_end_tstamp   || '''::TIMESTAMP
+                              )
+                            ) AS bin_overlap_range
+                          FROM cte_candidate_realtime_bins
+                          WHERE (
+                            realtime_bin_timerange
+                            &&
                             tsrange(
                               ''' || epoch_start_tstamp || '''::TIMESTAMP,
                               ''' || epoch_end_tstamp   || '''::TIMESTAMP
                             )
-                          ) AS bin_overlap_range
-                        FROM (
-                          SELECT DISTINCT
-                              start_ts AS bin_start_timestamp,
-                              tsrange(start_ts, end_ts) AS bin_range
-                            FROM (
-                              SELECT
-                                  a.timestamp AS start_ts,
-                                  MIN(b.timestamp) OVER (PARTITION BY a.timestamp) AS end_ts
-                                FROM cte_bin_tstamps AS a
-                                  INNER JOIN cte_bin_tstamps AS b
-                                    ON ( a.timestamp < b.timestamp )
-                            ) AS t
-                        ) AS t
-                    ) AS t
-                    WHERE ( UPPER(bin_overlap_range) IS NOT NULL )
-                )
-                SELECT
-                    tmc,
-                    ''' || tstamp_date  || '''::DATE AS date,
-                    '   || tstamp_epoch || '::SMALLINT AS epoch,
-                    (
-                      SUM(travel_time * weight)
-                      /
-                      SUM(weight)
-                    ) AS travel_time_all_vehicles,
-                    0 AS staleness_minutes
-                  FROM public.here_realtime_traffic AS a
-                    INNER JOIN cte_timebin_weights AS b
-                      ON (
-                        a.timestamp = b.bin_start_timestamp
-                      )
-                  WHERE (
-                    -- FIXME: Is this necessary for table pruning optimization?
-                    ( a.timestamp  > ''' || (epoch_start_tstamp - '5 minutes'::INTERVAL) || '''::TIMESTAMP )
-                    AND
-                    ( a.timestamp  < ''' || (epoch_end_tstamp   + '5 minutes'::INTERVAL) || '''::TIMESTAMP )
-                  )
-                  GROUP BY tmc
-              ;
-            ';
+                          )
+                      ) AS t
+             ;
+            ' ;
 
             EXECUTE '
-              -- Backfill, if necessary.
+              SELECT
+                  MIN(realtime_bin_start_timestamp) AS bin_realtime_first_tstamp_incl,
+                  MAX(realtime_bin_start_timestamp) AS bin_realtime_last_tstamp_incl
+                FROM tmp_included_realtime_timebins
+            ;' INTO bin_realtime_first_tstamp_incl, bin_realtime_last_tstamp_incl ;
+
+            IF (bin_realtime_first_tstamp_incl IS NOT NULL)
+              THEN
+                EXECUTE '
+                  CREATE TEMPORARY TABLE tmp_included_realtime_traffic (
+                    timestamp     TIMESTAMP,
+                    tmc           TEXT,
+                    travel_time   REAL,
+
+                    PRIMARY KEY (timestamp, tmc)
+                  ) ON COMMIT DROP ;
+
+                  INSERT INTO tmp_included_realtime_traffic
+                    SELECT
+                        timestamp,
+                        tmc,
+                        travel_time
+                      FROM public.here_realtime_traffic
+                      WHERE (
+                        timestamp
+                          BETWEEN
+                            ''' || bin_realtime_first_tstamp_incl || '''::TIMESTAMP
+                            AND
+                            ''' || bin_realtime_last_tstamp_incl   || '''::TIMESTAMP
+                      )
+                  ;
+
+                  CLUSTER tmp_included_realtime_traffic USING tmp_included_realtime_traffic_pkey ;
+
+                  INSERT INTO ' || full_tbl_name || ' (
+                    tmc,
+                    date,
+                    epoch,
+                    travel_time_all_vehicles,
+                    staleness_minutes
+                  )
+                    SELECT
+                        tmc,
+                        ''' || tstamp_date  || '''::DATE AS date,
+                        '   || tstamp_epoch || '::SMALLINT AS epoch,
+                        (
+                          SUM(travel_time * bins_overlap_seconds)
+                          /
+                          SUM(bins_overlap_seconds)
+                        ) AS travel_time_all_vehicles,
+                        0 AS staleness_minutes
+                      FROM tmp_included_realtime_traffic AS a
+                        INNER JOIN tmp_included_realtime_timebins AS b
+                          ON (
+                            a.timestamp = b.realtime_bin_start_timestamp
+                          )
+                      GROUP BY tmc
+                  ;
+                ' ;
+            END IF ;
+
+            -- Backfill, if necessary.
+            EXECUTE '
               INSERT INTO ' || full_tbl_name || ' (
                 tmc,
                 date,
@@ -343,15 +403,16 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
               CLUSTER ' || full_tbl_name || ' USING ' || tbl_name || '_pkey;
             ';
 
-          EXCEPTION WHEN OTHERS THEN
-              GET STACKED DIAGNOSTICS error_message     = MESSAGE_TEXT,
-                                      exception_detail  = PG_EXCEPTION_DETAIL,
-                                      exception_hint    = PG_EXCEPTION_HINT;
+          --  EXCEPTION WHEN OTHERS THEN
+              --  GET STACKED DIAGNOSTICS error_message     = MESSAGE_TEXT,
+                                      --  exception_detail  = PG_EXCEPTION_DETAIL,
+                                      --  exception_hint    = PG_EXCEPTION_HINT;
 
-                RAISE WARNING '%', error_message;
-                RAISE WARNING '%', exception_detail;
-                RAISE WARNING '%', exception_hint;
-          END;
+                --  RAISE WARNING '%', error_message;
+                --  RAISE WARNING '%', exception_detail;
+                --  RAISE WARNING '%', exception_hint;
+          --  END;
+          END ;
 
         -- Key for not locking the root public.here_realtime_traffic table.
         --   Breaks each partition tables roll into its own transaction.

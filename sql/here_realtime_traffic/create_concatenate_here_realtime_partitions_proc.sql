@@ -52,7 +52,7 @@ CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions.concatenate_here_re
                 INSERT INTO ' || r.full_tbl_name || '
                   SELECT
                       *
-                    FROM ' || t || '
+                    FROM ONLY ' || t || '
                 ;
               ';
             END LOOP;
