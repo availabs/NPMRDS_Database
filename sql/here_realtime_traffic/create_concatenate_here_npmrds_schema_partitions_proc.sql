@@ -34,7 +34,11 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.concatenate_here_npmrd
             FROM here_npmrds_schema_partitions._admin_pending_npmrds_schema_concatenations
       LOOP
         DECLARE
-          target_table_extent TIMESTAMP[2];
+          target_table_extent       TIMESTAMP[2];
+
+          table_copy_start_tstamp   TIMESTAMP;
+          table_copy_end_tstamp     TIMESTAMP;
+          table_copy_time_diff      NUMERIC;
 
           error_message     TEXT;
           exception_detail  TEXT;
@@ -48,7 +52,7 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.concatenate_here_npmrd
           --  Need this nested block because of the exception handler within it.
           --    "A transaction cannot be ended inside a block with exception handlers."
           BEGIN
-            RAISE NOTICE 'Concatenting into %', r.full_tbl_name;
+            RAISE NOTICE 'Concatenting source tables into target_table %', r.full_tbl_name;
 
             EXECUTE '
               SELECT
@@ -61,6 +65,7 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.concatenate_here_npmrd
             --   allow uniform handling with other level concatenations.
             IF LENGTH(r.tbl_name) = LENGTH('here_npmrds_schema_yYYYYmMMwWdDD')
               THEN
+                RAISE NOTICE '  dropping abstract day-level table' ;
                 -- Break the inheritance between the existing abstract day-level table and the hour tables.
                 FOREACH t IN ARRAY r.source_tables::TEXT[]
                 LOOP
@@ -80,6 +85,9 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.concatenate_here_npmrd
 
             FOREACH t IN ARRAY r.source_tables::TEXT[]
             LOOP
+              RAISE NOTICE '  copying % into %', t, r.full_tbl_name ;
+              table_copy_start_tstamp := clock_timestamp() ;
+
               EXECUTE '
                 INSERT INTO ' || r.full_tbl_name || '
                   SELECT
@@ -87,7 +95,19 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.concatenate_here_npmrd
                     FROM ONLY ' || t || '
                 ;
               ';
+
+              table_copy_end_tstamp := clock_timestamp() ;
+              table_copy_time_diff  := (
+                                          EXTRACT(EPOCH FROM table_copy_end_tstamp)
+                                          - EXTRACT(EPOCH FROM table_copy_start_tstamp)
+                                       ) ;
+              RAISE NOTICE '    % seconds', ROUND(table_copy_time_diff, 3) ;
+
             END LOOP;
+
+            RAISE NOTICE '  adding target table indexes' ;
+
+            table_copy_start_tstamp := clock_timestamp() ;
 
             EXECUTE '
               ALTER TABLE ' || r.full_tbl_name || '
@@ -98,14 +118,51 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.concatenate_here_npmrd
               ALTER INDEX ' || r.full_tbl_name || '_pkey
                 SET (fillfactor = 100)
               ;
+            ';
 
+            table_copy_end_tstamp := clock_timestamp() ;
+            table_copy_time_diff  := (
+                                        EXTRACT(EPOCH FROM table_copy_end_tstamp)
+                                        - EXTRACT(EPOCH FROM table_copy_start_tstamp)
+                                     ) ;
+            RAISE NOTICE '    % seconds', ROUND(table_copy_time_diff, 3) ;
+
+
+            RAISE NOTICE '  clustering target table' ;
+            table_copy_start_tstamp := clock_timestamp() ;
+
+            EXECUTE '
               CLUSTER ' || r.full_tbl_name || ' USING ' || r.tbl_name || '_pkey;
             ';
 
+            table_copy_end_tstamp := clock_timestamp() ;
+            table_copy_time_diff  := (
+                                        EXTRACT(EPOCH FROM table_copy_end_tstamp)
+                                        - EXTRACT(EPOCH FROM table_copy_start_tstamp)
+                                     ) ;
+            RAISE NOTICE '    % seconds', ROUND(table_copy_time_diff, 3) ;
+
+
+            RAISE NOTICE '  dropping source tables' ;
+
             FOREACH t IN ARRAY r.source_tables::TEXT[]
             LOOP
-              EXECUTE 'DROP TABLE ' || t || ';';
+              RAISE NOTICE '    %', t ;
+              table_copy_start_tstamp := clock_timestamp() ;
+
+              -- IF EXISTS BECAUSE POSSIBLE abstract day-level table drop cascades to hour-level tables.
+              EXECUTE 'DROP TABLE IF EXISTS ' || t || ';';
+
+              table_copy_end_tstamp := clock_timestamp() ;
+              table_copy_time_diff  := (
+                                          EXTRACT(EPOCH FROM table_copy_end_tstamp)
+                                          - EXTRACT(EPOCH FROM table_copy_start_tstamp)
+                                       ) ;
+              RAISE NOTICE '      % seconds', ROUND(table_copy_time_diff, 3) ;
             END LOOP;
+
+            RAISE NOTICE '  attaching target table to public.here_npmrds_schema' ;
+            table_copy_start_tstamp := clock_timestamp() ;
 
             EXECUTE '
               ALTER TABLE public.here_npmrds_schema
@@ -117,6 +174,13 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.concatenate_here_npmrd
                   ''')
               ;
             ';
+
+            table_copy_end_tstamp := clock_timestamp() ;
+            table_copy_time_diff  := (
+                                        EXTRACT(EPOCH FROM table_copy_end_tstamp)
+                                        - EXTRACT(EPOCH FROM table_copy_start_tstamp)
+                                     ) ;
+            RAISE NOTICE '    % seconds', ROUND(table_copy_time_diff, 3) ;
 
           EXCEPTION WHEN OTHERS THEN
             GET STACKED DIAGNOSTICS error_message     = MESSAGE_TEXT,
