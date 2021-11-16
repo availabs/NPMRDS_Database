@@ -35,7 +35,7 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
       ;
 
       -- If public.here_npmrds_schema_current was empty,
-      --   get the earliest epoch start timestamp from the realtime data.
+      --   then get the earliest epoch start timestamp from the realtime data.
       IF ( latest_npmrds_schema_epoch_timestamp IS NULL )
         THEN
             DECLARE
@@ -93,6 +93,9 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
         THEN RETURN;
       END IF;
 
+      -- Get the array of 5-min timestamps between the latest_npmrds_schema_epoch_timestamp
+      --   and the param_tstamp_to_nearest_5min_predecessor.
+      --   These feed the CREATE TABLE loop below.
       SELECT
           ARRAY(
             SELECT
@@ -108,7 +111,7 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
       FOREACH epoch_start_tstamp IN ARRAY pending_epoch_tstamps
       LOOP
         DECLARE
-            npmrds_schema_current_timestamp TIMESTAMP ;
+            npmrds_schema_current_timestamp   TIMESTAMP ;
 
             epoch_end_tstamp                  TIMESTAMP ;
 
@@ -180,7 +183,6 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
             bin_start_timestamp_incl := epoch_start_tstamp - '5 minutes'::INTERVAL ;
             bin_end_timestamp_excl   := epoch_end_tstamp   + '5 minutes'::INTERVAL ;
 
-
             tstamp_date  := epoch_start_tstamp::DATE ;
             tstamp_epoch := (
                               ( EXTRACT('HOUR' FROM epoch_start_tstamp) * 12 )
@@ -222,8 +224,12 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
 
             full_tbl_name := 'here_npmrds_schema_partitions.' || tbl_name ;
 
+            -- Create abstract parent day-level table as a partition of the root here_npmrds_schema table.
+            -- NOTE: Need the abstract day-level table because the root table is partitioned on date,
+            --         while the epoch-level tables are partitioned on epoch.
+            --         This differs from the here_realtime_traffic tables that are consistently
+            --         partitioned by timestamp ranges.
             EXECUTE '
-              -- Create parent day-level table as a partition of the root here_npmrds_schema table.
               CREATE TABLE IF NOT EXISTS ' || full_parent_table_name || '
                 PARTITION OF public.here_npmrds_schema
                 FOR VALUES
@@ -231,9 +237,25 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
                   TO (''' || ( tstamp_date + '1 day'::INTERVAL ) || ''')
                 PARTITION BY RANGE (epoch)
               ;
+            ';
 
-              -- Create the hour-level table as a partition of the day-level table.
-              -- NOTE: MUST raise exception if the table exists.
+            -- Create the hour-level table as a partition of the day-level table.
+            -- NOTE: Reason why multiple epochs per hour-level table, rather than table per epoch:
+            --         The root here_npmrds_schema table is partitioned by date.
+            --         If we were to have epoch-level tables, we would need to either
+            --           * add an bstract hour-level table into the hierarchy
+            --                  day-level
+            --                     |
+            --                     +- hour-level
+            --                            |
+            --                            +- epoch-level
+            --
+            --             which would complicate the table rolling/concatenation procedure
+            --
+            --           * have 288 epoch-level tables beneath the current date
+            --
+            -- NOTE: MUST use "IF NOT EXISTS" because hour-level table contains up to 12 epochs.
+            EXECUTE '
               CREATE TABLE IF NOT EXISTS ' || full_tbl_name || '
                 PARTITION OF ' || full_parent_table_name || '
                 ( PRIMARY KEY (tmc, date, epoch) )
@@ -243,6 +265,11 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
               ;
             ' ;
 
+            -- Create a temporary table with data concerning the realtime data time bins.
+            --   NOTE: bins_overlap_seconds is the number of seconds overlap between
+            --         the realtime data time bin and the 5-minute time bin. This
+            --         value is used to calcuate the weighted average of travel_times
+            --         for a 5-minute time bin.
             EXECUTE '
               CREATE TEMPORARY TABLE tmp_included_realtime_timebins
                 ON COMMIT DROP
@@ -275,14 +302,12 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
                   )
                     SELECT
                         realtime_bin_start_timestamp,
-                        realtime_bin_timerange,
                         EXTRACT(
                           EPOCH FROM UPPER(bin_overlap_range) - LOWER(bin_overlap_range)
                         ) AS bins_overlap_seconds
                       FROM (
                         SELECT
                             realtime_bin_start_timestamp,
-                            realtime_bin_timerange,
                             (
                               realtime_bin_timerange
                               *
@@ -304,6 +329,9 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
              ;
             ' ;
 
+            -- The [bin_realtime_first_tstamp_incl, bin_realtime_last_tstamp_incl] is the
+            --   inclusive range of the here_realtime_traffic data to be used in the
+            --   5-minute npmrds_schema travel_time_all_vehicles calculation.
             EXECUTE '
               SELECT
                   MIN(realtime_bin_start_timestamp) AS bin_realtime_first_tstamp_incl,
@@ -311,8 +339,12 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
                 FROM tmp_included_realtime_timebins
             ;' INTO bin_realtime_first_tstamp_incl, bin_realtime_last_tstamp_incl ;
 
+            -- NOTE: When there is a gap in the here_realtime_traffic data, the above EXECUTE INTO
+            --       may not return any values. If this is the case, the below EXECUTE query string
+            --       would be NULL, causing an error.
             IF (bin_realtime_first_tstamp_incl IS NOT NULL)
               THEN
+                -- Creating the TEMP table and CLUSTERING it is a performance optimization.
                 EXECUTE '
                   CREATE TEMPORARY TABLE tmp_included_realtime_traffic (
                     timestamp     TIMESTAMP,
@@ -387,6 +419,7 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
               ;
             ';
 
+            -- Update the here_npmrds_schema_current VIEW definition.
             EXECUTE '
               CREATE OR REPLACE VIEW public.here_npmrds_schema_current
                 AS

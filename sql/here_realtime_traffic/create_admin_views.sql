@@ -336,7 +336,7 @@ CREATE OR REPLACE VIEW here_npmrds_schema_partitions._admin_pending_npmrds_schem
         )
       )
       GROUP BY a.tablename
-      ORDER BY LENGTH(a.tablename)
+      ORDER BY LENGTH(a.tablename) DESC
 ;
 
 COMMIT ;

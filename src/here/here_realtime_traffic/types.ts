@@ -27,3 +27,22 @@ export type HereRealtimeTrafficDatabaseRow = {
   speed: HereRealtimeTrafficEntryComplete["spd"] | null;
   jam_factor: HereRealtimeTrafficEntryComplete["jf"] | null;
 };
+
+export type HereRealtimeTrafficRequestTimestamp = Date;
+export type HereRealtimeTrafficJsonGzipPath = string;
+
+// Data representing either successful or unsuccessful API request.
+//   If successful, hereRealtimeTrafficJsonGzipPath is not null.
+export type HereRealtimeTrafficDownloaderResponseMetadata = {
+  hereRealtimeTrafficRequestTimestamp: HereRealtimeTrafficRequestTimestamp;
+  hereRealtimeTrafficJsonGzipPath: HereRealtimeTrafficJsonGzipPath | null;
+};
+
+export type HereRealtimeTrafficDownloadTimeObj = {
+  year: string;
+  month: string;
+  day: string;
+  hour: string;
+  minute: string;
+  second: string;
+};

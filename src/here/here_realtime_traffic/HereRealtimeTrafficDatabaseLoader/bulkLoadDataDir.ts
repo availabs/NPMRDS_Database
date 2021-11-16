@@ -3,7 +3,7 @@
 import { readdirSync } from "fs";
 import { join } from "path";
 
-import { default as HereRealtimeTrafficDatabaseLoaderFactory } from ".";
+import { default as HereRealtimeTrafficDatabaseLoaderFactory } from "./HereRealtimeTrafficDatabaseLoaderFactory";
 
 const pg_env = "development";
 

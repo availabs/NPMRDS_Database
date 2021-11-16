@@ -23,6 +23,7 @@
     "dotenv": "^10.0.0",
     "event-stream": "^3.3.4",
     "fast-csv": "^4.3.6",
+    "file-stream-rotator": "^0.5.7",
     "gdal": "^0.10.1",
     "got": "^11.8.2",
     "inquirer": "^7.0.0",
