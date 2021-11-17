@@ -1,3 +1,4 @@
 postgres.docker.env
 here_credentials.js
 postgres.env*
+HereRealtimeTrafficApiToken
