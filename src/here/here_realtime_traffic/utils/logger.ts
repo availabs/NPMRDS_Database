@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import { mkdirSync, existsSync } from "fs";
+import { mkdirSync } from "fs";
 import { join } from "path";
 
 import fileStreamRotator from "file-stream-rotator";
@@ -18,7 +18,11 @@ const logStream = fileStreamRotator.getStream({
 });
 
 function compressFile(filePath: string) {
-  execSync(`gzip -9 ${filePath}`);
+  try {
+    execSync(`gzip -9 ${filePath}`);
+  } catch (err) {
+    // If running multiple processes, other process may have already gzipped the file.
+  }
 }
 
 class Logger {
