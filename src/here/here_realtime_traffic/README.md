@@ -33,7 +33,7 @@ For usage, see:
   - Bulk load of files in here_realtime_traffic_data_dir
     - Safely disregards files already loaded into the database.
   - Continuous realtime database updates
-- Contains logic to handle errors while maintaining database integrity
+- Contains logic to gracefully handle errors and maintain database integrity
 
 ### HereRealtimeTrafficEtlService
 
@@ -45,7 +45,7 @@ Composes the HereRealtimeTrafficDownloader and the HereRealtimeTrafficDatabaseLo
 - Starts the HereRealtimeTrafficDownloader scraping.
   - Scraping runs throughout archived file loading.
   - The ETL Service queues scraper results for loading during this time.
-    - Once all archived files are loaded, the ETL Service loads the
+    - Once all queued files are loaded, the ETL Service loads the
       HERE Realtime Traffic API responses in realtime.
 
 For usage, see:
@@ -113,7 +113,7 @@ Number of partitions: 4 (Use \d+ to list them.)
 
 ### public.here_realtime_traffic_current view
 
-Always returns the ONLY the most recent HERE Realtime Traffic data.
+Always returns ONLY the most recent HERE Realtime Traffic data.
 Query performance is heavily optimized.
 
 ```psql
@@ -131,8 +131,8 @@ npmrds_production=# \d public.here_realtime_traffic_current
 
 ### public.here_npmrds_schema_current view
 
-Always returns the ONLY the most recent HERE Realtime Traffic data averaged
-into 5-minute bins. Query performance is heavily optimized.
+Always returns ONLY the most recent HERE Realtime Traffic 5-minute bin averaged data.
+Query performance is heavily optimized.
 
 ```psql
 npmrds_production=# \d public.here_npmrds_schema_current
