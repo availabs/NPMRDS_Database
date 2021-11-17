@@ -16,8 +16,8 @@ A brief overview of the HERE Realtime Traffic Scraper & ETL Service.
 
 - Downloads the HERE Realtime Traffic data from the API on 2 minute intervals
 - Disregards stale data downloads
-  - Responses do not have timestamps. Stale data is defined as all data same
-    for all TMCs.
+  - Because responses do not have timestamps, stale data is defined as a response
+    with the same MD5SUM as the previous response.
 - Retries on 1 minute interval if stale data or API error.
 
 For usage, see:
