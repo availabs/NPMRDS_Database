@@ -11,7 +11,7 @@ mkdirSync(logDir, { recursive: true });
 const logStream = fileStreamRotator.getStream({
   filename: join(logDir, "here-realtime-traffic-etl-%DATE%.log"),
   verbose: false,
-  frequency: "15m",
+  frequency: "1d",
   date_format: "YYYYMMDDTHHmm",
   create_symlink: true,
   symlink_name: "here-realtime-traffic-etl-current",
