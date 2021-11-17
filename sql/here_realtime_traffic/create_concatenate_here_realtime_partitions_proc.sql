@@ -18,12 +18,14 @@ CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions.concatenate_here_re
           SELECT
               'here_realtime_traffic_partitions.' || target_table_name AS full_tbl_name,
               target_table_name AS tbl_name,
-              start_timestamp,
-              end_timestamp,
+              SUBSTRING(target_table_name FROM LENGTH('here_realtime_traffic_y')) AS suffix,
               source_tables
-            FROM here_realtime_traffic_partitions._admin_pending_realtime_concatenations
+            FROM here_realtime_traffic_partitions._admin_pending_realtime_traffic_concatenations
       LOOP
         DECLARE
+            start_timestamp   TIMESTAMP ;
+            end_timestamp     TIMESTAMP ;
+
             error_message     TEXT;
             exception_detail  TEXT;
             exception_hint    TEXT;
@@ -45,6 +47,18 @@ CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions.concatenate_here_re
                 )
               ;
             ';
+
+            EXECUTE '
+              SELECT
+                  extent[1] AS start_timestamp,
+                  extent[2] AS end_timestamp
+                FROM (
+                  SELECT here_realtime_traffic_partitions.here_timeframe_suffix_date_extent(
+                    ''' || r.suffix || '''
+                  ) AS extent
+                ) AS t
+              ;
+            ' INTO start_timestamp, end_timestamp ;
 
             FOREACH t IN ARRAY r.source_tables::TEXT[]
             LOOP
@@ -78,7 +92,7 @@ CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions.concatenate_here_re
             EXECUTE '
               ALTER TABLE public.here_realtime_traffic
                 ATTACH PARTITION ' || r.full_tbl_name || '
-                  FOR VALUES FROM (''' || r.start_timestamp || ''') TO (''' || r.end_timestamp || ''')
+                  FOR VALUES FROM (''' || start_timestamp || ''') TO (''' || end_timestamp || ''')
               ;
             ';
 

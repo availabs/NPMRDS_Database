@@ -52,7 +52,8 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.concatenate_here_npmrd
           --  Need this nested block because of the exception handler within it.
           --    "A transaction cannot be ended inside a block with exception handlers."
           BEGIN
-            RAISE NOTICE 'Concatenting source tables into target_table %', r.full_tbl_name;
+            --  RAISE NOTICE 'Concatenting the following source tables into target_table %', r.full_tbl_name;
+            --  RAISE NOTICE '%', jsonb_pretty(array_to_json(r.source_tables)::JSONB) ;
 
             EXECUTE '
               SELECT
