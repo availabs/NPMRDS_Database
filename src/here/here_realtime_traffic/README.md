@@ -35,6 +35,12 @@ For usage, see:
   - Continuous realtime database updates
 - Contains logic to gracefully handle errors and maintain database integrity
 
+For usage, see:
+
+```sh
+./HereRealtimeTrafficDatabaseLoader/run --help
+```
+
 ### HereRealtimeTrafficEtlService
 
 Composes the HereRealtimeTrafficDownloader and the HereRealtimeTrafficDatabaseLoader.

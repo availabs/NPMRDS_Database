@@ -496,17 +496,20 @@ export class HereRealtimeTrafficDatabaseLoader {
       batchMetadata,
       _.isEqual
     );
-    // Metadata without equivalent entries in the queue.
-    const queueDifference = _.differenceWith(
-      batchMetadata,
-      this.hereRealtimeTrafficDownloaderResponseMetadataQueue,
-      _.isEqual
+    //  Metadata without equivalent entries in the queue,
+    //    cloned so caller cannot mutate.
+    const queueDifference = _.cloneDeep(
+      _.differenceWith(
+        batchMetadata,
+        this.hereRealtimeTrafficDownloaderResponseMetadataQueue,
+        _.isEqual
+      )
     );
 
-    // Clone the input metadata so caller cannot mutate.
-    const batch = _(_.cloneDeep([...queueIntersection, ...queueDifference]))
-      .sortBy("hereRealtimeTrafficRequestTimestamp")
-      .value();
+    const batch = _.sortBy(
+      [...queueIntersection, ...queueDifference],
+      "hereRealtimeTrafficRequestTimestamp"
+    );
 
     // NOTE: Awaiting responseMetadata object references MUST be same as what is in loading queue.
     const awaiting = new Set(batch);

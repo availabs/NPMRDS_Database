@@ -1,0 +1,24 @@
+#!/usr/bin/env node
+
+const yargs = require("yargs");
+
+require("ts-node").register();
+
+const { bulkLoadDataDirFiles } = require("./yargs_wrapper");
+
+const taskCommands = yargs.parserConfiguration({
+  "camel-case-expansion": false,
+  "flatten-duplicate-arrays": false,
+});
+
+//  Make downloadTranscomEvents the default command
+//    https://github.com/yargs/yargs/blob/master/docs/advanced.md#default-commands
+const config = { ...bulkLoadDataDirFiles, command: "$0" };
+
+taskCommands.command(config);
+
+taskCommands
+  .demandCommand()
+  .recommendCommands()
+  .strict()
+  .wrap(yargs.terminalWidth() / 1.618).argv;
