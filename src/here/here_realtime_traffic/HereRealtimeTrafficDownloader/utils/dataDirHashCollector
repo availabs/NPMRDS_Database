@@ -1,0 +1,118 @@
+#!/usr/bin/env node
+
+// This script was used to compare the HERE API response files
+//   from two machines that were temporarily running
+//   separate versions of the HereRealtimeTrafficDownloader concurrently.
+// It creates a SQLite database of the file names and their hashes.
+// It was used to make sure the newer version of the scraper was not
+//   missing API responses. It in fact showed that the newer version
+//   included responses that the original version did not due to
+//   the shorter retry window.
+
+const { promisify } = require("util");
+const { pipeline } = require("stream");
+const {
+  existsSync,
+  unlinkSync,
+  readdirSync,
+  statSync,
+  createReadStream,
+} = require("fs");
+
+const { join } = require("path");
+
+const { createGunzip } = require("zlib");
+const { createHash } = require("crypto");
+
+const through = require("through2");
+const DB = require("better-sqlite3");
+
+const pipelineAsync = promisify(pipeline);
+
+const dataDirPath = join(__dirname, "../../../../../data/here/");
+
+const minFileDateIncl = "20211114";
+const maxFileDateIncl = "20211121";
+
+const fileNamePrefix = "here-realtime-traffic.";
+
+const minPrefixIncl = `${fileNamePrefix}${minFileDateIncl}`;
+const maxPrefixIncl = `${fileNamePrefix}${maxFileDateIncl}`;
+
+const dbFilePath = join(__dirname, "data_dir_summary.db");
+
+if (existsSync(dbFilePath)) {
+  unlinkSync(dbFilePath);
+}
+
+const db = DB(dbFilePath);
+
+db.exec(`
+  CREATE TABLE data_dir_summary (
+    file_name        TEXT PRIMARY KEY,
+    file_hash        TEXT NOT NULL
+  ) WITHOUT ROWID ;
+`);
+
+const insertRowStmt = db.prepare(`
+  INSERT INTO data_dir_summary
+    VALUES (?, ?)
+`);
+
+const files = readdirSync(dataDirPath).filter((f) => {
+  const pre = f.slice(0, minPrefixIncl.length);
+  return pre >= minPrefixIncl && pre <= maxPrefixIncl;
+});
+
+const getFileHash = async (fileName) => {
+  const stat = statSync(join(dataDirPath, fileName));
+  console.log(stat);
+
+  if (stat.size === 0) {
+    return null;
+  }
+
+  const hash = createHash("md5");
+
+  const hashUpdater = through(function fn(chunk, _$, cb) {
+    console.log("HASH UPDATER");
+    hash.update(chunk);
+    cb(null);
+  });
+
+  const gunzip = createGunzip();
+  gunzip.on("error", console.error.bind(console));
+
+  await pipelineAsync(
+    createReadStream(join(dataDirPath, fileName)),
+    createGunzip(),
+    hashUpdater
+  );
+
+  const fileHash = hash.digest("hex");
+
+  return { fileName, fileHash };
+};
+
+async function main() {
+  console.log(files);
+  for (const f of files) {
+    console.log(f);
+    try {
+      const result = await getFileHash(f);
+      console.log(result);
+
+      if (result === null) {
+        continue;
+      }
+
+      const { fileName, fileHash } = result;
+      insertRowStmt.run(fileName, fileHash);
+      console.log(fileName, fileHash);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+}
+
+main();

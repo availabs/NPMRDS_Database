@@ -1,4 +1,5 @@
 export type PGEnv = "development" | "production";
+export type HereRealtimeTrafficDataDir = "string";
 
 export type TranscomEventID = string;
 
