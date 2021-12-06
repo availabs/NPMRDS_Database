@@ -70,48 +70,55 @@ const sedProgram =
   '/[A-Za-Z0-9]/!d';
 
 const getURLDocumentName = (table, region, year) => {
-  switch (table) {
-    // === AVGWD ===
-    case 'average_weekday_speed':
-      return year <= 2017
-        ? `SC_Speed_AVGWD_R${padStart(region, 2, '0')}_${year}.zip`
-        : `SC_SPEED_AVGWD_R${padStart(region, 2, '0')}_${year}.zip`;
-
-    case 'average_weekday_vehicle_classification':
-      return `SC_CLASS_AVGWD_R${padStart(region, 2, '0')}_${year}.zip`;
-
-    case 'average_weekday_volume':
-      return `SC_Volume_AVGWD_R${padStart(region, 2, '0')}_${year}.zip`;
-
-    // === CC ===
-    case 'continuous_vehicle_classification':
-      return year <= 2015
-        ? `CC_CLASS_R${region}_${year}.zip`
-        : `CC_Class_Data_R${padStart(region, 2, '0')}_${year}.zip`;
-
-    case 'continuous_volume':
-      return year <= 2015
-        ? `CC_VOL_R${region}_${year}.zip`
-        : `CC_Volume_Data_R${padStart(region, 2, '0')}_${year}.zip`;
-
-    case 'short_count_speed':
-      return year <= 2017
-        ? `SC_Speed_Data_R${padStart(region, 2, '0')}_${year}.zip`
-        : `SC_SPEED_DATA_R${padStart(region, 2, '0')}_${year}.zip`;
-
-    case 'short_count_vehicle_classification':
-      return year <= 2017
-        ? `SC_Class_Data_R${padStart(region, 2, '0')}_${year}.zip`
-        : `SC_CLASS_DATA_R${padStart(region, 2, '0')}_${year}.zip`;
-
-    case 'short_count_volume':
-      return year <= 2017
-        ? `SC_Volume_Data_R${padStart(region, 2, '0')}_${year}.zip`
-        : `SC_VOLUME_DATA_R${padStart(region, 2, '0')}_${year}.zip`;
-
-    default:
-      throw new Error('Unrecognized table name');
+  // === AVGWD ===
+  if (table === 'average_weekday_speed') {
+    return year <= 2017
+      ? `SC_Speed_AVGWD_R${padStart(region, 2, '0')}_${year}.zip`
+      : `SC_SPEED_AVGWD_R${padStart(region, 2, '0')}_${year}.zip`;
   }
+
+  if (table === 'average_weekday_vehicle_classification') {
+    return `SC_CLASS_AVGWD_R${padStart(region, 2, '0')}_${year}.zip`;
+  }
+
+  if (table === 'average_weekday_volume') {
+    return `SC_Volume_AVGWD_R${padStart(region, 2, '0')}_${year}.zip`;
+  }
+
+  // === CC ===
+  if (table === 'continuous_vehicle_classification') {
+    return year <= 2015
+      ? `CC_CLASS_R${region}_${year}.zip`
+      : `CC_Class_Data_R${padStart(region, 2, '0')}_${year}.zip`;
+  }
+
+  if (table === 'continuous_volume') {
+    return year <= 2015
+      ? `CC_VOL_R${region}_${year}.zip`
+      : `CC_Volume_Data_R${padStart(region, 2, '0')}_${year}.zip`;
+  }
+
+  // === SC ===
+  if (table === 'short_count_speed') {
+    return year <= 2017
+      ? `SC_Speed_Data_R${padStart(region, 2, '0')}_${year}.zip`
+      : `SC_SPEED_DATA_R${padStart(region, 2, '0')}_${year}.zip`;
+  }
+
+  if (table === 'short_count_vehicle_classification') {
+    return year <= 2017
+      ? `SC_Class_Data_R${padStart(region, 2, '0')}_${year}.zip`
+      : `SC_CLASS_DATA_R${padStart(region, 2, '0')}_${year}.zip`;
+  }
+
+
+  if (table === 'short_count_volume') {
+    return year <= 2017
+      ? `SC_Volume_Data_R${padStart(region, 2, '0')}_${year}.zip`
+      : `SC_VOLUME_DATA_R${padStart(region, 2, '0')}_${year}.zip`;
+  }
+
+  throw new Error('Unrecognized table name');
 };
 
 // https://www.dot.ny.gov/divisions/engineering/technical-services/highway-data-services/hdsb
