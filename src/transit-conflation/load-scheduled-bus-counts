@@ -1,0 +1,211 @@
+#!/usr/bin/env node
+
+const { execSync } = require("child_process");
+const { join } = require("path");
+
+const yargs = require("yargs");
+const envFile = require("node-env-file");
+const _ = require("lodash");
+
+const TransitConflationDatabaseObjectNames = require("./TransitConflationDatabaseObjectNames");
+
+const cliArgsSpec = {
+  year: {
+    demand: true,
+    type: "number",
+  },
+  conflationMapVersion: {
+    demand: true,
+    type: "string",
+    describe: "E.G.: 0.4.2",
+  },
+  transitBusCountsSqliteDb: {
+    demand: true,
+    type: "string",
+  },
+  pg_env: {
+    type: "string",
+    demand: false,
+    choices: ["production", "development"],
+    default: "development",
+  },
+};
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    "camel-case-expansion": false,
+    "flatten-duplicate-arrays": false,
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const { year, conflationMapVersion, transitBusCountsSqliteDb, pg_env } = argv;
+
+const configPath = join(
+  __dirname,
+  pg_env === "production"
+    ? "../../config/postgres.env.prod"
+    : "../../config/postgres.env.dev"
+);
+envFile(configPath);
+
+const createTransitConflationTableSqlPath = join(
+  __dirname,
+  "../../sql/transit_conflation/createTransitConflationTable.sql"
+);
+
+const {
+  transitConflationSchema,
+  transitConflationTableName,
+  transitConflationTableFullName,
+  transitConflationTablePrimaryKeyIdxName,
+  transitAgencyMapSegmentLookupMViewFullName,
+  transitAgencyMapSegmentLookupMViewIndexName,
+  transitAgencyNamesViewFullName,
+} = new TransitConflationDatabaseObjectNames(year, conflationMapVersion);
+
+const timestamp = Math.floor(new Date().getTime() / 1000);
+
+// "TEMPORARY" table name
+const tmpVersionedTransitConflationTableName = `tmp_${transitConflationTableName}_${timestamp}`;
+const tmpVersionedTransitConflationTableFullName = `${transitConflationSchema}.${tmpVersionedTransitConflationTableName}`;
+
+const { PGHOST, PGPORT, PGUSER, PGDATABASE, PGPASSWORD } = process.env;
+
+if (_.isNil(PGHOST && PGPORT && PGUSER && PGDATABASE && PGPASSWORD)) {
+  console.error(
+    "The PostgreSQL config file must contain the following credential variables:"
+  );
+  console.error("     PGHOST, PGPORT, PGUSER, PGDATABASE, PGPASSWORD");
+  process.exit(1);
+}
+
+const createTransitConflationVersionDatabaseTable = () => {
+  // Using psql so we can use script variables.
+  execSync(
+    `
+      psql \
+        --quiet \
+        -v YEAR=${year} \
+        -v TRANSIT_CONFLATION_SCHEMA_NAME='${transitConflationSchema}' \
+        -v TABLE_NAME='${transitConflationTableName}' \
+        -v FULL_TABLE_NAME='${transitConflationTableFullName}' \
+        -v PKEY_IDX_NAME='${transitConflationTablePrimaryKeyIdxName}' \
+        -v FULL_AGENCY_MAP_SEGMENT_LOOKUP_MVIEW='${transitAgencyMapSegmentLookupMViewFullName}' \
+        -v AGENCY_MAP_SEGMENT_LOOKUP_MVIEW_IDX='${transitAgencyMapSegmentLookupMViewIndexName}' \
+        -v AGENCY_NAMES_VIEW_FULL_NAME='${transitAgencyNamesViewFullName}' \
+        -f '${createTransitConflationTableSqlPath}'
+    `
+  );
+};
+
+const loadTransitConflationIntoTemporaryTable = () => {
+  console.log(
+    `Loading the SQLite DB into a PostgreSQL temporary table ${tmpVersionedTransitConflationTableFullName}`
+  );
+
+  execSync(`
+    psql -c '
+      CREATE TABLE ${tmpVersionedTransitConflationTableFullName} (
+        LIKE ${transitConflationTableFullName}
+      );
+    '
+  `);
+
+  execSync(`
+    sqlite3 -header -csv ${transitBusCountsSqliteDb} '
+      SELECT
+          conflation_map_id,
+          total_bus_counts,
+          total_bus_counts_am,
+          total_bus_counts_off,
+          total_bus_counts_pm,
+          total_bus_counts_wknd,
+          total_bus_counts_ovn,
+          bus_counts_by_agency_route
+        FROM aggregated_conflation_map_segments_bus_aadt
+    ' |
+      psql -c '
+        COPY ${tmpVersionedTransitConflationTableFullName} (
+          conflation_map_id,
+          total_bus_counts,
+          total_bus_counts_am,
+          total_bus_counts_off,
+          total_bus_counts_pm,
+          total_bus_counts_wknd,
+          total_bus_counts_ovn,
+          bus_counts_by_agency_route
+        ) FROM STDIN WITH CSV HEADER ;
+      '
+  `);
+};
+
+const integrateNewMapIntoDatabase = () => {
+  const sql = `
+    BEGIN ;
+
+    -- Clear the transit conflation table, in case it already existed and has data
+    DELETE FROM ${transitConflationTableFullName} ;
+
+    -- Transfer the transit conflation data from the temp to the permanent table.
+    INSERT INTO ${transitConflationTableFullName} (
+      conflation_map_id,
+      total_bus_counts,
+      total_bus_counts_am,
+      total_bus_counts_off,
+      total_bus_counts_pm,
+      total_bus_counts_wknd,
+      total_bus_counts_ovn,
+      bus_counts_by_agency_route
+    )
+      SELECT
+          conflation_map_id,
+          total_bus_counts,
+          total_bus_counts_am,
+          total_bus_counts_off,
+          total_bus_counts_pm,
+          total_bus_counts_wknd,
+          total_bus_counts_ovn,
+          bus_counts_by_agency_route
+        FROM ${tmpVersionedTransitConflationTableFullName}
+    ;
+
+    -- NOTE: tmpVersionedConflationMapTable is DROPPED below in the finally clause.
+
+    CLUSTER ${transitConflationTableFullName} ;
+
+    REFRESH MATERIALIZED VIEW ${transitAgencyMapSegmentLookupMViewFullName} ;
+
+    COMMIT ;
+  
+    ANALYZE ${transitConflationTableFullName};
+  `;
+
+  execSync(`psql -c '${sql}'`);
+};
+
+const dropTempTable = () => {
+  execSync(`
+    psql -c 'DROP TABLE IF EXISTS ${tmpVersionedTransitConflationTableFullName} ;'
+  `);
+};
+
+try {
+  createTransitConflationVersionDatabaseTable();
+
+  let task =
+    "load transit conflation SQLite database into PostgreSQL temporary table";
+  console.time(task);
+  loadTransitConflationIntoTemporaryTable();
+  console.timeEnd(task);
+
+  task = "integrate new transit conflation into database";
+  console.time(task);
+  integrateNewMapIntoDatabase();
+  console.timeEnd(task);
+} catch (err) {
+  console.error(err);
+} finally {
+  dropTempTable();
+}
