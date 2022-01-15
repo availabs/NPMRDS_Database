@@ -1,6 +1,6 @@
 BEGIN ;
 
-CREATE OR REPLACE FUNCTION _qa_tmc_metadata_versions_diff(
+CREATE OR REPLACE FUNCTION public._qa_tmc_metadata_versions_diff(
     state       TEXT,
     version_a   TEXT,
     version_b   TEXT
@@ -120,8 +120,26 @@ CREATE OR REPLACE FUNCTION _qa_tmc_metadata_versions_diff(
 ;
 
 
-COMMENT ON FUNCTION _qa_tmc_metadata_versions_diff(state TEXT, version_a TEXT, version_b TEXT) IS '
+COMMENT ON FUNCTION public._qa_tmc_metadata_versions_diff(state TEXT, version_a TEXT, version_b TEXT) IS '
   This FUNCTION compares two tmc_metadata versions.
 ';
+
+
+CREATE OR REPLACE FUNCTION public._qa_tmc_metadata_versions_diff_columns(
+    state       TEXT,
+    version_a   TEXT,
+    version_b   TEXT
+  )
+  RETURNS TABLE (
+    "column" TEXT
+  )
+  AS $$
+    SELECT DISTINCT
+        jsonb_object_keys(diff)
+      FROM public._qa_tmc_metadata_versions_diff(state, version_a, version_b)
+      ORDER BY 1
+    ;
+  $$ LANGUAGE SQL
+;
 
 COMMIT ;
