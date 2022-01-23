@@ -1,6 +1,6 @@
 # Airports
 
-USDOT BTS [Airports](https://data-usdot.opendata.arcgis.com/datasets/usdot::airports/about)o
+USDOT BTS [Airports](https://data-usdot.opendata.arcgis.com/datasets/usdot::airports/about)
 
 > The dataset provides users with information about airport locations and
 > attributes and can be used for national and regional analysis applications.
