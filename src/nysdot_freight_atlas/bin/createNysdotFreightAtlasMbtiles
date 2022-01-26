@@ -84,7 +84,11 @@ function dumpNysdotFreightAtlasTable(table) {
       nysdot_freight_atlas.${table}
   `;
 
-  execSync(cmd, { cwd: tmpDirPath });
+  const stdout = execSync(cmd, { cwd: tmpDirPath, encoding: "utf8" });
+  if (stdout) {
+    console.log("\n=== ogr2ogr output ===");
+    console.log(stdout);
+  }
 }
 
 function createMbtilesLayer(tables) {
@@ -92,28 +96,39 @@ function createMbtilesLayer(tables) {
 
   const cmd = `
     tippecanoe \
-      -zg \
+      --no-feature-limit \
+      --no-tile-size-limit \
+      --generate-ids \
+      --read-parallel \
+      --force \
       -o nysdot_freight_atlas.${table_version}.mbtiles \
       ${geojsonFileNames}
   `;
 
   const stdout = execSync(cmd, { cwd: tmpDirPath, encoding: "utf8" });
-  console.log(stdout);
+
+  if (stdout) {
+    console.log(stdout);
+  }
 }
 
 async function main() {
-  console.log(tmpDirPath);
+  try {
+    console.log(tmpDirPath);
 
-  await connectClient();
-  const tables = await getNysdotFreightAtlasTablesForVersion();
+    await connectClient();
+    const tables = await getNysdotFreightAtlasTablesForVersion();
 
-  for (const table of tables) {
-    dumpNysdotFreightAtlasTable(table);
+    for (const table of tables) {
+      dumpNysdotFreightAtlasTable(table);
+    }
+
+    createMbtilesLayer(tables);
+
+    disconnectClient();
+  } catch (err) {
+    console.error(err);
   }
-
-  createMbtilesLayer(tables);
-
-  disconnectClient();
 }
 
 main();
