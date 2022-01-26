@@ -1,0 +1,119 @@
+#!/usr/bin/env node
+
+const { execSync } = require("child_process");
+
+const _ = require("lodash");
+
+const tmp = require("tmp");
+
+const { Client } = require("pg");
+
+const dotenv = require("dotenv");
+
+const {
+  getPostgresConfigurationFilePath,
+} = require("../../../make_targets/utils");
+
+let db = null;
+
+const table_version = "2016";
+const pg_env = "development";
+
+const putPostgresCredentialsInEnvironmentVariables = _.once(() => {
+  const configPath = getPostgresConfigurationFilePath(pg_env);
+
+  dotenv.config({ path: configPath });
+
+  const { PGDATABASE, PGHOST, PGPORT } = process.env;
+
+  console.error(
+    `Using ${PGDATABASE} at ${PGHOST}:${PGPORT} for the most recent Transcom event timestamp.`
+  );
+});
+
+// tmp.setGracefulCleanup();
+// const { name: tmpDirPath } = tmp.dirSync({ keep: false, unsafeCleanup: true });
+const { name: tmpDirPath } = tmp.dirSync({ keep: true, unsafeCleanup: false });
+console.log(tmpDirPath);
+
+const timestamp = new Date().toISOString().replace(/[^0-9A-Za-z]/g, "");
+
+async function connectClient() {
+  putPostgresCredentialsInEnvironmentVariables();
+  db = new Client();
+  return await db.connect();
+}
+
+async function disconnectClient() {
+  return await db.end();
+}
+
+async function getNysdotFreightAtlasTablesForVersion() {
+  const { rows } = await db.query(`
+    SELECT
+        tablename
+      FROM pg_catalog.pg_tables
+      WHERE (
+        ( schemaname = 'nysdot_freight_atlas' )
+        AND
+        ( tablename LIKE '%v${table_version}' )
+      )
+      ORDER BY tablename
+  `);
+
+  const tables = rows.map(({ tablename }) => tablename);
+
+  return tables;
+}
+
+function dumpNysdotFreightAtlasTable(table) {
+  putPostgresCredentialsInEnvironmentVariables();
+
+  const { PGHOST, PGUSER, PGDATABASE, PGPASSWORD } = process.env;
+
+  const creds = `host='${PGHOST}' user='${PGUSER}' dbname='${PGDATABASE}' password='${PGPASSWORD}'`;
+
+  console.log("dumping", table, "to GeoJSON");
+
+  const cmd = `
+    ogr2ogr \
+      -f 'GeoJSON' \
+      /vsigzip/${table}.geojson.gz \
+      -skipfailures \
+      PG:"${creds}" \
+      nysdot_freight_atlas.${table}
+  `;
+
+  execSync(cmd, { cwd: tmpDirPath });
+}
+
+function createMbtilesLayer(tables) {
+  const geojsonFileNames = tables.map((t) => `${t}.geojson.gz`).join(" ");
+
+  const cmd = `
+    tippecanoe \
+      -zg \
+      -o nysdot_freight_atlas.${table_version}.mbtiles \
+      ${geojsonFileNames}
+  `;
+
+  const stdout = execSync(cmd, { cwd: tmpDirPath, encoding: "utf8" });
+  console.log(stdout);
+}
+
+async function main() {
+  console.log(tmpDirPath);
+
+  await connectClient();
+  const tables = await getNysdotFreightAtlasTablesForVersion();
+
+  for (const table of tables) {
+    dumpNysdotFreightAtlasTable(table);
+  }
+
+  createMbtilesLayer(tables);
+
+  disconnectClient();
+}
+
+main();
