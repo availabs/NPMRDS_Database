@@ -1,0 +1,99 @@
+#!/usr/bin/env node
+
+const {
+  existsSync,
+  mkdirSync,
+  rmdirSync,
+  readFileSync,
+  writeFileSync,
+  appendFileSync,
+} = require("fs");
+
+const { join, relative } = require("path");
+
+const _ = require("lodash");
+
+if (process.argv.length !== 3) {
+  console.error(`
+  USAGE: Provide the FreightAtlas layer name (in snake case) as the sole positional CLI argument
+    E.G.
+          generateFreightAtlasLoader border_crossing_ports\n`);
+
+  process.exit(1);
+}
+
+const layerNameSnakeCase = process.argv[2];
+
+if (!/^[a-z][0-9a-z_]*$/.test(layerNameSnakeCase)) {
+  console.error(layerNameSnakeCase);
+  console.error(
+    'ERROR: FreightAtlas layer name must be in snake case and start with a letter. (E.G. "border_crossing_ports")'
+  );
+  process.exit(1);
+}
+
+const layerNameUpperFirstCamelCase = _.upperFirst(
+  _.camelCase(layerNameSnakeCase)
+);
+
+const rootDir = join(__dirname, "..");
+
+const loaderDir = join(rootDir, "loaders", layerNameSnakeCase);
+
+const templatesDir = join(rootDir, "templates");
+
+if (existsSync(loaderDir)) {
+  const relToCwd = relative(process.cwd(), loaderDir);
+  console.error(`ERROR: directory ${relToCwd}/ already exists`);
+  process.exit(1);
+}
+
+function writeLoaderCode() {
+  const templatePath = join(templatesDir, "LoaderTemplate.ts");
+  const template = readFileSync(templatePath, { encoding: "utf8" });
+
+  const loaderCode = template
+    .replace(/__LAYER_NAME_CAMEL_UPPER_CASE__/g, layerNameUpperFirstCamelCase)
+    .replace(/__LAYER_NAME_LOWER_SNAKE_CASE__/g, layerNameSnakeCase);
+
+  const loaderCodePath = join(loaderDir, "index.ts");
+  writeFileSync(loaderCodePath, loaderCode);
+}
+
+function writeYargsWrapper() {
+  const templatePath = join(templatesDir, "YargsWrapperTemplate.ts");
+  const template = readFileSync(templatePath, { encoding: "utf8" });
+
+  const yargsWrapper = template
+    .replace(/__LAYER_NAME_CAMEL_UPPER_CASE__/g, layerNameUpperFirstCamelCase)
+    .replace(/__LAYER_NAME_LOWER_SNAKE_CASE__/g, layerNameSnakeCase);
+
+  const yargsWrapperPath = join(loaderDir, "yargs_wrapper.ts");
+  writeFileSync(yargsWrapperPath, yargsWrapper);
+}
+
+function integrateLoader() {
+  const rootYargsPath = join(rootDir, "yargs_wrapper.ts");
+  const rootYargsText = existsSync(rootYargsPath)
+    ? readFileSync(rootYargsPath, { encoding: "utf8" })
+    : "";
+
+  const loaderImportStmt = `export * from "./loaders/${layerNameSnakeCase}/yargs_wrapper";\n`;
+
+  // https://stackoverflow.com/a/3561711/3970755
+  const loaderImportRE = new RegExp(`^${layerNameSnakeCase}$`);
+
+  if (!loaderImportRE.test(rootYargsText)) {
+    appendFileSync(rootYargsPath, loaderImportStmt);
+  }
+}
+
+try {
+  mkdirSync(loaderDir, { recursive: true });
+  writeLoaderCode();
+  writeYargsWrapper();
+  integrateLoader();
+} catch (err) {
+  console.error(err.message);
+  rmdirSync(loaderDir, { recursive: true });
+}

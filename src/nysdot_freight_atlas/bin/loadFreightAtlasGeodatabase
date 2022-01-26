@@ -1,0 +1,54 @@
+#!/usr/bin/env node
+
+const { spawnSync } = require("child_process");
+const { join } = require("path");
+
+const NysdotFreightAtlas2015LayerNames = require("../metadata/NysdotFreightAtlas2015LayerNames.json");
+
+const nysdot_freight_atlas_geodatabase_path = join(
+  __dirname,
+  "../../../tasks/freight_atlas/data/NYSDOT/FreightAtlas/Map_Data05232016.gdb"
+);
+
+const pg_env = "development";
+
+const rootDir = join(__dirname, "..");
+
+for (const [table_name_base, geodatabase_layer_name] of Object.entries(
+  NysdotFreightAtlas2015LayerNames
+)) {
+  console.log(table_name_base, geodatabase_layer_name);
+  const runTarget = `load_nysdot_freight_atlas_${table_name_base}`;
+
+  try {
+    const { stdout, stderr, error } = spawnSync(
+      "./run",
+      [
+        runTarget,
+        "--pg_env",
+        pg_env,
+        "--nysdot_freight_atlas_geodatabase_path",
+        nysdot_freight_atlas_geodatabase_path,
+        "--table_version",
+        2016,
+        "--geodatabase_layer_name",
+        geodatabase_layer_name,
+      ],
+      { cwd: rootDir, encoding: "utf8" }
+    );
+
+    if (stdout) {
+      console.log(stdout);
+    }
+
+    if (stderr) {
+      console.error(stderr);
+    }
+
+    if (error) {
+      console.error(error.message);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}

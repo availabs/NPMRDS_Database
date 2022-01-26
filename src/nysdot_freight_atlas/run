@@ -1,0 +1,22 @@
+#!/usr/bin/env node
+
+const yargs = require("yargs");
+
+require("ts-node").register();
+
+const TestMapCommands = require("./yargs_wrapper");
+
+const taskCommands = yargs.parserConfiguration({
+  "camel-case-expansion": false,
+  "flatten-duplicate-arrays": false,
+});
+
+Object.keys(TestMapCommands).forEach((cmd) => {
+  taskCommands.command(TestMapCommands[cmd]);
+});
+
+taskCommands
+  .demandCommand()
+  .recommendCommands()
+  .strict()
+  .wrap(yargs.terminalWidth() / 1.618).argv;

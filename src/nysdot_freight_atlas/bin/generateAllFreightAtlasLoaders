@@ -1,0 +1,24 @@
+#!/usr/bin/env node
+
+const { execSync } = require("child_process");
+const { join } = require("path");
+
+const loaderGenerator = join(__dirname, "./generateFreightAtlasLoader");
+
+const NysdotFreightAtlas2015LayerNames = require("../metadata/NysdotFreightAtlas2015LayerNames.json");
+
+const layerNames = Object.keys(NysdotFreightAtlas2015LayerNames);
+
+for (const layerName of layerNames) {
+  try {
+    const stdout = execSync(`${loaderGenerator} ${layerName}`, {
+      encoding: "utf8",
+    });
+
+    if (stdout) {
+      console.log(stdout);
+    }
+  } catch (err) {
+    // Above execSync call already writes error messages to STDERR
+  }
+}
