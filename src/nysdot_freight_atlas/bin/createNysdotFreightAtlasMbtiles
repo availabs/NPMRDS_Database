@@ -125,7 +125,7 @@ async function main() {
     console.log(tmpDirPath);
 
     await connectClient();
-    const tables = (await getNysdotFreightAtlasTablesForVersion()).slice(4, 6);
+    const tables = await getNysdotFreightAtlasTablesForVersion();
 
     for (const table of tables) {
       dumpNysdotFreightAtlasTable(table);
