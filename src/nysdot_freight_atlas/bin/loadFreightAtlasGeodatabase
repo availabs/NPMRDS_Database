@@ -3,7 +3,7 @@
 const { spawnSync } = require("child_process");
 const { join } = require("path");
 
-const NysdotFreightAtlas2015LayerNames = require("../metadata/NysdotFreightAtlas2015LayerNames.json");
+const NysdotFreightAtlas2016LayerNames = require("../metadata/NysdotFreightAtlas2016LayerNames.json");
 
 const nysdot_freight_atlas_geodatabase_path = join(
   __dirname,
@@ -15,7 +15,7 @@ const pg_env = "development";
 const rootDir = join(__dirname, "..");
 
 for (const [table_name_base, geodatabase_layer_name] of Object.entries(
-  NysdotFreightAtlas2015LayerNames
+  NysdotFreightAtlas2016LayerNames
 )) {
   console.log(table_name_base, geodatabase_layer_name);
   const runTarget = `load_nysdot_freight_atlas_${table_name_base}`;

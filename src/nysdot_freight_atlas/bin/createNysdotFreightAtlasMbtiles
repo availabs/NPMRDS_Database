@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const { execSync } = require("child_process");
+const { mkdirSync, renameSync } = require("fs");
 const { join } = require("path");
 
 const _ = require("lodash");
@@ -11,6 +12,8 @@ const { Client } = require("pg");
 
 const dotenv = require("dotenv");
 
+const layerNames = require("../metadata/NysdotFreightAtlas2016LayerNames.json");
+
 const {
   getPostgresConfigurationFilePath,
 } = require("../../../make_targets/utils");
@@ -18,9 +21,17 @@ const {
 let db = null;
 
 const table_version = "2016";
-const pg_env = "development";
+const pg_env = process.PG_ENV || "development";
 
-const geojson_to_ndjson = join(__dirname, "../../../bin/geojson_to_ndjson");
+// const geojson_to_ndjson = join(__dirname, "../../../bin/geojson_to_ndjson");
+
+const timestamp = new Date().toISOString().replace(/[^0-9A-Za-z]/g, "");
+
+const outputDir = join(__dirname, "../mbtiles");
+const outputFilePath = join(
+  outputDir,
+  `nysdot_freight_atlas.${table_version}.${timestamp}.mbtiles`
+);
 
 const putPostgresCredentialsInEnvironmentVariables = _.once(() => {
   const configPath = getPostgresConfigurationFilePath(pg_env);
@@ -34,12 +45,22 @@ const putPostgresCredentialsInEnvironmentVariables = _.once(() => {
   );
 });
 
-// tmp.setGracefulCleanup();
-// const { name: tmpDirPath } = tmp.dirSync({ keep: false, unsafeCleanup: true });
-const { name: tmpDirPath } = tmp.dirSync({ keep: true, unsafeCleanup: false });
-console.log(tmpDirPath);
+tmp.setGracefulCleanup();
+const { name: tmpDirPath, removeCallback: removeTmpDir } = tmp.dirSync({
+  keep: false,
+  unsafeCleanup: true,
+});
 
-const timestamp = new Date().toISOString().replace(/[^0-9A-Za-z]/g, "");
+/*
+  NOTE: I cannot get this to work. Punting for now.
+
+process.on("exit", () => {
+  console.log("exit event");
+  try {
+    rmdirSync(tmpDirPath, { recursive: true });
+  } catch (err) {}
+});
+*/
 
 async function connectClient() {
   putPostgresCredentialsInEnvironmentVariables();
@@ -52,6 +73,9 @@ async function disconnectClient() {
 }
 
 async function getNysdotFreightAtlasTablesForVersion() {
+  const layerNamesRE = layerNames.join("|");
+  const tableNamesRE = `(${layerNamesRE})_v${table_version}`;
+
   const { rows } = await db.query(`
     SELECT
         tablename
@@ -59,12 +83,16 @@ async function getNysdotFreightAtlasTablesForVersion() {
       WHERE (
         ( schemaname = 'nysdot_freight_atlas' )
         AND
-        ( tablename LIKE '%v${table_version}' )
+        ( tablename ~ '${tableNamesRE}' )
       )
       ORDER BY tablename
   `);
 
   const tables = rows.map(({ tablename }) => tablename);
+
+  console.log();
+  console.log(JSON.stringify(tables, null, 4));
+  console.log();
 
   return tables;
 }
@@ -78,6 +106,7 @@ function dumpNysdotFreightAtlasTable(table) {
 
   console.log("dumping", table, "to GeoJSON");
 
+  // NOTE: The process hung when using ${geojson_to_ndjson}
   const cmd = `
     ogr2ogr \
       -f 'GeoJSON' \
@@ -85,9 +114,8 @@ function dumpNysdotFreightAtlasTable(table) {
       -skipfailures \
       PG:"${creds}" \
       nysdot_freight_atlas.${table} \
-    | ${geojson_to_ndjson} \
     | gzip -9 \
-    > ${table}.geojsonl.gz
+    > ${table}.geojson.gz
   `;
 
   const stdout = execSync(cmd, { cwd: tmpDirPath, encoding: "utf8" });
@@ -97,17 +125,25 @@ function dumpNysdotFreightAtlasTable(table) {
   }
 }
 
-function createMbtilesLayer(tables) {
-  const geojsonFileNames = tables.map((t) => `${t}.geojsonl.gz`).join(" ");
+function dumpNysdotFreightAtlasTables(tables) {
+  for (const table of tables) {
+    dumpNysdotFreightAtlasTable(table);
+  }
+}
 
+function createMbtilesLayer(tables) {
+  const geojsonFileNames = tables.map((t) => `${t}.geojson.gz`).join(" ");
+  const tmpMbfilesName = `nysdot_freight_atlas.${table_version}.mbtiles`;
+
+  // NOTE:  The --read-parallel option requires geojsonl
+  //        See https://github.com/mapbox/tippecanoe/issues/191
   const cmd = `
     tippecanoe \
       --no-feature-limit \
       --no-tile-size-limit \
       --generate-ids \
-      --read-parallel \
       --force \
-      -o nysdot_freight_atlas.${table_version}.mbtiles \
+      -o ${tmpMbfilesName} \
       ${geojsonFileNames}
   `;
 
@@ -117,26 +153,43 @@ function createMbtilesLayer(tables) {
     stdio: "inherit",
   });
 
-  console.log("\n\ntippecanoe done");
+  const tmpMbfilesPath = join(tmpDirPath, tmpMbfilesName);
+
+  return tmpMbfilesPath;
 }
 
-async function main() {
+function moveOutputToMbtilesDir(tmpMbfilesPath) {
+  mkdirSync(outputDir, { recursive: true });
+  renameSync(tmpMbfilesPath, outputFilePath);
+
+  return outputFilePath;
+}
+
+async function createNysdotFreightAtlasMbtiles() {
   try {
     console.log(tmpDirPath);
 
     await connectClient();
     const tables = await getNysdotFreightAtlasTablesForVersion();
 
+    dumpNysdotFreightAtlasTables(tables);
+
     for (const table of tables) {
       dumpNysdotFreightAtlasTable(table);
     }
 
-    createMbtilesLayer(tables);
-
-    disconnectClient();
+    const tmpMbfilesPath = createMbtilesLayer(tables);
+    moveOutputToMbtilesDir(tmpMbfilesPath);
   } catch (err) {
     console.error(err);
+  } finally {
+    disconnectClient();
+    removeTmpDir();
   }
 }
 
-main();
+if (require.main === module) {
+  createNysdotFreightAtlasMbtiles();
+}
+
+module.exports = createNysdotFreightAtlasMbtiles;
