@@ -12,8 +12,6 @@ const { Client } = require("pg");
 
 const dotenv = require("dotenv");
 
-const layerNames = require("../metadata/NysdotFreightAtlas2016LayerNames.json");
-
 const {
   getPostgresConfigurationFilePath,
 } = require("../../../make_targets/utils");
@@ -22,8 +20,6 @@ let db = null;
 
 const table_version = "2016";
 const pg_env = process.env.PG_ENV || "development";
-
-// const geojson_to_ndjson = join(__dirname, "../../../bin/geojson_to_ndjson");
 
 const timestamp = new Date().toISOString().replace(/[^0-9A-Za-z]/g, "");
 
@@ -75,26 +71,19 @@ async function disconnectClient() {
 }
 
 async function getNysdotFreightAtlasTablesForVersion() {
-  const layerNamesRE = layerNames.join("|");
-  const tableNamesRE = `(${layerNamesRE})_v${table_version}`;
-
   const { rows } = await db.query(`
-    SELECT
+    SELECT DISTINCT
         tablename
       FROM pg_catalog.pg_tables
       WHERE (
         ( schemaname = 'nysdot_freight_atlas' )
         AND
-        ( tablename ~ '${tableNamesRE}' )
+        ( tablename ~ '_v${table_version}$' )
       )
       ORDER BY tablename
   `);
 
   const tables = rows.map(({ tablename }) => tablename);
-
-  console.log();
-  console.log(JSON.stringify(tables, null, 4));
-  console.log();
 
   return tables;
 }
@@ -115,7 +104,7 @@ function dumpNysdotFreightAtlasTable(table) {
       /vsistdout/ \
       -skipfailures \
       PG:"${creds}" \
-      -sql 'SELECT objectid AS id, * FROM nysdot_freight_atlas.${table}' \
+      -sql 'SELECT objectid AS id, wkb_geometry FROM nysdot_freight_atlas.${table}' \
     | gzip -9 \
     > ${table}.geojson.gz
   `;
@@ -135,7 +124,7 @@ function dumpNysdotFreightAtlasTables(tables) {
 
 function createMbtilesLayer(tables) {
   const geojsonFileNames = tables.map((t) => `${t}.geojson.gz`).join(" ");
-  const tmpMbfilesName = `nysdot_freight_atlas.${table_version}.mbtiles`;
+  const tmpMbfilesName = `nysdot_freight_atlas.${table_version}.terse.mbtiles`;
 
   // NOTE:  The --read-parallel option requires geojsonl
   //        See https://github.com/mapbox/tippecanoe/issues/191

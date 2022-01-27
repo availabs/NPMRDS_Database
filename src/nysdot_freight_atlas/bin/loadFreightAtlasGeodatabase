@@ -3,7 +3,7 @@
 const { spawnSync } = require("child_process");
 const { join } = require("path");
 
-const NysdotFreightAtlas2016LayerNames = require("../metadata/NysdotFreightAtlas2016LayerNames.json");
+const NysdotFreightAtlas2016LayerNames = require("../metadata/NysdotFreightAtlas2016MbtilesLayers.json");
 
 const nysdot_freight_atlas_geodatabase_path = join(
   __dirname,

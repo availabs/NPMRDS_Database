@@ -84,6 +84,7 @@ export default abstract class NysdotFreightAtlasLayerLoaderBaseClass {
         -t_srs 'EPSG:4326' \
         -skipfailures \
         -lco OVERWRITE=yes \
+        -lco GEOMETRY_NAME=wkb_geometry \
         -nln nysdot_freight_atlas.${this.table_name_base}_v${this.table_version} \
         -nlt CONVERT_TO_LINEAR \
         ${this.nysdot_freight_atlas_geodatabase_path} \
