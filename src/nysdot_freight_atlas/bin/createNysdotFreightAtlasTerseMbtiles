@@ -26,7 +26,7 @@ const timestamp = new Date().toISOString().replace(/[^0-9A-Za-z]/g, "");
 const outputDir = join(__dirname, "../mbtiles");
 const outputFilePath = join(
   outputDir,
-  `nysdot_freight_atlas.${table_version}.${timestamp}.mbtiles`
+  `nysdot_freight_atlas.${table_version}.${timestamp}.terse.mbtiles`
 );
 
 const putPostgresCredentialsInEnvironmentVariables = _.once(() => {
@@ -36,9 +36,7 @@ const putPostgresCredentialsInEnvironmentVariables = _.once(() => {
 
   const { PGDATABASE, PGHOST, PGPORT } = process.env;
 
-  console.error(
-    `Using ${PGDATABASE} at ${PGHOST}:${PGPORT} for the most recent Transcom event timestamp.`
-  );
+  console.error(`Using ${PGDATABASE} at ${PGHOST}:${PGPORT}`);
 });
 
 tmp.setGracefulCleanup();

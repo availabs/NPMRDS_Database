@@ -40,9 +40,7 @@ const putPostgresCredentialsInEnvironmentVariables = _.once(() => {
 
   const { PGDATABASE, PGHOST, PGPORT } = process.env;
 
-  console.error(
-    `Using ${PGDATABASE} at ${PGHOST}:${PGPORT} for the most recent Transcom event timestamp.`
-  );
+  console.error(`Using ${PGDATABASE} at ${PGHOST}:${PGPORT}`);
 });
 
 tmp.setGracefulCleanup();
