@@ -21,7 +21,7 @@ const {
 let db = null;
 
 const table_version = "2016";
-const pg_env = process.PG_ENV || "development";
+const pg_env = process.env.PG_ENV || "development";
 
 // const geojson_to_ndjson = join(__dirname, "../../../bin/geojson_to_ndjson");
 
