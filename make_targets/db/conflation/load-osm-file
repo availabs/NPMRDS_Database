@@ -10,71 +10,100 @@
 //
 // https://wiki.openstreetmap.org/wiki/Relation:restriction
 
-const {execSync} = require('child_process');
-const {createReadStream} = require('fs');
+const { execSync } = require("child_process");
+const { createReadStream } = require("fs");
 
-const yargs = require('yargs');
-const XmlStream = require('xml-stream');
+const yargs = require("yargs");
+const XmlStream = require("xml-stream");
 
-const {join} = require('path');
-const envFile = require('node-env-file');
+const { join } = require("path");
+const envFile = require("node-env-file");
 
-const {Pool} = require('pg');
-const {from: copyFrom} = require('pg-copy-streams');
+const { Pool } = require("pg");
+const { from: copyFrom } = require("pg-copy-streams");
+
+const _ = require("lodash");
 
 const cliArgsSpec = {
-  osmVersion: {type: 'string', demand: true},
+  osmVersion: { type: "string", demand: true },
   osmXmlFile: {
     demand: true,
-    type: 'string'
+    type: "string",
   },
   pg_env: {
-    type: 'string',
+    type: "string",
     demand: false,
-    choices: ['production', 'development'],
-    default: 'development'
-  }
+    choices: ["production", "development"],
+    default: "development",
+  },
 };
 
-const {argv} = yargs
+const { argv } = yargs
   .strict()
   .parserConfiguration({
-    'camel-case-expansion': false,
-    'flatten-duplicate-arrays': false
+    "camel-case-expansion": false,
+    "flatten-duplicate-arrays": false,
   })
   .wrap(yargs.terminalWidth() / 1.618)
   .option(cliArgsSpec);
 
-const {osmVersion, osmXmlFile, pg_env} = argv;
+const { osmVersion, osmXmlFile, pg_env } = argv;
 
 const configPath = join(
   __dirname,
-  pg_env === 'production'
-    ? '../../../config/postgres.env.prod'
-    : '../../../config/postgres.env.dev'
+  pg_env === "production"
+    ? "../../../config/postgres.env.prod"
+    : "../../../config/postgres.env.dev"
 );
 
 envFile(configPath);
 
-const dbConnectionPool = new Pool()
+const dbConnectionPool = new Pool();
 
-const OSM_SCHEMA = 'osm'
-const OSM_NODES_TABLE_NAME = `osm_nodes_v${osmVersion}`
-const OSM_NODES_TABLE_FULL_NAME = `${OSM_SCHEMA}.${OSM_NODES_TABLE_NAME}`
-const TEMP_NODES_TABLE_FULL_NAME = `${OSM_SCHEMA}.tmp_${OSM_NODES_TABLE_NAME}`
+const OSM_SCHEMA = "osm";
 
-const OSM_WAYS_TABLE_NAME = `osm_ways_v${osmVersion}`
-const OSM_WAYS_TABLE_FULL_NAME = `${OSM_SCHEMA}.${OSM_WAYS_TABLE_NAME}`
-const TEMP_WAYS_TABLE_FULL_NAME = `${OSM_SCHEMA}.tmp_${OSM_WAYS_TABLE_NAME}`
+const OSM_NODES_TABLE_NAME = `osm_nodes_v${osmVersion}`;
+const OSM_NODES_TABLE_FULL_NAME = `${OSM_SCHEMA}.${OSM_NODES_TABLE_NAME}`;
+const TEMP_NODES_TABLE_FULL_NAME = `${OSM_SCHEMA}.tmp_${OSM_NODES_TABLE_NAME}`;
 
-console.log(OSM_NODES_TABLE_FULL_NAME)
-console.log(OSM_WAYS_TABLE_FULL_NAME)
+const OSM_WAYS_TABLE_NAME = `osm_ways_v${osmVersion}`;
+const OSM_WAYS_TABLE_FULL_NAME = `${OSM_SCHEMA}.${OSM_WAYS_TABLE_NAME}`;
+const TEMP_WAYS_TABLE_FULL_NAME = `${OSM_SCHEMA}.tmp_${OSM_WAYS_TABLE_NAME}`;
 
-const createNodesTableSqlPath = join(__dirname, '../../../sql/osm/create_versioned_osm_nodes_tables.sql');
-const createWaysTableSqlPath = join(__dirname, '../../../sql/osm/create_versioned_osm_ways_tables.sql');
+const OSM_RELATIONS_TABLE_NAME = `osm_relations_v${osmVersion}`;
+const OSM_RESTRICTIONS_VIEW_NAME = `osm_restrictions_v${osmVersion}`;
+const OSM_RELATIONS_TABLE_FULL_NAME = `${OSM_SCHEMA}.${OSM_RELATIONS_TABLE_NAME}`;
+const OSM_RESTRICIONS_VIEW_FULL_NAME = `${OSM_SCHEMA}.${OSM_RESTRICTIONS_VIEW_NAME}`;
+const TEMP_RELATIONS_TABLE_FULL_NAME = `${OSM_SCHEMA}.tmp_${OSM_RELATIONS_TABLE_NAME}`;
+
+console.log(OSM_NODES_TABLE_FULL_NAME);
+console.log(OSM_WAYS_TABLE_FULL_NAME);
+
+const createNodesTableSqlPath = join(
+  __dirname,
+  "../../../sql/osm/create_versioned_osm_nodes_tables.sql"
+);
+const createWaysTableSqlPath = join(
+  __dirname,
+  "../../../sql/osm/create_versioned_osm_ways_tables.sql"
+);
+
+const createRelationsTableSqlPath = join(
+  __dirname,
+  "../../../sql/osm/create_versioned_osm_relations_tables.sql"
+);
+
+const createRestrictionsViewSqlPath = join(
+  __dirname,
+  "../../../sql/osm/create_versioned_osm_restrictions_view.sql"
+);
 
 async function queryOsmTableVersionsExistence(dbConn) {
-  const [nodesTableExistsResult, waysTableExistsResult] = await Promise.all([
+  const [
+    nodesTableExistsResult,
+    waysTableExistsResult,
+    relationsTableExistsResult,
+  ] = await Promise.all([
     dbConn.query(`
       SELECT EXISTS (
         SELECT
@@ -96,143 +125,225 @@ async function queryOsmTableVersionsExistence(dbConn) {
             ( table_name = '${OSM_WAYS_TABLE_NAME}' )
           )
       ) ;
-    `)
-  ])
+    `),
+    dbConn.query(`
+      SELECT EXISTS (
+        SELECT
+          FROM information_schema.tables
+          WHERE (
+            ( table_schema = '${OSM_SCHEMA}' )
+            AND
+            ( table_name = '${OSM_RELATIONS_TABLE_NAME}' )
+          )
+      ) ;
+    `),
+  ]);
 
   return {
     nodesTableExists: nodesTableExistsResult.rows[0].exists,
-    waysTableExists: waysTableExistsResult.rows[0].exists
-  }
+    waysTableExists: waysTableExistsResult.rows[0].exists,
+    relationsTableExists: relationsTableExistsResult.rows[0].exists,
+  };
 }
 
 // TODO: If tables do not already exists, DROP them if loading fails.
 async function createOsmVersionTables(dbConn) {
-  const {nodesTableExists, waysTableExists} = await queryOsmTableVersionsExistence(dbConn)
+  const { nodesTableExists, waysTableExists, relationsTableExists } =
+    await queryOsmTableVersionsExistence(dbConn);
 
-  console.log(JSON.stringify({nodesTableExists, waysTableExists}, null, 4))
-
-  if (nodesTableExists && waysTableExists) {
-    return
+  if (nodesTableExists && waysTableExists && relationsTableExists) {
+    return;
   }
 
-  if ((nodesTableExists || waysTableExists) && !(nodesTableExists && waysTableExists)) {
+  if (
+    (nodesTableExists || waysTableExists || relationsTableExists) &&
+    !(nodesTableExists && waysTableExists && relationsTableExists)
+  ) {
     throw new Error(
       `ERROR: Database in inconsistent state.
-
-              ${OSM_NODES_TABLE_FULL_NAME} ${nodesTableExists ? 'EXISTS' : 'DOES NOT EXIST'}
-            while
-              ${OSM_WAYS_TABLE_FULL_NAME} ${waysTableExists ? 'EXISTS' : 'DOES NOT EXIST'}`
-    )
+          nodesTableExists:     ${nodesTableExists}
+          waysTableExists:      ${waysTableExists}
+          relationsTableExists  ${relationsTableExists}\n`
+    );
   }
 
   try {
-    execSync(`psql -v OSM_VERSION=${osmVersion} -f '${createNodesTableSqlPath}'`);
+    execSync(
+      `psql -v OSM_VERSION=${osmVersion} -f '${createNodesTableSqlPath}'`
+    );
 
-    execSync(`psql -v OSM_VERSION=${osmVersion} -f '${createWaysTableSqlPath}'`);
+    execSync(
+      `psql -v OSM_VERSION=${osmVersion} -f '${createWaysTableSqlPath}'`
+    );
+
+    execSync(
+      `psql -v OSM_VERSION=${osmVersion} -f '${createRelationsTableSqlPath}'`
+    );
+
+    execSync(
+      `psql -v OSM_VERSION=${osmVersion} -f '${createRestrictionsViewSqlPath}'`
+    );
   } catch (err) {
-    dbConn(`
+    dbConn.query(`
       BEGIN;
 
-      DROP TABLE IF EXISTS ${OSM_NODES_TABLE_FULL_NAME};
-      DROP TABLE IF EXISTS ${OSM_WAYS_TABLE_FULL_NAME};
+      DROP TABLE IF EXISTS ${OSM_NODES_TABLE_FULL_NAME} CASCADE;
+      DROP TABLE IF EXISTS ${OSM_WAYS_TABLE_FULL_NAME} CASCADE;
+      DROP TABLE IF EXISTS ${OSM_RELATIONS_TABLE_FULL_NAME} CASCADE;
+      DROP MATERIALIZED VIEW IF EXISTS ${OSM_RESTRICIONS_VIEW_FULL_NAME};
 
       COMMIT;
-    `)
+    `);
 
-    throw err
+    throw err;
   }
 
-  const verifiedTableExistence = await queryOsmTableVersionsExistence(dbConn)
+  const verifiedTableExistence = await queryOsmTableVersionsExistence(dbConn);
 
-  if (!(verifiedTableExistence.nodesTableExists && verifiedTableExistence.waysTableExists)) {
-    throw new Error('ERROR: DDL scripts failed to create tables with the expected table.')
+  if (
+    !(
+      verifiedTableExistence.nodesTableExists &&
+      verifiedTableExistence.waysTableExists &&
+      verifiedTableExistence.relationsTableExists
+    )
+  ) {
+    throw new Error(
+      "ERROR: DDL scripts failed to create tables with the expected table."
+    );
   }
 }
 
 let nodeNum = 0;
 let wayNum = 0;
+let relationNum = 0;
 
 function initNodeHandler(xml, nodesCopyStream) {
-  xml.collect('node tag');
-  xml.on('endElement: node', async (d) => {
+  xml.collect("node tag");
+  xml.on("endElement: node", async (d) => {
     const {
-      $: {id: osmNodeId, lat, lon},
+      $: { id: osmNodeId, lat, lon },
       tag,
     } = d;
 
     const tags = Array.isArray(tag)
-      ? tag.reduce((acc, {$: {k, v}}) => {
-        acc[k] = v;
-        return acc;
-      }, {})
+      ? tag.reduce((acc, { $: { k, v } }) => {
+          acc[k] = v;
+          return acc;
+        }, {})
       : null;
 
-    const escapedTags = tags ? `"${JSON.stringify(tags).replace(/"/g, '""')}"` : ''
+    const escapedTags = tags
+      ? `"${JSON.stringify(tags).replace(/"/g, '""')}"`
+      : "";
 
-    const row = `"${+osmNodeId}",${escapedTags},"SRID=4326;POINT(${lon} ${lat})"\n`
+    const row = `"${+osmNodeId}",${escapedTags},"SRID=4326;POINT(${lon} ${lat})"\n`;
 
-    const good = nodesCopyStream.write(row)
+    const good = nodesCopyStream.write(row);
 
     if (!good) {
-      xml.pause()
-      await new Promise(resolve => nodesCopyStream.once('drain', resolve))
-      xml.resume()
+      xml.pause();
+      await new Promise((resolve) => nodesCopyStream.once("drain", resolve));
+      xml.resume();
     }
 
-    console.log('node #', ++nodeNum)
+    console.log("node #", ++nodeNum);
   });
 }
 
 function initWayHandler(xml, waysCopyStream) {
-  xml.collect('way nd');
-  xml.collect('way tag');
-  xml.on('endElement: way', async (d) => {
+  xml.collect("way nd");
+  xml.collect("way tag");
+  xml.on("endElement: way", async (d) => {
     const {
-      $: {id: osmWayId},
+      $: { id: osmWayId },
       nd,
       tag,
     } = d;
 
     const osmNodeIds = Array.isArray(nd)
-      ? nd.map(({$: {ref}}) => +ref)
+      ? nd.map(({ $: { ref } }) => +ref)
       : null;
 
     const tags = Array.isArray(tag)
-      ? tag.reduce((acc, {$: {k, v}}) => {
-        acc[k] = v;
-        return acc;
-      }, {})
+      ? tag.reduce((acc, { $: { k, v } }) => {
+          acc[k] = v;
+          return acc;
+        }, {})
       : null;
 
-    const escapedTags = tags ? JSON.stringify(tags).replace(/"/g, '""') : ''
+    const escapedTags = tags ? JSON.stringify(tags).replace(/"/g, '""') : "";
 
     const row = `"${osmWayId}","${escapedTags}","{${osmNodeIds}}"\n`;
 
-    const good = waysCopyStream.write(row)
+    const good = waysCopyStream.write(row);
 
     if (!good) {
-      xml.pause()
-      await new Promise(resolve => waysCopyStream.once('drain', resolve))
-      xml.resume()
+      xml.pause();
+      await new Promise((resolve) => waysCopyStream.once("drain", resolve));
+      xml.resume();
     }
 
-    console.log('way #', ++wayNum)
+    console.log("way #", ++wayNum);
   });
+}
 
+function initRelationHandler(xml, relationsCopyStream) {
+  xml.collect("relation nd");
+  xml.collect("relation member");
+  xml.collect("relation tag");
+
+  xml.on("endElement: relation", async (d) => {
+    const {
+      $: { id: osmRelationId },
+      tag,
+      member,
+    } = d;
+
+    const tags = Array.isArray(tag)
+      ? tag.reduce((acc, { $: { k, v } }) => {
+          acc[k] = v;
+          return acc;
+        }, {})
+      : null;
+
+    const members = _(member)
+      .map(({ $ }) => $)
+      .sortBy("role")
+      .value();
+
+    const escapedTags = tags ? JSON.stringify(tags).replace(/"/g, '""') : "";
+    const escapedMembers = members
+      ? JSON.stringify(members).replace(/"/g, '""')
+      : "";
+
+    const row = `"${osmRelationId}","${escapedTags}","${escapedMembers}"\n`;
+
+    const good = relationsCopyStream.write(row);
+
+    if (!good) {
+      xml.pause();
+      await new Promise((resolve) =>
+        relationsCopyStream.once("drain", resolve)
+      );
+      xml.resume();
+    }
+
+    console.log("restriction #", ++relationNum);
+  });
 }
 
 async function finish(dbConn) {
-  console.time('load nodes')
+  console.time("load nodes");
   await dbConn.query(`
     BEGIN;
 
-    CREATE OR REPLACE FUNCTION pg_temp.tmp_json_or_null(BIGINT, TEXT)
+    CREATE OR REPLACE FUNCTION pg_temp.tmp_json_or_null(TEXT, BIGINT, TEXT)
       RETURNS JSONB LANGUAGE PLPGSQL IMMUTABLE AS $$
     BEGIN
-          RETURN $2::JSONB;
+          RETURN $3::JSONB;
       EXCEPTION
           WHEN OTHERS THEN
-            RAISE NOTICE 'INVALID JSON FOR WAY %', $1;
+            RAISE NOTICE 'INVALID JSON FOR OSM % %', $1, $2;
             RETURN NULL;
     END $$;
 
@@ -245,15 +356,15 @@ async function finish(dbConn) {
     )
       SELECT
           id,
-          pg_temp.tmp_json_or_null(id, tags) AS tags,
+          pg_temp.tmp_json_or_null('NODE'::TEXT, id, tags) AS tags,
           public.ST_GeomFromEWKT(wkb_geometry) AS wkb_geometry
         FROM ${TEMP_NODES_TABLE_FULL_NAME} ;
 
     CLUSTER ${OSM_NODES_TABLE_FULL_NAME} ;
   `);
-  console.timeEnd('load nodes')
+  console.timeEnd("load nodes");
 
-  console.time('load ways')
+  console.time("load ways");
   await dbConn.query(`
     DELETE FROM ${OSM_WAYS_TABLE_FULL_NAME} ;
 
@@ -265,7 +376,7 @@ async function finish(dbConn) {
     )
       SELECT
           id,
-          pg_temp.tmp_json_or_null(id, tags) AS tags,
+          pg_temp.tmp_json_or_null('WAY'::TEXT, id, tags) AS tags,
           node_ids,
           b.wkb_geometry
         FROM ${TEMP_WAYS_TABLE_FULL_NAME} AS a
@@ -286,16 +397,41 @@ async function finish(dbConn) {
     CLUSTER ${OSM_WAYS_TABLE_FULL_NAME} ;
 
     COMMIT;
-  `)
-  console.timeEnd('load ways')
+  `);
+  console.timeEnd("load ways");
+
+  console.time("load relations");
+  await dbConn.query(`
+    DELETE FROM ${OSM_RELATIONS_TABLE_FULL_NAME} ;
+
+    INSERT INTO ${OSM_RELATIONS_TABLE_FULL_NAME} (
+      id,
+      tags,
+      members
+    )
+      SELECT
+          id,
+          pg_temp.tmp_json_or_null('RELATION TAG'::TEXT, id, tags) AS tags,
+          pg_temp.tmp_json_or_null('RELATION MEMBER'::TEXT, id, members) AS members
+        FROM ${TEMP_RELATIONS_TABLE_FULL_NAME}
+    ;
+
+    CLUSTER ${OSM_RELATIONS_TABLE_FULL_NAME} ;
+
+    REFRESH MATERIALIZED VIEW ${OSM_RESTRICIONS_VIEW_FULL_NAME} ;
+
+    COMMIT;
+  `);
+  console.timeEnd("load relations");
 }
 
 (async () => {
-  const nodesClient = await dbConnectionPool.connect()
-  const waysClient = await dbConnectionPool.connect()
+  const nodesClient = await dbConnectionPool.connect();
+  const waysClient = await dbConnectionPool.connect();
+  const relationsClient = await dbConnectionPool.connect();
 
   try {
-    await createOsmVersionTables(nodesClient)
+    await createOsmVersionTables(nodesClient);
 
     await Promise.all([
       nodesClient.query(`
@@ -323,7 +459,24 @@ async function finish(dbConn) {
         ALTER TABLE ${TEMP_WAYS_TABLE_FULL_NAME}
           ALTER COLUMN tags TYPE TEXT
         ;
-      `)
+      `),
+
+      relationsClient.query(`
+        BEGIN;
+
+        CREATE TABLE ${TEMP_RELATIONS_TABLE_FULL_NAME} (
+          LIKE ${OSM_RELATIONS_TABLE_FULL_NAME}
+        );
+
+        -- Change the column type to TEXT for easier loading.
+        ALTER TABLE ${TEMP_RELATIONS_TABLE_FULL_NAME}
+          ALTER COLUMN tags TYPE TEXT
+        ;
+
+        ALTER TABLE ${TEMP_RELATIONS_TABLE_FULL_NAME}
+          ALTER COLUMN members TYPE TEXT
+        ;
+      `),
     ]);
 
     const nodesCopyStream = nodesClient.query(
@@ -338,6 +491,12 @@ async function finish(dbConn) {
       )
     );
 
+    const relationsCopyStream = relationsClient.query(
+      copyFrom(
+        `COPY ${TEMP_RELATIONS_TABLE_FULL_NAME}(id, tags, members) FROM STDIN WITH (FORMAT CSV)`
+      )
+    );
+
     let streamClosed;
     let streamError;
 
@@ -348,63 +507,68 @@ async function finish(dbConn) {
 
     const xml = await new XmlStream(
       createReadStream(osmXmlFile)
-        .on('close', streamClosed)
-        .on('error', streamError),
+        .on("close", streamClosed)
+        .on("error", streamError)
     );
 
-    initNodeHandler(xml, nodesCopyStream)
-    initWayHandler(xml, waysCopyStream)
+    initNodeHandler(xml, nodesCopyStream);
+    initWayHandler(xml, waysCopyStream);
+    initRelationHandler(xml, relationsCopyStream);
 
-    let finishDone
-    let finishErr
+    let finishDone;
+    let finishErr;
 
     const finished = new Promise((resolve, reject) => {
       finishDone = resolve;
-      finishErr = reject
-    })
+      finishErr = reject;
+    });
 
-    xml.on('end', async () => {
+    xml.on("end", async () => {
       try {
-        console.log('File load complete.')
-        console.log(`  Inserted ${nodeNum} nodes and ${wayNum} ways.`)
-        console.log('Altering columns and indexing tables.')
+        console.log("File load complete.");
+        console.log(`  Inserted ${nodeNum} nodes and ${wayNum} ways.`);
+        console.log("Altering columns and indexing tables.");
 
         await Promise.all([
           nodesCopyStream.end(),
-          waysCopyStream.end()
-        ])
+          waysCopyStream.end(),
+          relationsCopyStream.end(),
+        ]);
 
-        finishDone()
+        finishDone();
       } catch (err) {
-        finishErr(err)
+        finishErr(err);
       }
     });
 
-    await sentinel
-    await finished
+    await sentinel;
+    await finished;
 
     await Promise.all([
-      nodesClient.query('COMMIT;'),
-      waysClient.query('COMMIT;')
+      nodesClient.query("COMMIT;"),
+      waysClient.query("COMMIT;"),
+      relationsClient.query("COMMIT;"),
     ]);
 
-    await waysClient.release()
-    await finish(nodesClient)
+    waysClient.release();
+    relationsClient.release();
+    await finish(nodesClient);
   } catch (err) {
-    console.error(err)
+    console.error(err);
 
     await Promise.all([
-      nodesClient.query('ROLLBACK;'),
-      waysClient.query('ROLLBACK;')
+      nodesClient.query("ROLLBACK;"),
+      waysClient.query("ROLLBACK;"),
     ]);
   } finally {
     await nodesClient.query(`
       DROP TABLE IF EXISTS ${TEMP_NODES_TABLE_FULL_NAME} ;
       DROP TABLE IF EXISTS ${TEMP_WAYS_TABLE_FULL_NAME} ;
-    `)
+      DROP TABLE IF EXISTS ${TEMP_RELATIONS_TABLE_FULL_NAME} ;
+    `);
 
-    await nodesClient.release()
+    nodesClient.release();
 
-    await dbConnectionPool.end()
+    await dbConnectionPool.end();
   }
-})()
+})();
