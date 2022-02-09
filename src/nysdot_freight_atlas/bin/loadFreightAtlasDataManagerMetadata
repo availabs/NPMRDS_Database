@@ -1,0 +1,134 @@
+#!/usr/bin/env node
+
+const _ = require("lodash");
+const yargs = require("yargs");
+
+const {
+  getConnectedPgClient,
+} = require("../../../make_targets/utils/PostgreSQL");
+
+const cliArgsSpec = {
+  year: {
+    demand: true,
+    type: "number",
+  },
+  pg_env: {
+    type: "string",
+    demand: false,
+    choices: ["production", "development"],
+    default: "development",
+  },
+};
+
+const NysdotFreightAtlas2016LayerNames = require("../metadata/NysdotFreightAtlas2016LayerNames.json");
+const nysdotFreightAtlasTableNameBases = Object.keys(
+  NysdotFreightAtlas2016LayerNames
+);
+
+const { argv } = yargs
+  .strict()
+  .parserConfiguration({
+    "camel-case-expansion": false,
+    "flatten-duplicate-arrays": false,
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const { year, pg_env } = argv;
+
+async function insertSourceMetadata(db, layerName) {
+  const sql = `
+    INSERT INTO data_manager.sources (
+      name,
+      category
+    ) VALUES (
+        ( 'NYS/NYSDOT/FREIGHT_ATLAS/' || $1 ),
+        ARRAY['NYS', 'NYSDOT', 'FREIGHT_ATLAS', 'FREIGHT', 'FREIGHT_PLAN']
+      )
+      ON CONFLICT DO NOTHING
+    ;
+  `;
+
+  await db.query(sql, [layerName.toUpperCase()]);
+}
+
+async function getSourceId(db, layerName) {
+  const sql = `
+    SELECT
+        id
+      FROM data_manager.sources
+      WHERE ( name = ( 'NYS/NYSDOT/FREIGHT_ATLAS/' || $1 ) )
+    ;
+  `;
+
+  const {
+    rows: [{ id }],
+  } = await db.query(sql, [layerName.toUpperCase()]);
+
+  return id;
+}
+
+async function insertViewMetadata(db, source_id, layerName) {
+  const sql = `
+    INSERT INTO data_manager.views (
+      source_id,
+      data_type,
+      interval_version,
+      geography_version,
+      version,
+      data_table
+    ) VALUES (
+        $1,
+        'SPATIAL',
+        'YEAR',
+        '36',
+        $2,
+        $3
+      )
+    ;
+  `;
+
+  await db.query(sql, [
+    source_id,
+    year,
+    `"nysdot_freight_atlas".${layerName}_v${year}`,
+  ]);
+}
+
+async function initializeSourceMetadata(db) {
+  const sql =
+    "CALL _data_manager_admin.initialize_sources_metadata('nysdot_freight_atlas');";
+
+  await db.query(sql);
+}
+
+async function loadDataManagerMetadata() {
+  const db = await getConnectedPgClient(pg_env);
+
+  try {
+    await db.query("BEGIN;");
+
+    for (const tableNameBase of nysdotFreightAtlasTableNameBases) {
+      await insertSourceMetadata(db, tableNameBase);
+
+      const sourceId = await getSourceId(db, tableNameBase);
+
+      await insertViewMetadata(db, sourceId, tableNameBase);
+    }
+
+    await initializeSourceMetadata(db);
+
+    await db.query("COMMIT;");
+  } catch (err) {
+    await db.query("ROLLBACK;");
+    console.error(err);
+  } finally {
+    await db.end();
+  }
+}
+
+if (require.main === module) {
+  loadDataManagerMetadata();
+}
+
+module.exports = loadDataManagerMetadata;

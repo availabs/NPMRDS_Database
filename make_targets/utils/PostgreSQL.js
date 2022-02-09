@@ -1,4 +1,21 @@
-module.exports = {
+const { readFileSync } = require("fs");
+const { join } = require("path");
+
+const _ = require("lodash");
+const dotenv = require("dotenv");
+
+const { Client } = require("pg");
+
+const rootDir = join(__dirname, "../../");
+const configDir = join(rootDir, "config");
+
+const getPostgresConfigurationFilePath = (pg_env) =>
+  join(
+    configDir,
+    pg_env === "production" ? "postgres.env.prod" : "postgres.env.dev"
+  );
+
+const postgresEnvVariables = {
   PGHOST: "behaves the same as the host connection parameter",
 
   PGHOSTADDR:
@@ -68,4 +85,45 @@ module.exports = {
 
   PGLOCALEDIR:
     "sets the directory containing the locale files for message localization",
+};
+
+const getPsqlCredentials = (pgEnv) => {
+  const configPath = getPostgresConfigurationFilePath(pgEnv);
+  const configContents = readFileSync(configPath);
+
+  const envVars = dotenv.parse(configContents);
+
+  return _.pick(envVars, Object.keys(postgresEnvVariables));
+};
+
+const getNodePgCredentials = (pgEnv) => {
+  const pgCreds = getPsqlCredentials(pgEnv);
+  const nodePgCreds = _.mapKeys(pgCreds, (_v, k) => _.lowerCase(k).slice(2));
+
+  return nodePgCreds;
+};
+
+// Make sure to call db.end() or Node will hang.
+async function getConnectedPgClient(pgEnv) {
+  const nodePgCreds = getNodePgCredentials(pgEnv);
+
+  const db = new Client(nodePgCreds);
+  await db.connect();
+
+  return db;
+}
+
+const putPostgresCredentialsInEnvironmentVariables = () => {
+  const configPath = getPostgresConfigurationFilePath(pg_env);
+
+  dotenv.config({ path: configPath });
+};
+
+module.exports = {
+  postgresEnvVariables,
+  getPostgresConfigurationFilePath,
+  getPsqlCredentials,
+  getNodePgCredentials,
+  getConnectedPgClient,
+  putPostgresCredentialsInEnvironmentVariables,
 };
