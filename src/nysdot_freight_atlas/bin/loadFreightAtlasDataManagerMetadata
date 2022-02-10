@@ -76,23 +76,39 @@ async function insertViewMetadata(db, source_id, layerName) {
       interval_version,
       geography_version,
       version,
-      data_table
+      data_table,
+      metadata
     ) VALUES (
         $1,
         'SPATIAL',
         'YEAR',
         '36',
         $2,
-        $3
+        $3,
+        $4
       )
     ;
   `;
 
-  await db.query(sql, [
-    source_id,
-    year,
-    `"nysdot_freight_atlas".${layerName}_v${year}`,
-  ]);
+  const dataTable = `"nysdot_freight_atlas".${layerName}_v${year}`;
+
+  const source = `nysdot_freight_atlas_terse_${year}`;
+
+  const layer = `${layerName}_v${year}`;
+
+  const metadata = {
+    tiles: {
+      sources: [
+        {
+          name: source,
+          url: `https://tiles.availabs.org/data/${source}.json`,
+        },
+      ],
+      layers: [{ source, layer }],
+    },
+  };
+
+  await db.query(sql, [source_id, year, dataTable, metadata]);
 }
 
 async function initializeSourceMetadata(db) {
