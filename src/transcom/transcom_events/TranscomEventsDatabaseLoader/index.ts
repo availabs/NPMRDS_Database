@@ -62,7 +62,7 @@ export default class TranscomEventsDatabaseLoader {
           WHERE (
             ( table_schema = 'transcom' )
             AND
-            ( table_name   = 'transcom_historical_events' )
+            ( table_name   = '_transcom_historical_events' )
           )
        ) AS exists;
     `);
@@ -134,6 +134,7 @@ export default class TranscomEventsDatabaseLoader {
       this.tmpTableName
     );
 
+    console.log(sql);
     await db.query(sql);
   }
 
@@ -143,9 +144,9 @@ export default class TranscomEventsDatabaseLoader {
 
   private async finishUp(db: Client) {
     await db.query(`
-      CLUSTER transcom.transcom_historical_events ;
+      CLUSTER transcom._transcom_historical_events ;
 
-      ANALYZE transcom.transcom_historical_events;
+      ANALYZE transcom._transcom_historical_events;
     `);
   }
 
@@ -157,7 +158,7 @@ export default class TranscomEventsDatabaseLoader {
     const { PGDATABASE, PGHOST, PGPORT } = process.env;
 
     console.error(
-      `Loading ${PGDATABASE}.transcom.transcom_historical_events at ${PGHOST}:${PGPORT}.`
+      `Loading ${PGDATABASE}.transcom._transcom_historical_events at ${PGHOST}:${PGPORT}.`
     );
 
     const db = new Client();
@@ -169,42 +170,42 @@ export default class TranscomEventsDatabaseLoader {
         this.transcomEventsNdjsonGzipPath
       );
 
-      // console.time("createTranscomTableIfNotExists");
+      console.time("createTranscomTableIfNotExists");
       await this.createTranscomTableIfNotExists(db);
-      // console.timeEnd("createTranscomTableIfNotExists");
+      console.timeEnd("createTranscomTableIfNotExists");
 
-      // console.time("createTempTable");
+      console.time("createTempTable");
       await this.createTempTable(db);
-      // console.timeEnd("createTempTable");
+      console.timeEnd("createTempTable");
 
-      // console.time("populateTempTable");
+      console.time("populateTempTable");
       await this.populateTempTable(db, transcomEventsCsvStream);
-      // console.timeEnd("populateTempTable");
+      console.timeEnd("populateTempTable");
 
-      // console.time("setPointGeomInTmpTable");
+      console.time("setPointGeomInTmpTable");
       await this.setPointGeomInTmpTable(db);
-      // console.timeEnd("setPointGeomInTmpTable");
+      console.timeEnd("setPointGeomInTmpTable");
 
-      // console.time("setDurationIntervalInTmpTable");
+      console.time("setDurationIntervalInTmpTable");
       await this.setDurationIntervalInTmpTable(db);
-      // console.timeEnd("setDurationIntervalInTmpTable");
+      console.timeEnd("setDurationIntervalInTmpTable");
 
-      // console.time("copyFromTempIntoTransconEventTable");
+      console.time("copyFromTempIntoTransconEventTable");
       await this.copyFromTempIntoTransconEventTable(db);
-      // console.timeEnd("copyFromTempIntoTransconEventTable");
+      console.timeEnd("copyFromTempIntoTransconEventTable");
 
-      // console.time("finishUp");
+      console.time("finishUp");
       await this.finishUp(db);
-      // console.timeEnd("finishUp");
+      console.timeEnd("finishUp");
     } catch (err) {
       console.error(err);
       throw err;
     } finally {
-      // console.time("dropTempTable");
+      console.time("dropTempTable");
       await this.dropTempTable(db);
-      // console.timeEnd("dropTempTable");
+      console.timeEnd("dropTempTable");
 
-      // console.time("end");
+      console.time("end");
       await db.end();
       // console.timeEnd("end");
     }
