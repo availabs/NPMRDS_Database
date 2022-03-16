@@ -54,7 +54,7 @@ INSERT INTO transcom.transcom_historical_events_archive (
       a.congestion_data,
       a._created_timestamp,
       a._modified_timestamp
-    FROM transcom.transcom_historical_events AS a
+    FROM transcom._transcom_historical_events AS a
       INNER JOIN __TMP_TABLE_NAME__ AS b
         USING (event_id)
     WHERE (
@@ -98,7 +98,7 @@ INSERT INTO transcom.transcom_historical_events_archive (
     )
 ;
 
-INSERT INTO transcom.transcom_historical_events (
+INSERT INTO transcom._transcom_historical_events (
   event_id,
   event_type,
   facility,
