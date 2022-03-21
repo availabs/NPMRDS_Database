@@ -146,6 +146,22 @@ export default class TranscomEventsDatabaseLoader {
       CLUSTER transcom._transcom_historical_events ;
 
       ANALYZE transcom._transcom_historical_events;
+
+      UPDATE data_manager.views
+        SET
+            last_updated = t.max_created_timestamp,
+            statistics = (
+              COALESCE(statistics, '{}'::JSONB)
+              || jsonb_build_object('total_events', t.events_count)
+            )
+          FROM (
+            SELECT
+                MAX(_created_timestamp) AS max_created_timestamp,
+                COUNT(1) AS events_count
+              FROM transcom.transcom_historical_events
+          ) AS t
+          WHERE ( data_table = 'transcom._transcom_historical_events')
+      ;
     `);
   }
 
