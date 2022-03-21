@@ -134,7 +134,6 @@ export default class TranscomEventsDatabaseLoader {
       this.tmpTableName
     );
 
-    console.log(sql);
     await db.query(sql);
   }
 
