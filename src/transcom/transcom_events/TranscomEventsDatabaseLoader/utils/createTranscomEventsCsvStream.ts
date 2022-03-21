@@ -50,6 +50,8 @@ export function transformEventSchema(
       TranscomEventCategory.OTHER,
   };
 
+  console.log("==> event_id", row.event_id);
+
   // Any undefined or empty strings to null
   Object.keys(row).forEach((col) => {
     if (row[col] === undefined || row[col] === "") {

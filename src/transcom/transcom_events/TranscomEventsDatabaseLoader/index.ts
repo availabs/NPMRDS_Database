@@ -170,30 +170,43 @@ export default class TranscomEventsDatabaseLoader {
         this.transcomEventsNdjsonGzipPath
       );
 
+      console.log(
+        "createTranscomTableIfNotExists",
+        new Date().toLocaleString()
+      );
       console.time("createTranscomTableIfNotExists");
       await this.createTranscomTableIfNotExists(db);
       console.timeEnd("createTranscomTableIfNotExists");
 
+      console.log("createTempTable", new Date().toLocaleString());
       console.time("createTempTable");
       await this.createTempTable(db);
       console.timeEnd("createTempTable");
 
+      console.log("populateTempTable", new Date().toLocaleString());
       console.time("populateTempTable");
       await this.populateTempTable(db, transcomEventsCsvStream);
       console.timeEnd("populateTempTable");
 
+      console.log("setPointGeomInTmpTable", new Date().toLocaleString());
       console.time("setPointGeomInTmpTable");
       await this.setPointGeomInTmpTable(db);
       console.timeEnd("setPointGeomInTmpTable");
 
+      console.log("setDurationIntervalInTmpTable", new Date().toLocaleString());
       console.time("setDurationIntervalInTmpTable");
       await this.setDurationIntervalInTmpTable(db);
       console.timeEnd("setDurationIntervalInTmpTable");
 
+      console.log(
+        "copyFromTempIntoTransconEventTable",
+        new Date().toLocaleString()
+      );
       console.time("copyFromTempIntoTransconEventTable");
       await this.copyFromTempIntoTransconEventTable(db);
       console.timeEnd("copyFromTempIntoTransconEventTable");
 
+      console.log("finishUp", new Date().toLocaleString());
       console.time("finishUp");
       await this.finishUp(db);
       console.timeEnd("finishUp");
