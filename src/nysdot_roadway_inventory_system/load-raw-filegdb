@@ -5,8 +5,7 @@ const { basename } = require("path");
 
 const yargs = require("yargs");
 
-const { join } = require("path");
-const envFile = require("node-env-file");
+const { getPsqlCredentials } = require("../../make_targets/utils/PostgreSQL");
 
 const schemaName = "nysdot_ris";
 
@@ -35,19 +34,11 @@ const { argv } = yargs
 
 const { fileGdbZipPath, pg_env } = argv;
 
-const configPath = join(
-  __dirname,
-  pg_env === "production"
-    ? "../../../config/postgres.env.prod"
-    : "../../../config/postgres.env.dev"
-);
-envFile(configPath);
-
 if (!/\.zip$/.test(fileGdbZipPath)) {
   throw new Error("ERROR: fileGdbZipPath must be a zipped archive");
 }
 
-const { PGHOST, PGUSER, PGDATABASE, PGPASSWORD } = process.env;
+const { PGHOST, PGUSER, PGDATABASE, PGPASSWORD } = getPsqlCredentials(pg_env);
 
 if (!(PGHOST && PGUSER && PGDATABASE && PGPASSWORD)) {
   throw new Error(
@@ -59,7 +50,7 @@ const tableName = `${schemaName}.${basename(fileGdbZipPath)
   .replace(/\.zip$/, "")
   .replace(/[^a-z0-9]+/gi, "_")}`;
 
-console.log(tableName);
+console.log("Loading the FileGDB into", tableName);
 
 console.log(
   JSON.stringify(
