@@ -8,12 +8,11 @@ const yargs = require("yargs");
 const { join } = require("path");
 const envFile = require("node-env-file");
 
-const schemaName = "nys_roadway_inventory_system_versions";
+const schemaName = "nysdot_ris";
 
 const cliArgsSpec = {
   fileGdbZipPath: {
-    desc:
-      "Path to the NYS Roadway Inventory System FileGDB. The FileGDB is expected to be the standardized output of https://github.com/availabs/avail-gis-toolkit NysRisDao.createFileGDB. Note: Table name generated using the input FileGDB name.",
+    desc: "Path to the NYS Roadway Inventory System FileGDB. The FileGDB is expected to be the standardized output of https://github.com/availabs/avail-gis-toolkit NysRisDao.createFileGDB. Note: Table name generated using the input FileGDB name.",
     type: "string",
     demand: true,
   },
