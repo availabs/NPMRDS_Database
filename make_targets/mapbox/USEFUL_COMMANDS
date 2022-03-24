@@ -1,0 +1,1 @@
+cat *.geojsonl | jq -c --slurp 'sort_by(.properties.func_class, .id)|.[]' > combined.geojsonl
