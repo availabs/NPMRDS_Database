@@ -18,26 +18,30 @@ class ConflationMapDatabaseObjectNames {
     //       E.G.: Both 1.2.3 and 1_2_3 will pass validation
     if (!/^\d{1,}[._]\d{1,}[._]\d{1,}$/.test(conflationMapVersion)) {
       throw new Error(
-        'ERROR: conflationMapVersion should be of the format x.y.z'
+        "ERROR: conflationMapVersion should be of the format x.y.z"
       );
     }
   }
 
   constructor(year, conflationMapVersion) {
-    ConflationMapDatabaseObjectNames.validateConflationMapVersion(conflationMapVersion);
+    ConflationMapDatabaseObjectNames.validateConflationMapVersion(
+      conflationMapVersion
+    );
 
-    this.conflationSchema = 'conflation';
+    this.conflationSchema = "conflation";
 
     this.year = year;
     this.conflationMapVersion = conflationMapVersion;
   }
 
   get conflationMapTableVersionSuffix() {
-    return this.conflationMapVersion.replace(/\./g, '_');
+    return this.conflationMapVersion.replace(/\./g, "_");
   }
 
   get conflationMapTableName() {
-    return `conflation_map_${this.year}_v${this.conflationMapTableVersionSuffix}`;
+    return `conflation_map_${this.year}_v${
+      this.conflationMapTableVersionSuffix
+    }`;
   }
 
   get conflationMapTableFullName() {
@@ -49,15 +53,25 @@ class ConflationMapDatabaseObjectNames {
   }
 
   get conflationMapTablePrimaryKeyIdxFullName() {
-    return `${this.conflationSchema}.${this.conflationMapTablePrimaryKeyIdxName}`;
+    return `${this.conflationSchema}.${
+      this.conflationMapTablePrimaryKeyIdxName
+    }`;
+  }
+
+  get conflationMapTableOsmIdxName() {
+    return `${this.conflationMapTableName}_osm_idx`;
+  }
+
+  get conflationMapTableRisIdxName() {
+    return `${this.conflationMapTableName}_ris_idx`;
+  }
+
+  get conflationMapTableTmcIdxName() {
+    return `${this.conflationMapTableName}_tmc_idx`;
   }
 
   get conflationMapTableGeometryIdxName() {
     return `${this.conflationMapTableName}_gix`;
-  }
-
-  get conflationMapTableGeometryIdxFullName() {
-    return `${this.conflationMapTableGeometryIdxName}_gix`;
   }
 
   // get conflationMapToTranscomEventsTableName() {

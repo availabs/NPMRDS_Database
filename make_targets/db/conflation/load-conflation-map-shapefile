@@ -68,10 +68,14 @@ try {
 
 const {
   conflationSchema,
+
   conflationMapTableName,
   conflationMapTableFullName,
+
+  conflationMapTableOsmIdxName,
+  conflationMapTableRisIdxName,
+  conflationMapTableTmcIdxName,
   conflationMapTableGeometryIdxName,
-  conflationMapTableGeometryIdxFullName,
 } = new ConflationMapDatabaseObjectNames(year, conflationMapVersion);
 
 const timestamp = Math.floor(new Date().getTime() / 1000);
@@ -100,8 +104,10 @@ const createConflationMapVersionDatabaseTable = () => {
         -v SCHEMA_NAME='${conflationSchema}' \
         -v TABLE_NAME='${conflationMapTableName}' \
         -v FULL_TABLE_NAME='${conflationMapTableFullName}' \
+        -v OSM_IDX_NAME='${conflationMapTableOsmIdxName}' \
+        -v RIS_IDX_NAME='${conflationMapTableRisIdxName}' \
+        -v TMC_IDX_NAME='${conflationMapTableTmcIdxName}' \
         -v GEOM_IDX_NAME='${conflationMapTableGeometryIdxName}' \
-        -v FULL_GEOM_IDX_NAME='${conflationMapTableGeometryIdxFullName}' \
         -f '${createConflationMapVersionDatabaseTableDdlPath}'
     `,
     {
@@ -188,7 +194,7 @@ const integrateNewMapIntoDatabase = async (client) => {
 
     let task = "load conflation map shapefile into temporary table";
     console.time(task);
-    await loadConflationMapShapefileIntoTemporaryTable(client);
+    loadConflationMapShapefileIntoTemporaryTable(client);
     console.timeEnd(task);
 
     task = "integrate new conflation map into database";

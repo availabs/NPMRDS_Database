@@ -16,6 +16,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.project_transcom_events_onto_osm_map
       -- These variables are relevant for the PROCEDURE versioning.
       procedure_version TEXT := 'v0_0_1' ;
       conflation_map_version TEXT := 'v0_6_0' ;
+      -- NOTE: conflation_map must exist for every year in range.
       --  min_event_year SMALLINT := 2016 ;
       min_event_year SMALLINT := 2020 ;
       max_event_year SMALLINT := 2020 ;
@@ -80,7 +81,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.project_transcom_events_onto_osm_map
                     EXTRACT(YEAR FROM close_time)::INTEGER
                   ) AS b(year) ON TRUE
                 WHERE (
-                  ( _modified_timestamp > %L::TIMESTAMP )
+                  ( _modified_timestamp >= %L::TIMESTAMP )
                   AND
                   ( b.year BETWEEN %L and %L )
                 )

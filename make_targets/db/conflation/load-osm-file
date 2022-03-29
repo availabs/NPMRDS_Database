@@ -88,6 +88,11 @@ const createWaysTableSqlPath = join(
   "../../../sql/osm/create_versioned_osm_ways_tables.sql"
 );
 
+const createRoadsViewSqlPath = join(
+  __dirname,
+  "../../../sql/osm/create_osm_roads_view.sql"
+);
+
 const createRelationsTableSqlPath = join(
   __dirname,
   "../../../sql/osm/create_versioned_osm_relations_tables.sql"
@@ -174,6 +179,10 @@ async function createOsmVersionTables(dbConn) {
 
     execSync(
       `psql -v OSM_VERSION=${osmVersion} -f '${createWaysTableSqlPath}'`
+    );
+
+    execSync(
+      `psql -v OSM_VERSION=${osmVersion} -f '${createRoadsViewSqlPath}'`
     );
 
     execSync(
