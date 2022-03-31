@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+source ./config/postgres.env.dev
+source ./config/env
+
+INPUT_GPKG="./data/transcom_events_$YEAR.gpkg"
+
+ogr2ogr \
+  -f 'GPKG' \
+  PG:"host=$PGHOST user=$PGUSER dbname=$PGDATABASE password=$PGPASSWORD" \
+  -skipfailures \
+  -overwrite \
+  -s_srs EPSG:4326 \
+  -t_srs EPSG:4326 \
+  $INPUT_GPKG \
+  transcom_events \
+  -nln "transcom._transcom_historical_events"
+
+popd >/dev/null
+

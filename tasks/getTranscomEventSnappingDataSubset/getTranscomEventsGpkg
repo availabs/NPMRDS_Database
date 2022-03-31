@@ -8,12 +8,14 @@ pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
 source ./config/postgres.env.prod
 source ./config/env
 
+OUTPUT_GPKG="./data/transcom_events_$YEAR.gpkg"
+
 ogr2ogr \
   -f 'GPKG' \
   -skipfailures \
   -s_srs EPSG:4326 \
   -t_srs EPSG:4326 \
-  "./data/transcom_events.gpkg" \
+  $OUTPUT_GPKG \
   PG:"host=$PGHOST user=$PGUSER dbname=$PGDATABASE password=$PGPASSWORD" \
   -nln transcom_events \
   -sql "
