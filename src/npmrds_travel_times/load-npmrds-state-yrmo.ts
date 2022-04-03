@@ -48,7 +48,7 @@ function createPostgesDbTable(
   month: number,
   pgEnv: "development" | "production"
 ) {
-  const sqlDir = join(__dirname, "../../sql/npmrds/");
+  const sqlDir = join(__dirname, "../../sql/npmrds_travel_times/");
 
   const pgCreds = getPsqlCredentials(pgEnv);
 
