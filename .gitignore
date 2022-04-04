@@ -6,8 +6,11 @@ archive/
 node_modules/
 package-lock.json
 spike/
-tasks/
 tmp/
 *.csv
 *.mbtiles
 docker/
+*.log
+*.bak
+*.bak2
+*.bak3
