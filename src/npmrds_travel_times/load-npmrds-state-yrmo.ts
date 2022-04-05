@@ -3,8 +3,11 @@ import { pipeline } from "stream";
 import { promisify } from "util";
 import { join } from "path";
 
+import { Client as PostgresDB } from "pg";
 import { from as copyFrom } from "pg-copy-streams";
 import pgFormat from "pg-format";
+
+import memoize from "memoize-one";
 
 import { format as csvFormat } from "fast-csv";
 
@@ -26,7 +29,7 @@ const columns = [
   "data_density_freight_trucks",
 ];
 
-function getMetadataFromSqliteDb(sqliteDB: SQLiteDB) {
+const getMetadataFromSqliteDb = memoize((sqliteDB: SQLiteDB) => {
   const metadata = sqliteDB
     .prepare(
       `
@@ -40,14 +43,25 @@ function getMetadataFromSqliteDb(sqliteDB: SQLiteDB) {
     .get();
 
   return metadata;
+});
+
+function getPostgresTableName(sqliteDB: SQLiteDB) {
+  const { state, year, month } = getMetadataFromSqliteDb(sqliteDB);
+
+  const mm = `0${month}`.slice(-2);
+
+  return {
+    schemaName: state,
+    tableName: `npmrds_y${year}m${mm}`,
+  };
 }
 
 function createPostgesDbTable(
-  state: string,
-  year: number,
-  month: number,
+  sqliteDB: SQLiteDB,
   pgEnv: "development" | "production"
 ) {
+  const { state, year, month } = getMetadataFromSqliteDb(sqliteDB);
+
   const sqlDir = join(__dirname, "../../sql/npmrds_travel_times/");
 
   const pgCreds = getPsqlCredentials(pgEnv);
@@ -81,33 +95,61 @@ function createDataIterator(sqliteDB: SQLiteDB) {
     .iterate();
 }
 
-export default async function main({
-  npmrds_export_sqlite_db_path,
-  pg_env = "development",
-}) {
-  const sqlite3Connection = new Database(npmrds_export_sqlite_db_path, {
-    readonly: true,
-  });
+async function loadPostgresDbTable(sqliteDB: SQLiteDB, pgDB: PostgresDB) {
+  const { schemaName, tableName } = getPostgresTableName(sqliteDB);
 
-  const pgConnection = await getConnectedPgClient(pg_env);
+  const deleteAllSql = pgFormat(`DELETE FROM %I.%I ;`, schemaName, tableName);
 
-  const { state, year, month } = getMetadataFromSqliteDb(sqlite3Connection);
-
-  createPostgesDbTable(state, year, month, "development");
-
-  const mm = `0${month}`.slice(-2);
+  await pgDB.query(deleteAllSql);
 
   const copyFromSql = pgFormat(
     `COPY %I.%I (${columns}) FROM STDIN WITH CSV HEADER`,
-    state,
-    `npmrds_y${year}m${mm}`
+    schemaName,
+    tableName
   );
 
   await pipelineAsync(
-    createDataIterator(sqlite3Connection),
+    createDataIterator(sqliteDB),
     csvFormat({ quote: true }),
-    pgConnection.query(copyFrom(copyFromSql))
+    pgDB.query(copyFrom(copyFromSql))
+  );
+}
+
+async function clusterPostgresTable(sqliteDB: SQLiteDB, pgDB: PostgresDB) {
+  const { schemaName, tableName } = getPostgresTableName(sqliteDB);
+
+  const sql = pgFormat(
+    `CLUSTER %I.%I USING %I ;`,
+    schemaName,
+    tableName,
+    `${tableName}_pkey`
   );
 
-  await pgConnection.end();
+  await pgDB.query(sql);
+}
+
+export default async function main({
+  npmrds_export_sqlite_db_path,
+  pg_env = "development",
+}: {
+  npmrds_export_sqlite_db_path: string;
+  pg_env: "development" | "production";
+}) {
+  const sqliteDB = new Database(npmrds_export_sqlite_db_path, {
+    readonly: true,
+  });
+
+  const pgDB = await getConnectedPgClient(pg_env);
+
+  createPostgesDbTable(sqliteDB, pg_env);
+
+  await pgDB.query("BEGIN ;");
+
+  await loadPostgresDbTable(sqliteDB, pgDB);
+  await clusterPostgresTable(sqliteDB, pgDB);
+
+  await pgDB.query("COMMIT ;");
+
+  await pgDB.end();
+  sqliteDB.close();
 }
