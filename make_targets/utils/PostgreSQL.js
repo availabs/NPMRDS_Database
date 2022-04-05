@@ -119,6 +119,15 @@ const putPostgresCredentialsInEnvironmentVariables = () => {
   dotenv.config({ path: configPath });
 };
 
+const cliArgsSpec = {
+  pg_env: {
+    type: "string",
+    demand: false,
+    choices: ["production", "development"],
+    default: "development",
+  },
+};
+
 module.exports = {
   postgresEnvVariables,
   getPostgresConfigurationFilePath,
@@ -126,4 +135,5 @@ module.exports = {
   getNodePgCredentials,
   getConnectedPgClient,
   putPostgresCredentialsInEnvironmentVariables,
+  cliArgsSpec,
 };
