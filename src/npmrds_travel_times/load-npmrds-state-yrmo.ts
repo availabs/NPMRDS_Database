@@ -103,7 +103,7 @@ async function loadPostgresDbTable(sqliteDB: SQLiteDB, pgDB: PostgresDB) {
   await pgDB.query(deleteAllSql);
 
   const copyFromSql = pgFormat(
-    `COPY %I.%I (${columns}) FROM STDIN WITH CSV HEADER`,
+    `COPY %I.%I (${columns}) FROM STDIN WITH CSV`,
     schemaName,
     tableName
   );
