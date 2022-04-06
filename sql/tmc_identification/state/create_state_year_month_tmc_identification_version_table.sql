@@ -7,4 +7,5 @@ CREATE TABLE IF NOT EXISTS :tbl_name (
 ) WITH (fillfactor = 100, autovacuum_enabled=false);
 
 ALTER TABLE :tbl_name
-  ALTER download_timestamp SET DEFAULT :'DOWNLOAD_TIMESTAMP';
+  ALTER download_timestamp
+    SET DEFAULT :'DOWNLOAD_TIMESTAMP';
