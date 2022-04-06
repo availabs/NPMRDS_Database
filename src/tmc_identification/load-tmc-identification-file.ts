@@ -138,7 +138,7 @@ function* createDataIterator(sqliteDB: SQLiteDB) {
   for (const row of iter) {
     columns.forEach((c) => {
       if (/^null$/i.test(row[c])) {
-        row[c] = "";
+        row[c] = null;
       }
     });
 
