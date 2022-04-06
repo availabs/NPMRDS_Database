@@ -118,10 +118,10 @@ function createPostgesDbTable(
   );
 }
 
-function createDataIterator(sqliteDB: SQLiteDB) {
+function* createDataIterator(sqliteDB: SQLiteDB) {
   const { state, download_timestamp } = getMetadataFromSqliteDb(sqliteDB);
 
-  return sqliteDB
+  const iter = sqliteDB
     .prepare(
       `
         SELECT ${columns}
@@ -134,6 +134,16 @@ function createDataIterator(sqliteDB: SQLiteDB) {
       `
     )
     .iterate([state.toUpperCase()]);
+
+  for (const row of iter) {
+    columns.forEach((c) => {
+      if (/^null$/i.test(row[c])) {
+        row[c] = "";
+      }
+    });
+
+    yield row;
+  }
 }
 
 async function loadPostgresDbTable(sqliteDB: SQLiteDB, pgDB: PostgresDB) {
