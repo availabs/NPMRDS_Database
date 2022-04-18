@@ -2,7 +2,6 @@
 
 /* eslint no-console: 0, no-await-in-loop: 0 */
 
-
 // npmrds_production=# select count(1) from ny.tmc_identification_2019 where nhs is null and aadt is not null;
 //  count
 // -------
@@ -33,68 +32,66 @@
 //      0
 // (1 row)
 
+const { join } = require("path");
 
+const { Client } = require("pg");
+const envFile = require("node-env-file");
 
-const {join} = require('path');
+const yargs = require("yargs");
 
-const {Client} = require('pg');
-const envFile = require('node-env-file');
-
-const yargs = require('yargs');
-
-const csv = require('fast-csv');
-const {to: copyTo} = require('pg-copy-streams');
-const {flatten, isNil} = require('lodash');
-const split2 = require('split2');
-const through2 = require('through2');
-const _ = require('lodash');
+const csv = require("fast-csv");
+const { to: copyTo } = require("pg-copy-streams");
+const { flatten, isNil } = require("lodash");
+const split2 = require("split2");
+const through2 = require("through2");
+const _ = require("lodash");
 
 const tmcMetadataColMappings = new Map([
-  ['State_Code', 'stateCode'],
-  ['F_System', 'fSystem'],
-  ['Urban_Code', 'uaCode'],
-  ['Facility_Type', 'faciltype'],
-  ['NHS', 'nhs'],
-  ['Segment_Length', 'miles'],
-  ['Directionality', 'direction'],
-  ['DIR_AADT', 'directionalAadt'],
-  ['OCC_FAC', 'avgVehicleOccupancy']
+  ["State_Code", "stateCode"],
+  ["F_System", "fSystem"],
+  ["Urban_Code", "uaCode"],
+  ["Facility_Type", "faciltype"],
+  ["NHS", "nhs"],
+  ["Segment_Length", "miles"],
+  ["Directionality", "direction"],
+  ["DIR_AADT", "directionalAadt"],
+  ["OCC_FAC", "avgVehicleOccupancy"],
 ]);
 
 const lottrColMappings = new Map([
-  ['LOTTR_AMP', 'amp'],
-  ['TT_AMP50PCT', 'amp_50_pct'],
-  ['TT_AMP80PCT', 'amp_80_pct'],
-  ['LOTTR_MIDD', 'midd'],
-  ['TT_MIDD50PCT', 'midd_50_pct'],
-  ['TT_MIDD80PCT', 'midd_80_pct'],
-  ['LOTTR_PMP', 'pmp'],
-  ['TT_PMP50PCT', 'pmp_50_pct'],
-  ['TT_PMP80PCT', 'pmp_80_pct'],
-  ['LOTTR_WE', 'we'],
-  ['TT_WE50PCT', 'we_50_pct'],
-  ['TT_WE80PCT', 'we_80_pct']
+  ["LOTTR_AMP", "amp"],
+  ["TT_AMP50PCT", "amp_50_pct"],
+  ["TT_AMP80PCT", "amp_80_pct"],
+  ["LOTTR_MIDD", "midd"],
+  ["TT_MIDD50PCT", "midd_50_pct"],
+  ["TT_MIDD80PCT", "midd_80_pct"],
+  ["LOTTR_PMP", "pmp"],
+  ["TT_PMP50PCT", "pmp_50_pct"],
+  ["TT_PMP80PCT", "pmp_80_pct"],
+  ["LOTTR_WE", "we"],
+  ["TT_WE50PCT", "we_50_pct"],
+  ["TT_WE80PCT", "we_80_pct"],
 ]);
 
 const tttrColMappings = new Map([
-  ['TTTR_AMP', 'amp'],
-  ['TTT_AMP50PCT', 'amp_50_pct'],
-  ['TTT_AMP95PCT', 'amp_95_pct'],
-  ['TTTR_MIDD', 'midd'],
-  ['TTT_MIDD50PCT', 'midd_50_pct'],
-  ['TTT_MIDD95PCT', 'midd_95_pct'],
-  ['TTTR_PMP', 'pmp'],
-  ['TTT_PMP50PCT', 'pmp_50_pct'],
-  ['TTT_PMP95PCT', 'pmp_95_pct'],
-  ['TTTR_WE', 'we'],
-  ['TTT_WE50PCT', 'we_50_pct'],
-  ['TTT_WE95PCT', 'we_95_pct'],
-  ['TTTR_OVN', 'ovn'],
-  ['TTT_OVN50PCT', 'ovn_50_pct'],
-  ['TTT_OVN95PCT', 'ovn_95_pct']
+  ["TTTR_AMP", "amp"],
+  ["TTT_AMP50PCT", "amp_50_pct"],
+  ["TTT_AMP95PCT", "amp_95_pct"],
+  ["TTTR_MIDD", "midd"],
+  ["TTT_MIDD50PCT", "midd_50_pct"],
+  ["TTT_MIDD95PCT", "midd_95_pct"],
+  ["TTTR_PMP", "pmp"],
+  ["TTT_PMP50PCT", "pmp_50_pct"],
+  ["TTT_PMP95PCT", "pmp_95_pct"],
+  ["TTTR_WE", "we"],
+  ["TTT_WE50PCT", "we_50_pct"],
+  ["TTT_WE95PCT", "we_95_pct"],
+  ["TTTR_OVN", "ovn"],
+  ["TTT_OVN50PCT", "ovn_50_pct"],
+  ["TTT_OVN95PCT", "ovn_95_pct"],
 ]);
 
-const phedColMappings = new Map([['PHED', 'all_xdelay_phrs']]);
+const phedColMappings = new Map([["PHED", "all_xdelay_phrs"]]);
 
 const precisionRound = (number, precision = 0) => {
   if (number === null) {
@@ -113,37 +110,37 @@ const stateRE = /^[a-z]{2}$/i;
 
 const cliArgsSpec = {
   state: {
-    type: 'string',
-    demand: true
+    type: "string",
+    demand: true,
   },
   version_id: {
-    type: 'string',
-    demand: true
+    type: "string",
+    demand: true,
   },
   pg_env: {
-    type: 'string',
+    type: "string",
     demand: false,
-    choices: ['production', 'development'],
-    default: 'development'
-  }
+    choices: ["production", "development"],
+    default: "development",
+  },
 };
 
-const {argv} = yargs
+const { argv } = yargs
   .strict()
   .parserConfiguration({
-    'camel-case-expansion': false,
-    'flatten-duplicate-arrays': false
+    "camel-case-expansion": false,
+    "flatten-duplicate-arrays": false,
   })
   .wrap(yargs.terminalWidth() / 1.618)
   .option(cliArgsSpec);
 
 const {
-  argv: {state, version_id, pg_env}
+  argv: { state, version_id, pg_env },
 } = yargs
   .strict()
   .parserConfiguration({
-    'camel-case-expansion': false,
-    'flatten-duplicate-arrays': false
+    "camel-case-expansion": false,
+    "flatten-duplicate-arrays": false,
   })
   .option(cliArgsSpec);
 
@@ -153,9 +150,9 @@ const measureClass = measureClassAndYear.slice(0, 4);
 
 const minor_version = +semantic_version.split(/\./)[1];
 
-if (measureClass !== 'FHWA') {
+if (measureClass !== "FHWA") {
   console.error(
-    'ERROR: version_ids must be for the FHWA measure class versions.'
+    "ERROR: version_ids must be for the FHWA measure class versions."
   );
   process.exit(1);
 }
@@ -168,24 +165,24 @@ if (!_.isNumber(minor_version)) {
 const Year_Record = +version_id.slice(5, 9);
 
 if (Number.isNaN(Year_Record)) {
-  console.error('ERROR: Invalid version_id', version_id);
+  console.error("ERROR: Invalid version_id", version_id);
   process.exit(1);
 }
 
 const configPath = join(
   __dirname,
-  pg_env === 'production'
-    ? '../../../../config/postgres.env.prod'
-    : '../../../../config/postgres.env.dev'
+  pg_env === "production"
+    ? "../../../../config/postgres.env.prod"
+    : "../../../../config/postgres.env.dev"
 );
 envFile(configPath);
 
 const METRIC_SOURCE = 1;
-const COMMENTS = '';
+const COMMENTS = "";
 
 if (!argv.state.match(stateRE)) {
   console.error(
-    'ERROR: Invalid state. States should be specified by the two letter abbreviation.'
+    "ERROR: Invalid state. States should be specified by the two letter abbreviation."
   );
   process.exit(1);
 }
@@ -229,14 +226,17 @@ const dumpData = async () => {
       stream
         .pipe(split2(JSON.parse))
         .pipe(
-          through2.obj(function ndjsonTransformer({tmc, data}, _$, cb) {
-            const {TMC_METADATA: tmcMetadata} = data;
+          through2.obj(function ndjsonTransformer({ tmc, data }, _$, cb) {
+            const { TMC_METADATA: tmcMetadata } = data;
 
-            const isNpmrdsExtended = _.isNil(tmcMetadata.directionalAadt)
-
+            const isNpmrdsExtended = _.isNil(tmcMetadata.directionalAadt);
 
             if (isNpmrdsExtended) {
-              return cb()
+              return cb();
+            }
+
+            if (![1, 2, 6].includes(tmcMetadata.faciltype)) {
+              return cb();
             }
 
             const nhsPct = +tmcMetadata.nhsPct || 0;
@@ -262,19 +262,19 @@ const dumpData = async () => {
               METRIC_SOURCE,
               COMMENTS,
               ...[...tmcMetadataColMappings.entries()].reduce((acc, [k, v]) => {
-                if (k === 'Directionality') {
+                if (k === "Directionality") {
                   acc[k] =
                     {
                       N: 1,
                       S: 2,
                       E: 3,
-                      W: 4
+                      W: 4,
                     }[data.TMC_METADATA[v]] || 5;
-                } else if (k === 'NHS') {
-                  const nhs = (isprimary && nhsPct > 0) ? +tmcMetadata.nhs : -1;
+                } else if (k === "NHS") {
+                  const nhs = isprimary && nhsPct > 0 ? +tmcMetadata.nhs : -1;
 
-                  acc[k] = nhs
-                } else if (k === 'Segment_Length') {
+                  acc[k] = nhs;
+                } else if (k === "Segment_Length") {
                   // Scale the Segment_Lengths
                   // NOTE:
                   //   select * from tmc_metadata_2018 where (nhs_pct is null or nhs_pct = 0) and border_set <> 'Y';
@@ -286,7 +286,7 @@ const dumpData = async () => {
                   acc[k] =
                     data.TMC_METADATA && !isNil(data.TMC_METADATA[v])
                       ? data.TMC_METADATA[v]
-                      : '';
+                      : "";
                 }
 
                 return acc;
@@ -298,7 +298,7 @@ const dumpData = async () => {
                   } else if (/PCT$/.test(k)) {
                     acc[k] = 0;
                   } else {
-                    throw new Error('Unrecognized LOTTR column name');
+                    throw new Error("Unrecognized LOTTR column name");
                   }
                 } else {
                   acc[k] = data.LOTTR[v];
@@ -313,7 +313,7 @@ const dumpData = async () => {
                   } else if (/PCT$/.test(k)) {
                     acc[k] = 0;
                   } else {
-                    throw new Error('Unrecognized TTTR column name');
+                    throw new Error("Unrecognized TTTR column name");
                   }
                 } else {
                   acc[k] = data.TTTR[v];
@@ -331,7 +331,7 @@ const dumpData = async () => {
                 acc[k] = scaledPhed;
 
                 return acc;
-              }, {})
+              }, {}),
             };
 
             row.DIR_AADT = precisionRound(row.DIR_AADT);
@@ -344,24 +344,24 @@ const dumpData = async () => {
           })
         )
         .pipe(
-          csv.createWriteStream({
+          csv.format({
             headers: flatten([
-              'Year_Record',
-              'State_Code',
-              'Travel_Time_Code',
+              "Year_Record",
+              "State_Code",
+              "Travel_Time_Code",
               [...tmcMetadataColMappings.keys()].slice(1),
               [...lottrColMappings.keys()],
               [...tttrColMappings.keys()],
               [...phedColMappings.keys()],
-              'METRIC_SOURCE',
-              'COMMENTS'
-            ])
+              "METRIC_SOURCE",
+              "COMMENTS",
+            ]),
           })
         )
         .pipe(process.stdout);
 
-      stream.on('error', reject);
-      stream.on('end', resolve);
+      stream.on("error", reject);
+      stream.on("end", resolve);
     });
   } catch (err) {
     console.error(err);
