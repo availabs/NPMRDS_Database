@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -e
+
+VERSION="$1"
+DB_PATH="hpms_pm3.$VERSION.sqlite3"
+
+sqlite3 "$DB_PATH" '.read ./create_tables.sql'
+
+sqlite3 \
+  -csv "$DB_PATH" \
+  ".import '| tail -n +2 -' pm3_hpms"
+
+sqlite3 "$DB_PATH" "VACUUM;"
