@@ -54,7 +54,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_to_osm_ways_t
             year                  SMALLINT,
             osm_way_id            BIGINT,
             osm_fwd               INTEGER,
-            snap_pt_geom             public.geometry(Point, 4326),
+            snap_pt_geom          public.geometry(Point, 4326),
 
             _modified_timestamp   TIMESTAMP NOT NULL,
 
