@@ -165,6 +165,7 @@ export default class TranscomEventsDatabaseLoader {
 
       CALL _transcom_admin.update_transcom_events_onto_conflation_map() ;
       CALL _transcom_admin.update_transcom_events_onto_road_network() ;
+      CALL _transcom_admin.update_transcom_events_top_level_views() ;
     `);
   }
 
