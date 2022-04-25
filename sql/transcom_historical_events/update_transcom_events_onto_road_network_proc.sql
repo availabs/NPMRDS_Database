@@ -38,6 +38,8 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_road_net
                 a.year,
 
                 b.event_type,
+                b.event_class,
+
                 b.open_time AS event_open_time,
                 b.close_time AS event_close_time,
 
@@ -64,7 +66,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_road_net
                 d.wkb_geometry  AS conflation_map_node_geom
 
               FROM _transcom_admin.%I AS a
-                INNER JOIN transcom._transcom_historical_events AS b
+                INNER JOIN transcom.transcom_historical_events AS b
                   USING (event_id)
                 INNER JOIN conflation.%I AS c
                   ON ( a.conflation_way_id = c.id )
