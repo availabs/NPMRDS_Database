@@ -7,6 +7,9 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_top_level_vie
   AS $$
     DECLARE
       -- These variables are relevant for the PROCEDURE versioning.
+      -- NOTE: If the version changed, will need to uniherit the previous version
+      --       from transcom_events_onto_conflation_map. The below code DOES NOT do that.
+
       procedure_version TEXT := 'v0_0_1' ;
 
     BEGIN
@@ -20,6 +23,20 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_top_level_vie
         ',
         'transcom_events_onto_road_network_' || procedure_version
       ) ;
+
+      IF NOT EXISTS (
+          SELECT
+              1
+            FROM pg_catalog.pg_inherits
+            WHERE inhrelid = 'transcom.transcom_events_onto_conflation_map'::regclass
+        ) THEN
+          EXECUTE FORMAT('
+              ALTER TABLE _transcom_admin.%I
+                INHERIT transcom.transcom_events_onto_conflation_map
+            ',
+            'transcom_events_onto_conflation_map_' || procedure_version
+          ) ;
+      END IF ;
 
       EXECUTE FORMAT('
           DROP MATERIALIZED VIEW IF EXISTS transcom_events_by_tmc_summary ;

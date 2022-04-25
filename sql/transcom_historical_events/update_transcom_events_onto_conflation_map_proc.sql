@@ -54,7 +54,8 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
             year                          SMALLINT,
             conflation_way_id             BIGINT NOT NULL,
             conflation_node_id            BIGINT,
-            osm_fwd                       SMALLINT NOT NULL,
+            osm_fwd                       SMALLINT,
+            n                             SMALLINT,
             _modified_timestamp           TIMESTAMP NOT NULL,
 
             snap_pt_geom                  public.geometry(Point, 4326) NOT NULL,
@@ -200,6 +201,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
               year,
               conflation_way_id,
               osm_fwd,
+              n,
               _modified_timestamp,
               snap_pt_geom
             )
@@ -208,6 +210,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
                   %L AS year,
                   conflation_way_id,
                   osm_fwd,
+                  n,
                   _modified_timestamp,
                   snap_pt_geom
                 FROM (
@@ -215,6 +218,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
                       event_id,
                       conflation_way_id,
                       osm_fwd,
+                      n,
                       _modified_timestamp,
                       snap_pt_geom,
 
@@ -239,6 +243,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
                           a._modified_timestamp,
                           c.id AS conflation_way_id,
                           c.osm_fwd,
+                          c.n,
                           b.snap_pt_geom,
                           b.snap_dist,
                           (
@@ -267,6 +272,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
                 UPDATE SET
                   conflation_way_id     = EXCLUDED.conflation_way_id,
                   osm_fwd               = EXCLUDED.osm_fwd,
+                  n                     = EXCLUDED.n,
                   _modified_timestamp   = EXCLUDED._modified_timestamp,
                   snap_pt_geom          = EXCLUDED.snap_pt_geom,
                   conflation_node_id    = NULL -- Important for UPDATE below.

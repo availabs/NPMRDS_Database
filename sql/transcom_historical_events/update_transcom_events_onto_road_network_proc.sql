@@ -52,7 +52,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_road_net
                 END AS signed_conflation_node_id,
 
                 c.dir,
-                c.n,
+                a.n,
                 c.osm,
                 a.osm_fwd,
                 c.ris,
