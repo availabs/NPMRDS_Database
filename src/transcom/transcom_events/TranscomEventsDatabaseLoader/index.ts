@@ -162,6 +162,9 @@ export default class TranscomEventsDatabaseLoader {
           ) AS t
           WHERE ( data_table = 'transcom._transcom_historical_events')
       ;
+
+      CALL _transcom_admin.update_transcom_events_onto_conflation_map() ;
+      CALL _transcom_admin.update_transcom_events_onto_road_network() ;
     `);
   }
 
