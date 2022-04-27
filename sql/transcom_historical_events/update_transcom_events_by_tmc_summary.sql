@@ -24,39 +24,98 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_by_tmc_summar
               SELECT
                   tmc,
                   year,
-
-                  jsonb_object_agg(
-                    t1.event_type,
-                    t1.event_type_ct
-                  ) AS event_type_summary,
-
-                  jsonb_object_agg(
-                    t2.event_class,
-                    t2.event_class_ct
-                  ) AS event_class_summary
-
+                  COALESCE(t1.accident_counts_by_type, ''{}''::JSONB) AS accident_counts_by_type,
+                  COALESCE(t1.accidents_total, 0) AS accidents_total,
+                  COALESCE(t2.construction_days_by_type, ''{}''::JSONB) AS construction_days_by_type,
+                  COALESCE(t3.construction_days_total, 0) AS construction_days_total
                 FROM (
-                  SELECT
+                  SELECT DISTINCT
                       tmc,
-                      year,
-                      event_type,
-                      count(1) AS event_type_ct
-                  FROM _transcom_admin.%I AS a
-                  GROUP BY tmc, year, event_type
-                ) AS t1 INNER JOIN (
-                  SELECT
-                      tmc,
-                      year,
-                      COALESCE(event_class, ''unknown'') AS event_class,
-                      count(1) AS event_class_ct
-                  FROM _transcom_admin.%I AS a
-                  GROUP BY tmc, year, event_class
-                ) AS t2 USING (tmc, year)
-                GROUP BY tmc, year
+                      year
+                    FROM _transcom_admin.%I
+                ) AS t0
+                LEFT OUTER JOIN (
+                    SELECT
+                        tmc,
+                        year,
+                        jsonb_object_agg(
+                          x.event_type,
+                          x.event_type_ct
+                        ) AS accident_counts_by_type,
+
+                        SUM(x.event_type_ct) AS accidents_total
+
+                      FROM (
+                        SELECT
+                            tmc,
+                            year,
+                            event_type,
+                            count(1) AS event_type_ct
+                        FROM _transcom_admin.%I AS a
+                        WHERE ( event_class = ''accident'' )
+                        GROUP BY tmc, year, event_type
+                      ) AS x
+
+                      GROUP BY tmc, year
+                  ) AS t1 USING (tmc, year)
+                  LEFT OUTER JOIN (
+                    SELECT
+                        tmc,
+                        year,
+                        jsonb_object_agg(
+                          y.event_type,
+                          y.total_days
+                        ) AS construction_days_by_type
+                      FROM (
+                        SELECT
+                            tmc,
+                            year,
+                            event_type,
+                            COUNT(DISTINCT event_date) AS total_days
+                          FROM (
+                            SELECT
+                                tmc,
+                                year,
+                                event_type,
+                                generate_series(
+                                  date_trunc(''day'', event_close_time),
+                                  date_trunc(''day'', event_open_time),
+                                  ''1 day''::interval
+                                ) AS event_date
+                              FROM _transcom_admin.%I AS a
+                              WHERE ( event_class = ''construction'' )
+                          ) AS x
+                          GROUP BY tmc, year, event_type
+                      ) AS y
+                      GROUP BY tmc, year
+                  ) AS t2 USING (tmc, year)
+                  LEFT OUTER JOIN (
+                    SELECT
+                        tmc,
+                        year,
+                        COUNT(DISTINCT event_date) AS construction_days_total
+                      FROM (
+                        SELECT
+                            tmc,
+                            year,
+                            generate_series(
+                              date_trunc(''day'', event_close_time),
+                              date_trunc(''day'', event_open_time),
+                              ''1 day''::interval
+                            ) AS event_date
+                          FROM _transcom_admin.%I AS a
+                          WHERE ( event_class = ''construction'' )
+                      ) AS x
+                      GROUP BY tmc, year
+                  ) AS t3 USING (tmc, year)
+          ;
+
         ',
-        'transcom_events_by_tmc_summary_' || procedure_version,
-        'transcom_events_onto_road_network_' || procedure_version,
-        'transcom_events_onto_road_network_' || procedure_version
+        'transcom_events_by_tmc_summary_' || procedure_version,             -- CREATE
+        'transcom_events_onto_road_network_' || procedure_version,          -- t0
+        'transcom_events_onto_road_network_' || procedure_version,          -- t1
+        'transcom_events_onto_road_network_' || procedure_version,          -- t2
+        'transcom_events_onto_road_network_' || procedure_version           -- t3
       ) ;
 
     END;

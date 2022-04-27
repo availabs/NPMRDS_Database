@@ -40,8 +40,15 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_road_net
                 b.event_type,
                 b.event_class,
 
-                b.open_time AS event_open_time,
-                b.close_time AS event_close_time,
+                GREATEST(
+                  b.open_time,
+                  %L::TIMESTAMP
+                ) AS event_open_time,
+
+                LEAST(
+                  b.close_time,
+                  %L::TIMESTAMP - ''1 second''::INTERVAL
+                ) AS event_close_time,
 
                 a.conflation_way_id,
                 a.conflation_node_id,
@@ -74,6 +81,8 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_road_net
                   ON ( a.conflation_node_id = d.id )
               WHERE ( a.year = %L )
           ',
+          event_year::TEXT || '-01-01',
+          (event_year + 1)::TEXT || '-01-01',
           table_name,
           'conflation_map_' || event_year || '_' || conflation_map_version,
           'conflation_map_' || event_year || '_nodes_' || conflation_map_version,
