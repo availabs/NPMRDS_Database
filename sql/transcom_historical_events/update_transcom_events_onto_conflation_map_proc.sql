@@ -106,6 +106,8 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
                     EXTRACT(YEAR FROM close_time)::INTEGER
                   ) AS b(year) ON TRUE
                 WHERE (
+                  ( a.state = ''NY'')
+                  AND
                   ( a.point_geom IS NOT NULL )
                   AND
                   ( a._modified_timestamp >= %L::TIMESTAMP )
@@ -135,7 +137,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
         event_id            TEXT,
         c_way_id            BIGINT,
         snap_dist           DOUBLE PRECISION,
-        snap_pt_geom           public.geometry(Geometry,4326),
+        snap_pt_geom        public.geometry(Geometry,4326),
         PRIMARY KEY (event_id, c_way_id)
       ) WITH (fillfactor=100)
         ON COMMIT DROP
@@ -179,7 +181,11 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
                       ORDER BY ( a.point_geom <-> x.wkb_geometry ) ASC
                       LIMIT %L -- The K of the KNN
                     ) AS b ON TRUE
-                  WHERE ( a.year = %L )
+                  WHERE (
+                    ( a.year = %L )
+                    AND
+                    ( snap_dist < 1000 )
+                  )
               ;
 
               CLUSTER tmp_event_to_cways_knn

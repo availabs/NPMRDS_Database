@@ -25,9 +25,9 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_by_tmc_summar
                   tmc,
                   year,
                   COALESCE(t1.accident_counts_by_type, ''{}''::JSONB) AS accident_counts_by_type,
-                  COALESCE(t1.accidents_total, 0) AS accidents_total,
+                  COALESCE(t1.total_accidents, 0)::INTEGER AS total_accidents,
                   COALESCE(t2.construction_days_by_type, ''{}''::JSONB) AS construction_days_by_type,
-                  COALESCE(t3.construction_days_total, 0) AS construction_days_total
+                  COALESCE(t3.total_construction_days, 0)::INTEGER AS total_construction_days
                 FROM (
                   SELECT DISTINCT
                       tmc,
@@ -43,7 +43,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_by_tmc_summar
                           x.event_type_ct
                         ) AS accident_counts_by_type,
 
-                        SUM(x.event_type_ct) AS accidents_total
+                        SUM(x.event_type_ct) AS total_accidents
 
                       FROM (
                         SELECT
@@ -93,7 +93,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_by_tmc_summar
                     SELECT
                         tmc,
                         year,
-                        COUNT(DISTINCT event_date) AS construction_days_total
+                        COUNT(DISTINCT event_date) AS total_construction_days
                       FROM (
                         SELECT
                             tmc,
