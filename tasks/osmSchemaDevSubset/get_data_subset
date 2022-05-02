@@ -1,0 +1,86 @@
+#!/bin/bash
+
+rm -rf data/
+mkdir -p data/
+
+/usr/lib/postgresql/11/bin/pg_dump \
+    -hpluto.availabs.org \
+    -p5432 \
+    -Unpmrds_admin \
+    -dnpmrds_production \
+    --no-owner \
+    --table ny.nysdot_regions \
+    --table ny.nysdot_region_names \
+    --table us.mpo_acronyms \
+  > data/schema-and-data.sql
+
+# We only do the NY counties
+/usr/lib/postgresql/11/bin/pg_dump \
+    -hpluto.availabs.org \
+    -p5432 \
+    -Unpmrds_admin \
+    -dnpmrds_production \
+    --schema-only \
+    --no-owner \
+    --table public.tl_2017_us_county \
+    --table public.fips_codes \
+    --table public.mpo_boundaries \
+    --table public.mpo_boundaries_view \
+    --table public.urban_area_boundaries \
+  > data/schema-only.sql
+
+psql \
+    -hpluto.availabs.org \
+    -p5432 \
+    -Unpmrds_admin \
+    -dnpmrds_production \
+    -c "COPY (SELECT * FROM public.fips_codes WHERE state_code = '36') TO STDOUT WITH CSV HEADER" \
+  > data/fips_codes.csv
+
+psql \
+    -hpluto.availabs.org \
+    -p5432 \
+    -Unpmrds_admin \
+    -dnpmrds_production \
+    -c "COPY (SELECT * FROM public.tl_2017_us_county WHERE geoid LIKE '36%') TO STDOUT WITH CSV HEADER" \
+  > data/tl_2017_us_county.csv
+
+psql \
+    -hpluto.availabs.org \
+    -p5432 \
+    -Unpmrds_admin \
+    -dnpmrds_production \
+    -c "COPY (
+          SELECT
+              *
+            FROM public.mpo_boundaries
+            WHERE (
+              mpo_id IN (
+                SELECT DISTINCT
+                    mpo_code
+                  FROM public.tmc_metadata_2021
+                  WHERE state = 'ny'
+              )
+            )
+        ) TO STDOUT WITH CSV HEADER" \
+  > data/mpo_boundaries.csv
+
+psql \
+    -hpluto.availabs.org \
+    -p5432 \
+    -Unpmrds_admin \
+    -dnpmrds_production \
+    -c "COPY (
+          SELECT
+              *
+            FROM public.urban_area_boundaries
+            WHERE (
+              geoid10 IN (
+                SELECT DISTINCT
+                    ua_code
+                  FROM public.tmc_metadata_2021
+                  WHERE state = 'ny'
+              )
+            )
+        ) TO STDOUT WITH CSV HEADER" \
+  > data/ua_boundaries.csv

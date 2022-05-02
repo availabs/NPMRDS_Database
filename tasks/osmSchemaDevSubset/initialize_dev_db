@@ -1,0 +1,27 @@
+#!/bin/bash
+
+set -a
+source ./config/postgres.env.dev
+
+/home/paul/AVAIL/NPMRDS_Database/make_targets/db/conflation/load-osm-file \
+  --osmVersion 210101 \
+  --osmXmlFile /home/paul/AVAIL/avail-gis-toolkit/data/osm/albany-county_new-york-210101/albany-county_new-york-210101.osm \
+  --pg_env development
+
+psql \
+  -c 'CREATE SCHEMA us ;' \
+  -c 'CREATE SCHEMA ny ;' \
+  -f data/schema-and-data.sql \
+  -f data/schema-only.sql
+
+cat data/tl_2017_us_county.csv \
+  | psql -c 'COPY tl_2017_us_county FROM STDIN WITH CSV HEADER'
+
+cat data/fips_codes.csv \
+  | psql -c 'COPY fips_codes FROM STDIN WITH CSV HEADER'
+
+cat data/mpo_boundaries.csv \
+  | psql -c 'COPY public.mpo_boundaries FROM STDIN WITH CSV HEADER'
+
+cat data/ua_boundaries.csv \
+  | psql -c 'COPY public.urban_area_boundaries FROM STDIN WITH CSV HEADER'

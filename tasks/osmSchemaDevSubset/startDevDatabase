@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -a
+source ../../config/postgres.env.dev
+
+docker \
+  run \
+  -it \
+  --rm \
+  --name npmrds_dev_db \
+  -v "$PWD/pg_data":/data \
+  -v "$PWD/../../sql/osm":/sql \
+  -p 5432:5432 \
+  -e PGDATA=/data/ \
+  -e POSTGRES_USER="$PGUSER" \
+  -e POSTGRES_PASSWORD="$PGPASSWORD" \
+  -e POSTGRES_DB="$PGDATABASE" \
+  postgis/postgis:11-3.2

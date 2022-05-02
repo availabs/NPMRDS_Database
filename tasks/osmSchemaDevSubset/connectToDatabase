@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -a
+source ./config/postgres.env.dev
+
+docker \
+  exec \
+  -it \
+  npmrds_dev_db \
+  su postgres -c "psql -U${PGUSER} ${PGDATABASE}"
