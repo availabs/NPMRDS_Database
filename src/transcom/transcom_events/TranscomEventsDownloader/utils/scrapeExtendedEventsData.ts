@@ -21,7 +21,8 @@ const dataDir = join(
 mkdirSync(dataDir, { recursive: true });
 
 const PG_ENV = "production";
-const LATEST = "2022-05-08"; // For resuming after where previous scrape left off
+const EARLIEST = "2022-04-01"; // For resuming after where previous scrape left off
+const LATEST = "2022-05-06"; // For resuming after where previous scrape left off
 const BATCH_SIZE = 50;
 
 async function main() {
@@ -44,7 +45,7 @@ async function main() {
       .split(/-/)
       .map((n: string) => +n);
 
-    const [endYear, endMonth, endDay] = earliest
+    const [endYear, endMonth, endDay] = (EARLIEST || earliest)
       .split(/-/)
       .map((n: string) => +n);
 
