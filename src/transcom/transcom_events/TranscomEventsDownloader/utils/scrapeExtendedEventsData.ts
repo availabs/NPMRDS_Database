@@ -101,7 +101,7 @@ async function main() {
           ++wrote;
 
           if (!good) {
-            console.log("    awaiting drain; wrote:", wrote);
+            // console.log("    awaiting drain; wrote:", wrote);
             await new Promise<void>((resolve) => {
               let drained = false;
 
