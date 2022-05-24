@@ -1,0 +1,41 @@
+#!/usr/bin/env node
+
+const { existsSync, createReadStream } = require("fs");
+const { pipeline } = require("stream");
+const { isAbsolute, join } = require("path");
+
+const { parse: csvParse } = require("fast-csv");
+const through = require("through2");
+
+if (process.argv.length !== 3) {
+  console.error("USAGE: ./csvToNdjson <path to csv file>");
+  process.exit(1);
+}
+
+const csvPath = isAbsolute(process.argv[2])
+  ? process.argv[2]
+  : join(process.cwd(), process.argv[2]);
+
+if (!existsSync(csvPath)) {
+  console.error(`ERROR: csv file ${csvPath} does not exist.`);
+  process.exit(1);
+}
+
+pipeline(
+  createReadStream(csvPath),
+  csvParse({
+    headers: true,
+    ignoreEmpty: false,
+    trim: true,
+    discardUnmappedColumns: true,
+  }),
+  through.obj((row, _enc, cb) => {
+    cb(null, `${JSON.stringify(row)}\n`);
+  }),
+  process.stdout,
+  (err) => {
+    if (err) {
+      console.error(err);
+    }
+  }
+);

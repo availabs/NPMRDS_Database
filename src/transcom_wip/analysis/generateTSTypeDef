@@ -1,0 +1,38 @@
+#!/usr/bin/env node
+
+const { existsSync, readFileSync } = require("fs");
+const { isAbsolute, join } = require("path");
+
+if (process.argv.length !== 3) {
+  console.error(
+    "USAGE: ./generateTSTypeDef <path to ./analyzeSchema.js output>"
+  );
+  process.exit(1);
+}
+
+const analysisPath = isAbsolute(process.argv[2])
+  ? process.argv[2]
+  : join(process.cwd(), process.argv[2]);
+
+if (!existsSync(analysisPath)) {
+  console.error(`ERROR: file ${analysisPath} does not exist.`);
+  process.exit(1);
+}
+
+const { objectsCount, schemaAnalysis } = JSON.parse(
+  readFileSync(analysisPath, { encoding: "utf8" })
+);
+
+for (const { key, summary } of schemaAnalysis) {
+  const types = Object.keys(summary.types);
+
+  if (summary.null) {
+    types.push("null");
+  }
+
+  if (summary.null + summary.nonnull < objectsCount) {
+    types.push("undefined");
+  }
+
+  console.log(`"${key}":  ${types.join(" | ")} ;`);
+}

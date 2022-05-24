@@ -1,0 +1,34 @@
+#!/usr/bin/env node
+
+const { existsSync, readFileSync } = require("fs");
+const { isAbsolute, join } = require("path");
+
+if (process.argv.length !== 3) {
+  console.error("USAGE: ./findAliases <path to ./analyzeSchema.js output>");
+  process.exit(1);
+}
+
+const analysisPath = isAbsolute(process.argv[2])
+  ? process.argv[2]
+  : join(process.cwd(), process.argv[2]);
+
+if (!existsSync(analysisPath)) {
+  console.error(`ERROR: file ${analysisPath} does not exist.`);
+  process.exit(1);
+}
+
+const { schemaAnalysis } = JSON.parse(
+  readFileSync(analysisPath, { encoding: "utf8" })
+);
+
+const aliases = schemaAnalysis.reduce((acc, { key, col }) => {
+  if (acc[col]) {
+    acc[col] = Array.isArray(acc[col]) ? acc[col] : [acc[col]];
+    acc[col].push(key);
+  } else {
+    acc[col] = key;
+  }
+  return acc;
+}, {});
+
+console.log(JSON.stringify(aliases, null, 4));

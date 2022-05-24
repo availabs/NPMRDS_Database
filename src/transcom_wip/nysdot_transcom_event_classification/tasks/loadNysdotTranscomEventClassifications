@@ -1,0 +1,62 @@
+#!/usr/bin/env node
+
+const yargs = require("yargs");
+
+require("ts-node").register();
+
+const { loadCsvIntoDb } = require("..");
+
+const {
+  getConnectedPgClient,
+  cliArgsSpec,
+} = require("../../../utils/PostgreSQL");
+
+async function loadNysdotTranscomEventClassifications(
+  pg_env = "development",
+  csvPath,
+  schemaName,
+  tableName
+) {
+  const db = await getConnectedPgClient(pg_env);
+  try {
+    await db.query("BEGIN;");
+
+    await loadCsvIntoDb(csvPath, schemaName, tableName, db);
+
+    await db.query("COMMIT;");
+  } catch (err) {
+    await db.query("ROLLBACK;");
+    console.error(err);
+  } finally {
+    await db.end();
+  }
+}
+
+if (!module.parent) {
+  const { argv } = yargs
+    .strict()
+    .parserConfiguration({
+      "camel-case-expansion": false,
+      "flatten-duplicate-arrays": false,
+    })
+    .wrap(yargs.terminalWidth() / 1.618)
+    // @ts-ignore
+    .option({
+      ...cliArgsSpec,
+      csvPath: {
+        type: "string",
+        demand: true,
+        description: "Path to the CSV file to load.",
+      },
+    });
+
+  const { pg_env, csvPath } = argv;
+  loadNysdotTranscomEventClassifications(
+    pg_env,
+    csvPath,
+    "transcom",
+    "nysdot_transcom_event_classifications"
+  );
+} else {
+  module.exports = loadNysdotTranscomEventClassifications;
+}
