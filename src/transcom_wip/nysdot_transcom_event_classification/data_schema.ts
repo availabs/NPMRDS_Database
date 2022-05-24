@@ -22,19 +22,17 @@ export const dbCols = Object.keys(dbColsToCsvCols);
 
 export function csvColToDbColMapper(cols: string[]) {
   let unsupportedCols = 0;
-  const includedDbCols = cols
-    .map((col) => {
-      const c = col.trim().toLowerCase();
+  const includedDbCols = cols.map((col) => {
+    const c = col.trim().toLowerCase();
 
-      const dbCol = caseInsensistiveCsvColsToDbCols[c];
+    const dbCol = caseInsensistiveCsvColsToDbCols[c];
 
-      if (!dbCol) {
-        return `_unsupported_${++unsupportedCols}_`;
-      }
+    if (!dbCol) {
+      return `_unsupported_${++unsupportedCols}_`;
+    }
 
-      return dbCol;
-    })
-    .filter(Boolean);
+    return dbCol;
+  });
 
   const missingDbCols = _.difference(dbCols, includedDbCols);
 
