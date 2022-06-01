@@ -10,7 +10,7 @@ const {
   cliArgsSpec,
 } = require("../../../utils/PostgreSQL");
 
-const sqlDir = join(__dirname, "../../../../sql/transcom_historical_events");
+const sqlDir = join(__dirname, "../sql");
 
 function initializeTranscomDatabaseTables(pgEnv) {
   const pgCreds = getPsqlCredentials(pgEnv);

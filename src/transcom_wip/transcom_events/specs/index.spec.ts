@@ -12,7 +12,7 @@ import pgFormat from "pg-format";
 
 import { getConnectedPgClient } from "../../../utils/PostgreSQL";
 
-import { getTranscomRequestFormattedTimestamp } from "../utils/dates";
+import { getTranscomRequestFormattedTimestamp } from "../../utils/dates";
 import {
   makeRawTranscomEventIterator,
   makeRawTranscomEventIteratorFromApiScrapeFile,

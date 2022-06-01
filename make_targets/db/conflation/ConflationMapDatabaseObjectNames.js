@@ -1,16 +1,3 @@
-// const getConflationMapToTranscomEventsTableName = conflationMapVersion =>
-//   `${getConflationMapTableName(
-//     conflationMapVersion
-//   )}_to_transcom_historical_events`;
-//
-// const getConflationMapToTranscomEventsTableFullName = conflationMapVersion =>
-//   `${getConflationSchema()}.${getConflationMapToTranscomEventsTableName(
-//     conflationMapVersion
-//   )}`;
-//
-// const getConflationMapToTranscomEventsTablePrimaryKeyIdxName = conflationMapVersion =>
-//   `${getConflationMapToTranscomEventsTableName(conflationMapVersion)}_pkey`;
-
 class ConflationMapDatabaseObjectNames {
   // Cannot use '.' in PostgreSQL table names (without quoting table names).
   static validateConflationMapVersion(conflationMapVersion) {
@@ -39,9 +26,7 @@ class ConflationMapDatabaseObjectNames {
   }
 
   get conflationMapTableName() {
-    return `conflation_map_${this.year}_v${
-      this.conflationMapTableVersionSuffix
-    }`;
+    return `conflation_map_${this.year}_v${this.conflationMapTableVersionSuffix}`;
   }
 
   get conflationMapTableFullName() {
@@ -53,9 +38,7 @@ class ConflationMapDatabaseObjectNames {
   }
 
   get conflationMapTablePrimaryKeyIdxFullName() {
-    return `${this.conflationSchema}.${
-      this.conflationMapTablePrimaryKeyIdxName
-    }`;
+    return `${this.conflationSchema}.${this.conflationMapTablePrimaryKeyIdxName}`;
   }
 
   get conflationMapTableOsmIdxName() {
@@ -73,22 +56,6 @@ class ConflationMapDatabaseObjectNames {
   get conflationMapTableGeometryIdxName() {
     return `${this.conflationMapTableName}_gix`;
   }
-
-  // get conflationMapToTranscomEventsTableName() {
-  //   return getConflationMapToTranscomEventsTableName(this.conflationMapVersion);
-  // }
-
-  // get conflationMapToTranscomEventsTableFullName() {
-  //   return getConflationMapToTranscomEventsTableFullName(
-  //     this.conflationMapVersion
-  //   );
-  // }
-
-  // get conflationMapToTranscomEventsTablePrimaryKeyIdxName() {
-  //   return getConflationMapToTranscomEventsTablePrimaryKeyIdxName(
-  //     this.conflationMapVersion
-  //   );
-  // }
 }
 
 module.exports = ConflationMapDatabaseObjectNames;

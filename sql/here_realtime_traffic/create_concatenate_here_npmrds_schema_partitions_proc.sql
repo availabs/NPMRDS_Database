@@ -80,7 +80,7 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.concatenate_here_npmrd
             EXECUTE '
               CREATE TABLE ' || r.full_tbl_name || ' (
                   LIKE public.here_npmrds_schema
-                )
+                ) WITH (fillfactor = 100)
               ;
             ';
 

@@ -376,9 +376,6 @@ db/upload-urban-area-boundaries-shapefile:
 	@:$(call check_defined,UA_SHAPEFILE_ZIP_PATH)
 	${_MKFILE_DIR}/make_targets/db/upload-urban-area-boundaries-shapefile
 
-db/create_transcom_events_table:
-	@PGOPTIONS='--client-min-messages=warning' psql --quiet -f ./sql/transcom_events/create_transcom_events_table.sql
-
 db/drop-state-abbreviations-table:
 	@if psql -c '\d public.state_abbreviations' > /dev/null 2>&1; then\
 		psql -f 'sql/state_abbreviations/dropStateAbbreviationsTable.sql';\

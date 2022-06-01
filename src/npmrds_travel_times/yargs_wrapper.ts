@@ -17,7 +17,7 @@ const builder = {
 };
 
 export const loadNpmrdsExport = {
-  desc: "Load the NPMRDS travel times data from the downloader created SQLite DB.",
+  desc: "Load the NPMRDS travel times data from the downloader-created SQLite DB.",
   command: "load_npmrds_export",
   builder,
   async handler({ npmrds_export_sqlite_db_path, pg_env }) {

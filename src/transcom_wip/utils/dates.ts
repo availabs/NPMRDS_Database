@@ -1,8 +1,8 @@
 import _ from "lodash";
 
-import { PGEnv } from "../../../domain/PostgreSQLTypes";
+import { PgEnv } from "../../domain/PostgreSQLTypes";
 
-import { getConnectedPgClient } from "../../../utils/PostgreSQL";
+import { getConnectedPgClient } from "../../utils/PostgreSQL";
 
 export type TranscomApiRequestTimestamp = string;
 
@@ -124,7 +124,7 @@ export function partitionTranscomRequestTimestampsByMonth(
 }
 
 export async function getTranscomEventsMaxCreationTimestamp(
-  pgEnv: PGEnv
+  pgEnv: PgEnv
 ): Promise<string | null> {
   const db = await getConnectedPgClient(pgEnv);
 

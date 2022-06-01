@@ -1,6 +1,7 @@
 import { cliArgsSpec as pgCliArgsSpec } from "../../utils/PostgreSQL";
 
-import TranscomEventsAggregateEtlControl from "./TranscomEventsAggregateEtlControl";
+import TranscomEventsAggregateEtlController from "./TranscomEventsAggregateEtlController";
+import TranscomEventsAggregateUpdateControl from "./TranscomEventsAggregateUpdateControl";
 
 const builder = {
   start_timestamp: Object.assign({
@@ -21,12 +22,27 @@ const builder = {
   ...pgCliArgsSpec,
 };
 
-export const runTranscomEventsAggregateETL = {
-  desc: "Load the TRANSCOM Events and perform and integrate into the database tables.",
-  command: "run_transcom_events_aggregate_etl",
+export const load = {
+  desc: "Load the TRANSCOM Events and integrate into the database tables.",
+  command: "transcom_events_aggregate_load",
   builder,
   async handler({ pg_env, start_timestamp = null, end_timestamp = null }) {
-    const control = new TranscomEventsAggregateEtlControl(
+    const control = new TranscomEventsAggregateEtlController(
+      pg_env,
+      start_timestamp,
+      end_timestamp
+    );
+
+    await control.run();
+  },
+};
+
+export const update = {
+  desc: "Update the TRANSCOM Events and integrate into the database tables.",
+  command: "transcom_events_aggregate_update",
+  builder,
+  async handler({ pg_env, start_timestamp = null, end_timestamp = null }) {
+    const control = new TranscomEventsAggregateUpdateControl(
       pg_env,
       start_timestamp,
       end_timestamp

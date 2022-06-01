@@ -2,14 +2,14 @@
 
 /* eslint no-unused-expressions: 0, camelcase: 0 */
 
-const {basename, join, isAbsolute} = require('path');
-const {spawn} = require('child_process');
+const { basename, join, isAbsolute } = require("path");
+const { spawn } = require("child_process");
 
-const yargs = require('yargs');
-const _ = require('lodash');
+const yargs = require("yargs");
+const _ = require("lodash");
 
-const hdsTrafficCountsScraper = require('./make_targets/highwayDataServicesTrafficCounts/scrape-NYSDOT-CSVs');
-const loadGtfsConflationAadt = require('./make_targets/db/gtfs/load-gtfs-conflation-aadt');
+const hdsTrafficCountsScraper = require("./make_targets/highwayDataServicesTrafficCounts/scrape-NYSDOT-CSVs");
+const loadGtfsConflationAadt = require("./make_targets/db/gtfs/load-gtfs-conflation-aadt");
 // const singleYearInvariantMessage =
 // 'The requested startDate and endDate MUST be within a single calendar year.';
 
@@ -22,224 +22,215 @@ const loadGtfsConflationAadt = require('./make_targets/db/gtfs/load-gtfs-conflat
 
 yargs
   .parserConfiguration({
-    'camel-case-expansion': false,
-    'flatten-duplicate-arrays': false
+    "camel-case-expansion": false,
+    "flatten-duplicate-arrays": false,
   })
   .option({
     pg_env: {
-      type: 'string',
+      type: "string",
       demand: false,
-      choices: ['production', 'development'],
-      default: 'development'
-    }
+      choices: ["production", "development"],
+      default: "development",
+    },
   })
   .command({
-    command: 'load_state_year_tmc_metadata',
-    desc:
-      'Create the tmc_metadata table for the specified state and year. NOTE: Newly created tables do not automatically become the active tables in the table inheritance hierarchy. You must follow up with the update_tmc_metadata_default_versions command after validating the new tables.',
+    command: "load_state_year_tmc_metadata",
+    desc: "Create the tmc_metadata table for the specified state and year. NOTE: Newly created tables do not automatically become the active tables in the table inheritance hierarchy. You must follow up with the update_tmc_metadata_default_versions command after validating the new tables.",
     builder: {
-      year: {type: 'number', demand: true},
-      state: {type: 'string', demand: true}
+      year: { type: "number", demand: true },
+      state: { type: "string", demand: true },
     },
-    handler: ({year, state, pg_env}) => {
-      spawn('make', ['db/load-state-year-tmc-metadata'], {
+    handler: ({ year, state, pg_env }) => {
+      spawn("make", ["db/load-state-year-tmc-metadata"], {
         cwd: __dirname,
-        stdio: 'inherit',
-        env: {YEAR: year, STATE: state, PG_ENV: pg_env}
+        stdio: "inherit",
+        env: { YEAR: year, STATE: state, PG_ENV: pg_env },
       });
-    }
+    },
   })
   .command({
-    command: 'refresh_state_tmc_date_ranges_table',
-    desc:
-      'Refresh the tmc data date ranges table for the specified state (creating the table if necessary).',
+    command: "refresh_state_tmc_date_ranges_table",
+    desc: "Refresh the tmc data date ranges table for the specified state (creating the table if necessary).",
     builder: {
-      state: {type: 'string', demand: true}
+      state: { type: "string", demand: true },
     },
-    handler: ({state, pg_env}) => {
-      spawn('make', ['db/refresh-state-tmc-date-ranges-table'], {
+    handler: ({ state, pg_env }) => {
+      spawn("make", ["db/refresh-state-tmc-date-ranges-table"], {
         cwd: __dirname,
-        stdio: 'inherit',
-        env: {STATE: state, PG_ENV: pg_env}
+        stdio: "inherit",
+        env: { STATE: state, PG_ENV: pg_env },
       });
-    }
+    },
   })
   .command({
-    command: 'download_and_partition_npmrds_shapefile',
-    desc:
-      "Download the specified country's shapefile for the specified conflation year",
+    command: "download_and_partition_npmrds_shapefile",
+    desc: "Download the specified country's shapefile for the specified conflation year",
     builder: {
-      year: {type: 'number', demand: true},
-      country: {type: 'string', demand: true, choices: ['USA', 'CANADA']}
+      year: { type: "number", demand: true },
+      country: { type: "string", demand: true, choices: ["USA", "CANADA"] },
     },
-    handler: ({year, country, pg_env}) => {
+    handler: ({ year, country, pg_env }) => {
       spawn(
-        'make_targets/etl/npmrds_shapefile/download-and-partition-npmrds-shapefile',
+        "make_targets/etl/npmrds_shapefile/download-and-partition-npmrds-shapefile",
         {
           cwd: __dirname,
-          stdio: 'inherit',
-          env: {YEAR: year, COUNTRY: country, PG_ENV: pg_env}
+          stdio: "inherit",
+          env: { YEAR: year, COUNTRY: country, PG_ENV: pg_env },
         }
       );
-    }
+    },
   })
   .command({
-    command: 'upload_state_npmrds_shapefile_from_country_tar',
-    desc:
-      "Load the specified state's shapefile from the specified tar archive. (NOTE: For Canada, state=cn. Provinces created automatically.)",
+    command: "upload_state_npmrds_shapefile_from_country_tar",
+    desc: "Load the specified state's shapefile from the specified tar archive. (NOTE: For Canada, state=cn. Provinces created automatically.)",
     builder: {
-      tarArchivePath: {type: 'string', demand: true},
-      state: {type: 'string', demand: true}
+      tarArchivePath: { type: "string", demand: true },
+      state: { type: "string", demand: true },
     },
-    handler: ({tarArchivePath, state, pg_env}) => {
+    handler: ({ tarArchivePath, state, pg_env }) => {
       spawn(
-        'make_targets/db/npmrds_shapefile/upload-state-npmrds-shapefile-from-country-tar',
+        "make_targets/db/npmrds_shapefile/upload-state-npmrds-shapefile-from-country-tar",
         {
           cwd: __dirname,
-          stdio: 'inherit',
+          stdio: "inherit",
           env: {
             TAR_ARCHIVE_PATH: tarArchivePath,
             STATE: state,
-            PG_ENV: pg_env
-          }
+            PG_ENV: pg_env,
+          },
         }
       );
-    }
+    },
   })
   .command({
-    command: 'upload_zipped_state_npmrds_shapefile',
-    desc:
-      'Load the specified shapefile zip archive. (Intended for use with the NY Extended Shapefile only.)',
+    command: "upload_zipped_state_npmrds_shapefile",
+    desc: "Load the specified shapefile zip archive. (Intended for use with the NY Extended Shapefile only.)",
     builder: {
-      shpZipPath: {type: 'string', demand: true},
-      year: {type: 'number', demand: true},
-      state: {type: 'string', demand: true}
+      shpZipPath: { type: "string", demand: true },
+      year: { type: "number", demand: true },
+      state: { type: "string", demand: true },
     },
-    handler: ({shpZipPath, year, state, pg_env}) => {
-      spawn('make_targets/db/npmrds_shapefile/upload-zipped-npmrds-shapefile', {
+    handler: ({ shpZipPath, year, state, pg_env }) => {
+      spawn("make_targets/db/npmrds_shapefile/upload-zipped-npmrds-shapefile", {
         cwd: __dirname,
-        stdio: 'inherit',
+        stdio: "inherit",
         env: {
           STATE: state,
           SHP_ZIP_PATH: shpZipPath,
           YEAR: year,
-          PG_ENV: pg_env
-        }
+          PG_ENV: pg_env,
+        },
       });
-    }
+    },
   })
   .command({
-    command: 'create_state_placeholder_npmrds_shapefile',
-    desc:
-      "Create a placeholder npmrds_shapefile table for the placeholderYear using the sourceYear's npmrds_shapefile table. Intended for period before the year's NPMRDS Shapefile is released.",
+    command: "create_state_placeholder_npmrds_shapefile",
+    desc: "Create a placeholder npmrds_shapefile table for the placeholderYear using the sourceYear's npmrds_shapefile table. Intended for period before the year's NPMRDS Shapefile is released.",
     builder: {
-      placeholderYear: {type: 'number', demand: true},
-      sourceYear: {type: 'number', demand: true},
-      state: {type: 'string', demand: true}
+      placeholderYear: { type: "number", demand: true },
+      sourceYear: { type: "number", demand: true },
+      state: { type: "string", demand: true },
     },
-    handler: ({placeholderYear, sourceYear, state, pg_env}) => {
+    handler: ({ placeholderYear, sourceYear, state, pg_env }) => {
       spawn(
-        'make_targets/db/npmrds_shapefile/create-placeholder-npmrds-shapefile-table',
+        "make_targets/db/npmrds_shapefile/create-placeholder-npmrds-shapefile-table",
         {
           cwd: __dirname,
-          stdio: 'inherit',
+          stdio: "inherit",
           env: {
             STATE: state,
             PLACEHOLDER_YEAR: placeholderYear,
             SOURCE_YEAR: sourceYear,
-            PG_ENV: pg_env
-          }
+            PG_ENV: pg_env,
+          },
         }
       );
-    }
+    },
   })
   .command({
-    command: 'upload-state-year-tmc-identification-from-etl-tar',
+    command: "upload-state-year-tmc-identification-from-etl-tar",
     desc: `The ZIP archives from RITIS' Massive Data Downloader include a file named TMC_Identification.
       NOTE: This command creates all required tables and loads the TMC_Identification from the
         specified tarArchivePath. If the specified archive is newer than the current default
         database TMC_Identification file, it will  become the default.`,
     builder: {
-      tarArchivePath: {type: 'string', demand: true}
+      tarArchivePath: { type: "string", demand: true },
     },
-    handler: ({tarArchivePath, pg_env}) => {
-      spawn('make', ['db/upload-state-year-tmc-identification-from-etl-tar'], {
+    handler: ({ tarArchivePath, pg_env }) => {
+      spawn("make", ["db/upload-state-year-tmc-identification-from-etl-tar"], {
         cwd: __dirname,
-        stdio: 'inherit',
-        env: {TAR_ARCHIVE_PATH: tarArchivePath, PG_ENV: pg_env}
+        stdio: "inherit",
+        env: { TAR_ARCHIVE_PATH: tarArchivePath, PG_ENV: pg_env },
       });
-    }
+    },
   })
   .command({
-    command: 'create_npmrds_state_yrmo_table',
-    desc: 'Create state npmrds table for the year and month',
+    command: "create_npmrds_state_yrmo_table",
+    desc: "Create state npmrds table for the year and month",
     builder: {
-      year: {type: 'number', demand: true},
-      month: {type: 'number', demand: true}
+      year: { type: "number", demand: true },
+      month: { type: "number", demand: true },
     },
-    handler: ({year, month, pg_env}) => {
-      spawn('make', ['db/create-npmrds-state-yrmo-table'], {
+    handler: ({ year, month, pg_env }) => {
+      spawn("make", ["db/create-npmrds-state-yrmo-table"], {
         cwd: __dirname,
-        stdio: 'inherit',
-        env: {YEAR: year, MONTH: month, PG_ENV: pg_env}
+        stdio: "inherit",
+        env: { YEAR: year, MONTH: month, PG_ENV: pg_env },
       });
-    }
+    },
   })
   .command({
-    command: 'create_geography_metadata',
-    desc: 'Create (or replace) the geography_metadata VIEW.',
-    handler: ({pg_env}) => {
-      spawn('make', ['db/create-geography-metadata-view'], {
+    command: "create_geography_metadata",
+    desc: "Create (or replace) the geography_metadata VIEW.",
+    handler: ({ pg_env }) => {
+      spawn("make", ["db/create-geography-metadata-view"], {
         cwd: __dirname,
-        stdio: 'inherit',
-        env: {PG_ENV: pg_env}
+        stdio: "inherit",
+        env: { PG_ENV: pg_env },
       });
-    }
+    },
   })
   .command({
-    command: 'download_urban_area_boundaries_shapefile',
-    desc:
-      'Download the TIGER Urban Area Shapefile from census.gov for the specified year',
+    command: "download_urban_area_boundaries_shapefile",
+    desc: "Download the TIGER Urban Area Shapefile from census.gov for the specified year",
     builder: {
-      year: {type: 'number', demand: true}
+      year: { type: "number", demand: true },
     },
-    handler: ({year}) => {
-      spawn('make', ['scraping/download-urban-area-boundaries-shapefile'], {
+    handler: ({ year }) => {
+      spawn("make", ["scraping/download-urban-area-boundaries-shapefile"], {
         cwd: __dirname,
-        stdio: 'inherit',
-        env: {YEAR: year}
+        stdio: "inherit",
+        env: { YEAR: year },
       });
-    }
+    },
   })
   .command({
-    command: 'download_npmrds_data',
-    desc:
-      'Download and transform the NPMRDS Data from the RITIS Massive Data Downloader',
+    command: "download_npmrds_data",
+    desc: "Download and transform the NPMRDS Data from the RITIS Massive Data Downloader",
     builder: {
       downloadLinks: {
-        type: 'string',
-        desc: 'The download links as a comma-separated list.',
-        demand: true
-      }
+        type: "string",
+        desc: "The download links as a comma-separated list.",
+        demand: true,
+      },
     },
-    handler: ({downloadLinks}) => {
-      spawn('make', ['etl/download-and-transform-npmrds-data'], {
+    handler: ({ downloadLinks }) => {
+      spawn("make", ["etl/download-and-transform-npmrds-data"], {
         cwd: __dirname,
-        stdio: 'inherit',
-        env: {DOWNLOAD_LINKS: downloadLinks}
+        stdio: "inherit",
+        env: { DOWNLOAD_LINKS: downloadLinks },
       });
-    }
+    },
   })
   // TODO: Make dataFilePath an absolute path before passing to make.
   .command({
-    command: 'load_npmrds_data_file',
-    desc:
-      'Load the specified gzipped CSV NPMRDS data file into the database. The datafile should be the output of the download_npmrds_data ETL process. NOTE: Expects the data file name to be the one generated by the ETL process, which encodes the state, year, and month.',
+    command: "load_npmrds_data_file",
+    desc: "Load the specified gzipped CSV NPMRDS data file into the database. The datafile should be the output of the download_npmrds_data ETL process. NOTE: Expects the data file name to be the one generated by the ETL process, which encodes the state, year, and month.",
     builder: {
-      dataFilePath: {type: 'string', demand: true}
+      dataFilePath: { type: "string", demand: true },
     },
-    handler: ({pg_env, dataFilePath}) => {
-      const [state, yrmo] = basename(dataFilePath).split('.');
+    handler: ({ pg_env, dataFilePath }) => {
+      const [state, yrmo] = basename(dataFilePath).split(".");
       const [year, month] = (yrmo && yrmo.match(/\d{2,4}/g)) || [];
 
       if (
@@ -249,706 +240,588 @@ yargs
         month.length !== 2 ||
         !(parseInt(year, 10) && parseInt(month, 10))
       ) {
-        console.error('ERROR: Improperly encoded data file name.');
+        console.error("ERROR: Improperly encoded data file name.");
         process.exit(1);
       }
 
-      spawn('make', ['db/upload-npmrds-state-yrmo'], {
+      spawn("make", ["db/upload-npmrds-state-yrmo"], {
         cwd: __dirname,
-        stdio: 'inherit',
+        stdio: "inherit",
         env: Object.assign({}, process.env, {
           PG_ENV: pg_env,
           STATE: state,
           YEAR: year,
           MONTH: month,
-          DATA_FILE_PATH: dataFilePath
-        })
+          DATA_FILE_PATH: dataFilePath,
+        }),
       });
-    }
+    },
   })
 
   .command({
-    command: 'create_pm3_tables',
-    desc: 'Create the PM3 tables.',
-    handler: ({pg_env}) => {
-      spawn('./make_targets/db/pm3/create-pm3-tables', {
+    command: "create_pm3_tables",
+    desc: "Create the PM3 tables.",
+    handler: ({ pg_env }) => {
+      spawn("./make_targets/db/pm3/create-pm3-tables", {
         cwd: __dirname,
-        stdio: 'inherit',
+        stdio: "inherit",
         env: Object.assign({}, process.env, {
-          PG_ENV: pg_env
-        })
+          PG_ENV: pg_env,
+        }),
       });
-    }
+    },
   })
   .command({
-    command: 'load_pm3_calculator_output',
-    desc:
-      'Load a output directory from the pm3_calculator_2 project into the database PM3 tables.',
+    command: "load_pm3_calculator_output",
+    desc: "Load a output directory from the pm3_calculator_2 project into the database PM3 tables.",
     builder: {
       calculatorOutputDir: {
-        type: 'string',
-        demand: true
-      }
+        type: "string",
+        demand: true,
+      },
     },
-    handler: ({calculatorOutputDir, pg_env}) => {
+    handler: ({ calculatorOutputDir, pg_env }) => {
       const args = [
         `--calculatorOutputDir=${calculatorOutputDir}`,
-        `--pg_env=${pg_env}`
+        `--pg_env=${pg_env}`,
       ];
 
-      spawn('./make_targets/db/pm3/loadCalculatorOutputIntoDB', args, {
+      spawn("./make_targets/db/pm3/loadCalculatorOutputIntoDB", args, {
         cwd: __dirname,
-        stdio: 'inherit'
+        stdio: "inherit",
       });
-    }
+    },
   })
 
   .command({
-    command: 'calculate_and_load_geolevel_pm3_calculations_version',
-    desc:
-      'Calculate and load the Geography Level PM3 measures for the specified versionId.',
+    command: "calculate_and_load_geolevel_pm3_calculations_version",
+    desc: "Calculate and load the Geography Level PM3 measures for the specified versionId.",
     builder: {
       versionId: {
-        type: 'string',
-        demand: true
-      }
+        type: "string",
+        demand: true,
+      },
     },
-    handler: ({versionId, pg_env}) => {
+    handler: ({ versionId, pg_env }) => {
       const proc = spawn(
-        './make_targets/db/pm3/calculateAndLoadGeographyLevelCalculationVersion',
+        "./make_targets/db/pm3/calculateAndLoadGeographyLevelCalculationVersion",
         {
           cwd: __dirname,
-          stdio: 'inherit',
+          stdio: "inherit",
           env: Object.assign({}, process.env, {
             VERSION_ID: versionId,
-            PG_ENV: pg_env
-          })
+            PG_ENV: pg_env,
+          }),
         }
       );
 
-      proc.on('close', code => {
+      proc.on("close", (code) => {
         process.exit(code);
       });
-      proc.on('error', err => {
+      proc.on("error", (err) => {
         console.error(err);
         process.exit(1);
       });
-    }
+    },
   })
 
   .command({
-    command: 'generate_canonical_hpms_file',
-    desc: 'Generate the HPMS file for the specified PM3 calculations version.',
+    command: "generate_canonical_hpms_file",
+    desc: "Generate the HPMS file for the specified PM3 calculations version.",
     builder: {
       state: {
-        type: 'string',
-        demand: true
+        type: "string",
+        demand: true,
       },
       version_id: {
-        type: 'string',
-        demand: true
+        type: "string",
+        demand: true,
       },
       pg_env: {
-        type: 'string',
+        type: "string",
         demand: false,
-        choices: ['production', 'development'],
-        default: 'development'
-      }
+        choices: ["production", "development"],
+        default: "development",
+      },
     },
-    handler: ({state, version_id, pg_env}) => {
+    handler: ({ state, version_id, pg_env }) => {
       const args = [
         `--state=${state}`,
         `--version_id=${version_id}`,
-        `--pg_env=${pg_env}`
+        `--pg_env=${pg_env}`,
       ];
 
       spawn(
-        './make_targets/db/pm3/hpmsPm3File/generateCanonicalHPMSfile',
+        "./make_targets/db/pm3/hpmsPm3File/generateCanonicalHPMSfile",
         args,
         {
           cwd: __dirname,
-          stdio: 'inherit'
+          stdio: "inherit",
         }
       );
-    }
+    },
   })
 
   .command({
-    command: 'load_avgtt_table_for_state_year',
-    desc:
-      'Load the avgtt for the specified state and year of data. (Creates the table if necessary.)',
+    command: "load_avgtt_table_for_state_year",
+    desc: "Load the avgtt for the specified state and year of data. (Creates the table if necessary.)",
     builder: {
-      state: {type: 'string', demand: true},
-      year: {type: 'number', demand: true}
+      state: { type: "string", demand: true },
+      year: { type: "number", demand: true },
     },
-    handler: ({state, year, pg_env}) => {
-      spawn('make', ['db/load-state-year-avgtt-table'], {
+    handler: ({ state, year, pg_env }) => {
+      spawn("make", ["db/load-state-year-avgtt-table"], {
         cwd: __dirname,
-        stdio: 'inherit',
-        env: {PG_ENV: pg_env, STATE: state, YEAR: year}
+        stdio: "inherit",
+        env: { PG_ENV: pg_env, STATE: state, YEAR: year },
       });
-    }
+    },
   })
   .command({
-    command: 'create_pm3_authoritative_view',
-    desc:
-      'Create the pm3_authoritative_view materialized view. (Updates the view if it exists.)',
-    handler: ({pg_env}) => {
-      spawn('make', ['db/create_pm3_authoritative_view'], {
+    command: "create_pm3_authoritative_view",
+    desc: "Create the pm3_authoritative_view materialized view. (Updates the view if it exists.)",
+    handler: ({ pg_env }) => {
+      spawn("make", ["db/create_pm3_authoritative_view"], {
         cwd: __dirname,
-        stdio: 'inherit',
-        env: {PG_ENV: pg_env}
+        stdio: "inherit",
+        env: { PG_ENV: pg_env },
       });
-    }
+    },
   })
   // db/create-routing-tables-and-funcitons-for-year
   .command({
-    command: 'create-routing-tables-and-funcitons-for-year',
-    desc:
-      'Create the tables and functions used for creating routes. (Drops & re-creates the tables if they exist.)',
+    command: "create-routing-tables-and-funcitons-for-year",
+    desc: "Create the tables and functions used for creating routes. (Drops & re-creates the tables if they exist.)",
     builder: {
-      year: {type: 'number', demand: true}
+      year: { type: "number", demand: true },
     },
-    handler: ({year, pg_env}) => {
-      spawn('make', ['db/create-routing-tables-and-funcitons-for-year'], {
+    handler: ({ year, pg_env }) => {
+      spawn("make", ["db/create-routing-tables-and-funcitons-for-year"], {
         cwd: __dirname,
-        stdio: 'inherit',
-        env: {PG_ENV: pg_env, YEAR: year}
+        stdio: "inherit",
+        env: { PG_ENV: pg_env, YEAR: year },
       });
-    }
-  })
-  .command({
-    command: 'download_transcom_historical_events',
-    desc: 'Download the Transcom events.',
-    builder: {
-      output_dir: {
-        demand: false,
-        type: 'string',
-        default: join(__dirname, './data/transcom/')
-      },
-      start_timestamp: Object.assign({
-        demand: false,
-        type: 'string',
-        describe:
-          '"yyyy-mm-dd HH:MM:SS" format. (If not provided, the latest timestamp in the transcom_historical_events table is used.)'
-      }),
-      end_timestamp: {
-        demand: false,
-        type: 'string',
-        describe:
-          '"yyyy-mm-dd HH:MM:SS" format. (If not provided, the current time is used.)'
-      }
     },
-    handler: ({output_dir, start_timestamp, end_timestamp, pg_env}) => {
-      const args = [`--output_dir=${output_dir}`, `--pg_env=${pg_env}`];
-
-      if (!_.isNil(start_timestamp)) {
-        args.push(`--start_timestamp=${start_timestamp}`);
-      }
-
-      if (!_.isNil(end_timestamp)) {
-        args.push(`--end_timestamp=${end_timestamp}`);
-      }
-
-      spawn('make_targets/etl/downloadTranscomData.js', args, {
-        cwd: __dirname,
-        stdio: 'inherit'
-      });
-    }
   })
   .command({
-    command: 'create_transcom_historical_events_table',
-    desc: 'Create the transcom_historical_events table.',
-    handler: ({pg_env}) => {
-      spawn(
-        'make_targets/db/transcom/create-transcom-historical-events-table',
-        {
-          cwd: __dirname,
-          stdio: 'inherit',
-          env: {PG_ENV: pg_env}
-        }
-      );
-    }
-  })
-  .command({
-    command: 'load_transcom_historical_events',
-    builder: {
-      transcomEventsNdjsonGzip: {
-        demand: true,
-        type: 'string',
-        describe: 'Path to the GZipped Transcom Events NDJSON file'
-      }
-    },
-    handler: ({transcomEventsNdjsonGzip, pg_env}) => {
-      spawn(
-        'make_targets/db/transcom/loadTranscomEvents/run',
-        [
-          `--transcomEventsNdjsonGzip='${transcomEventsNdjsonGzip}'`,
-          `--pg_env=${pg_env}`
-        ],
-        {
-          cwd: __dirname,
-          stdio: 'inherit'
-        }
-      );
-    }
-  })
-  .command({
-    command: 'download-load-integrate-transcom-events',
-    desc:
-      'Download the latest transcom events (not currently in the database), load them into the database, then update the conflation_map/transcom_events join tables.',
-    handler: ({pg_env}) => {
-      spawn(
-        'make_targets/db/transcom/download_load_integrate',
-        [`--pg_env=${pg_env}`],
-        {
-          cwd: __dirname,
-          stdio: 'inherit'
-        }
-      );
-    }
-  })
-  .command({
-    command: 'load_ris_geodatabase_for_year',
-    desc:
-      'Load the NYS Road Inventory System Geodatabase ZIP archive into PostgreSQL.',
+    command: "load_ris_geodatabase_for_year",
+    desc: "Load the NYS Road Inventory System Geodatabase ZIP archive into PostgreSQL.",
     builder: {
       year: {
-        type: 'number',
-        demand: true
+        type: "number",
+        demand: true,
       },
       risGeodatabaseZip: {
-        type: 'string',
+        type: "string",
         demand: true,
-        describe: 'Path to the RIS Geodatabase ZIP archive.'
-      }
+        describe: "Path to the RIS Geodatabase ZIP archive.",
+      },
     },
-    handler: ({year, risGeodatabaseZip, pg_env}) => {
-      spawn('make', ['db/load-ris-geodatabase-for-year'], {
+    handler: ({ year, risGeodatabaseZip, pg_env }) => {
+      spawn("make", ["db/load-ris-geodatabase-for-year"], {
         cwd: __dirname,
-        stdio: 'inherit',
+        stdio: "inherit",
         env: {
           YEAR: year,
           RIS_GEODATABASE_ZIP: risGeodatabaseZip,
-          PG_ENV: pg_env
-        }
+          PG_ENV: pg_env,
+        },
       });
-    }
+    },
   })
   .command({
-    command: 'load_ris_shapefile_for_year',
-    desc: 'Load the NYS Road Inventory System Shapefile into PostgreSQL.',
+    command: "load_ris_shapefile_for_year",
+    desc: "Load the NYS Road Inventory System Shapefile into PostgreSQL.",
     builder: {
       year: {
-        type: 'number',
-        demand: true
+        type: "number",
+        demand: true,
       },
       risShapefile: {
-        type: 'string',
+        type: "string",
         demand: true,
-        describe: 'Path to the RIS Shapefile.'
-      }
+        describe: "Path to the RIS Shapefile.",
+      },
     },
-    handler: ({year, risShapefile, pg_env}) => {
-      spawn('make', ['db/load-ris-shapefile-for-year'], {
+    handler: ({ year, risShapefile, pg_env }) => {
+      spawn("make", ["db/load-ris-shapefile-for-year"], {
         cwd: __dirname,
-        stdio: 'inherit',
+        stdio: "inherit",
         env: {
           YEAR: year,
           RIS_SHAPEFILE: risShapefile,
-          PG_ENV: pg_env
-        }
+          PG_ENV: pg_env,
+        },
       });
-    }
+    },
   })
   .command({
-    command: 'create-mapbox-tileset-for-year',
+    command: "create-mapbox-tileset-for-year",
     desc: "Create mbtiles file from the year's shapfile.",
     builder: {
       year: {
-        type: 'string',
-        demand: true
-      }
+        type: "string",
+        demand: true,
+      },
     },
-    handler: ({year, pg_env}) => {
-      spawn('make_targets/mapbox/create-tileset-for-year.sh', {
+    handler: ({ year, pg_env }) => {
+      spawn("make_targets/mapbox/create-tileset-for-year.sh", {
         cwd: __dirname,
-        stdio: 'inherit',
-        env: {YEAR: year, PG_ENV: pg_env}
+        stdio: "inherit",
+        env: { YEAR: year, PG_ENV: pg_env },
       });
-    }
+    },
   })
   .command({
-    command: 'load-conflation-map-shapefile',
-    desc:
-      'Load the conflation map shapefile into PostgreSQL (and create the Transcom events join table).',
+    command: "load-conflation-map-shapefile",
+    desc: "Load the conflation map shapefile into PostgreSQL.",
     builder: {
       conflationMapVersion: {
         demand: true,
-        type: 'string'
+        type: "string",
       },
       conflationMapShapefile: {
         demand: true,
-        type: 'string',
-        describe: 'Path to the conflation map shapefile directory.'
-      }
+        type: "string",
+        describe: "Path to the conflation map shapefile directory.",
+      },
     },
-    handler: ({conflationMapVersion, conflationMapShapefile, pg_env}) => {
+    handler: ({ conflationMapVersion, conflationMapShapefile, pg_env }) => {
       spawn(
-        'make_targets/db/conflation/load-conflation-map-shapefile',
+        "make_targets/db/conflation/load-conflation-map-shapefile",
         [
           `--conflationMapVersion='${conflationMapVersion}'`,
           `--conflationMapShapefile='${conflationMapShapefile}'`,
-          `--pg_env=${pg_env}`
+          `--pg_env=${pg_env}`,
         ],
         {
           cwd: __dirname,
-          shell: '/bin/bash',
-          stdio: 'inherit'
+          shell: "/bin/bash",
+          stdio: "inherit",
         }
       );
-    }
+    },
   })
   .command({
-    command: 'update-conflation-map-to-transcom-join-tables',
-    desc: 'Update the conflation_map/transcom_events join tables.',
-    handler: ({pg_env}) => {
-      spawn(
-        'make_targets/db/conflation/update-conflation-map-to-transcom-join-tables',
-        [`--pg_env=${pg_env}`],
-        {
-          cwd: __dirname,
-          shell: '/bin/bash',
-          stdio: 'inherit'
-        }
-      );
-    }
-  })
-  .command({
-    command: 'load-conflation-metadata',
-    desc: 'Load the conflation metadata into PostgreSQL.',
+    command: "load-conflation-metadata",
+    desc: "Load the conflation metadata into PostgreSQL.",
     builder: {
       year: {
-        type: 'string',
-        demand: true
-      }
+        type: "string",
+        demand: true,
+      },
     },
-    handler: ({year, pg_env}) => {
-      spawn('make_targets/db/load-conflation-metadata', {
+    handler: ({ year, pg_env }) => {
+      spawn("make_targets/db/load-conflation-metadata", {
         cwd: __dirname,
-        shell: '/bin/bash',
-        stdio: 'inherit',
+        shell: "/bin/bash",
+        stdio: "inherit",
         env: Object.assign({}, process.env, {
           YEAR: year,
-          PG_ENV: pg_env
-        })
+          PG_ENV: pg_env,
+        }),
       });
-    }
+    },
   })
   .command({
-    command: 'load-osm-ways-metadata',
-    desc: 'Load the OSM Ways metadata into PostgreSQL.',
+    command: "load-osm-ways-metadata",
+    desc: "Load the OSM Ways metadata into PostgreSQL.",
     builder: {
       year: {
-        type: 'string',
-        demand: true
+        type: "string",
+        demand: true,
       },
       osmFile: {
-        type: 'string',
-        demand: true
-      }
+        type: "string",
+        demand: true,
+      },
     },
-    handler: ({year, osmFile, pg_env}) => {
-      spawn('make', ['db/load-osm-ways-metadata'], {
+    handler: ({ year, osmFile, pg_env }) => {
+      spawn("make", ["db/load-osm-ways-metadata"], {
         cwd: __dirname,
-        shell: '/bin/bash',
-        stdio: 'inherit',
+        shell: "/bin/bash",
+        stdio: "inherit",
         env: Object.assign({}, process.env, {
           YEAR: year,
           OSM_FILE: osmFile,
-          PG_ENV: pg_env
-        })
+          PG_ENV: pg_env,
+        }),
       });
-    }
-  })
-  .command({
-    command: 'load-fips-codes-tables',
-    desc: 'Load the US and Canada fips codes tables.',
-    handler: ({pg_env}) => {
-      const opts = {
-        cwd: __dirname,
-        shell: '/bin/bash',
-        stdio: 'inherit',
-        env: Object.assign({}, process.env, {
-          PG_ENV: pg_env
-        })
-      };
-
-      opts.env.COUNTRY = 'us';
-      spawn('make', ['db/load-country-fips-codes-table'], opts).on(
-        'close',
-        () => {
-          opts.env.COUNTRY = 'cn';
-          spawn('make', ['db/load-country-fips-codes-table'], opts);
-        }
-      );
-    }
-  })
-  .command({
-    command: 'dump-npmrds-database-metadata-tables',
-    desc:
-      'Creates a directory format dump of the npmrds database metadata tables. The data from the npmrds and pm3_eav_append_only_table tables is excluded. The npmrds data can be restored using the archived CSVs. The pm3_eav_append_only_table data is dumped seperately.',
-    builder: {
-      dataDir: {
-        type: 'string',
-        demand: false,
-        default: '.'
-      }
     },
-    handler: ({dataDir, pg_env}) => {
+  })
+  .command({
+    command: "load-fips-codes-tables",
+    desc: "Load the US and Canada fips codes tables.",
+    handler: ({ pg_env }) => {
       const opts = {
         cwd: __dirname,
-        shell: '/bin/bash',
-        stdio: 'inherit',
+        shell: "/bin/bash",
+        stdio: "inherit",
         env: Object.assign({}, process.env, {
           PG_ENV: pg_env,
-          DATA_DIR: dataDir
-        })
+        }),
+      };
+
+      opts.env.COUNTRY = "us";
+      spawn("make", ["db/load-country-fips-codes-table"], opts).on(
+        "close",
+        () => {
+          opts.env.COUNTRY = "cn";
+          spawn("make", ["db/load-country-fips-codes-table"], opts);
+        }
+      );
+    },
+  })
+  .command({
+    command: "dump-npmrds-database-metadata-tables",
+    desc: "Creates a directory format dump of the npmrds database metadata tables. The data from the npmrds and pm3_eav_append_only_table tables is excluded. The npmrds data can be restored using the archived CSVs. The pm3_eav_append_only_table data is dumped seperately.",
+    builder: {
+      dataDir: {
+        type: "string",
+        demand: false,
+        default: ".",
+      },
+    },
+    handler: ({ dataDir, pg_env }) => {
+      const opts = {
+        cwd: __dirname,
+        shell: "/bin/bash",
+        stdio: "inherit",
+        env: Object.assign({}, process.env, {
+          PG_ENV: pg_env,
+          DATA_DIR: dataDir,
+        }),
       };
 
       spawn(
-        join(__dirname, 'make_targets/db_backups/dump_metadata_tables'),
+        join(__dirname, "make_targets/db_backups/dump_metadata_tables"),
         opts
       );
-    }
+    },
   })
   .command({
-    command: 'dump-pm3-tables',
-    desc: 'Creates a compressed SQL dump of the PM3 Tables.',
+    command: "dump-pm3-tables",
+    desc: "Creates a compressed SQL dump of the PM3 Tables.",
     builder: {
       dataDir: {
-        type: 'string',
+        type: "string",
         demand: false,
-        default: '.'
-      }
+        default: ".",
+      },
     },
-    handler: ({dataDir, pg_env}) => {
+    handler: ({ dataDir, pg_env }) => {
       const opts = {
         cwd: __dirname,
-        shell: '/bin/bash',
-        stdio: 'inherit',
+        shell: "/bin/bash",
+        stdio: "inherit",
         env: Object.assign({}, process.env, {
           PG_ENV: pg_env,
-          DATA_DIR: dataDir
-        })
+          DATA_DIR: dataDir,
+        }),
       };
 
-      spawn(join(__dirname, 'make_targets/db_backups/dump_pm3_tables'), opts);
-    }
+      spawn(join(__dirname, "make_targets/db_backups/dump_pm3_tables"), opts);
+    },
   })
   .command({
-    command: 'create-highway-data-services-root-tables',
-    desc: 'Creates the highway_data_services metadata and root data tables.',
-    handler: ({pg_env}) => {
+    command: "create-highway-data-services-root-tables",
+    desc: "Creates the highway_data_services metadata and root data tables.",
+    handler: ({ pg_env }) => {
       const opts = {
         cwd: __dirname,
-        shell: '/bin/bash',
-        stdio: 'inherit',
+        shell: "/bin/bash",
+        stdio: "inherit",
         env: Object.assign({}, process.env, {
-          PG_ENV: pg_env
-        })
+          PG_ENV: pg_env,
+        }),
       };
       spawn(
         join(
           __dirname,
-          'make_targets/db/create-highway-data-services-root-tables'
+          "make_targets/db/create-highway-data-services-root-tables"
         ),
         opts
       );
-    }
+    },
   })
 
   .command({
-    command: 'scrape-highway-services-csvs',
-    desc: ' the highway_data_services CSVs into the data tables.',
+    command: "scrape-highway-services-csvs",
+    desc: " the highway_data_services CSVs into the data tables.",
     builder: hdsTrafficCountsScraper.yargsSpec,
-    handler: hdsTrafficCountsScraper.main
+    handler: hdsTrafficCountsScraper.main,
   })
 
   .command({
-    command: 'load-gtfs-conflation-aadt',
-    desc: 'Load the output of the gtfs-conflation-pipeline for an agency/year',
+    command: "load-gtfs-conflation-aadt",
+    desc: "Load the output of the gtfs-conflation-pipeline for an agency/year",
     builder: loadGtfsConflationAadt.yargsSpec,
-    handler: loadGtfsConflationAadt.main
+    handler: loadGtfsConflationAadt.main,
   })
 
   .command({
-    command: 'load-highway-services-csvs',
-    desc: 'Loads the highway_data_services CSVs into the data tables.',
+    command: "load-highway-services-csvs",
+    desc: "Loads the highway_data_services CSVs into the data tables.",
     builder: {
       dataDir: {
-        type: 'string',
+        type: "string",
         demand: false,
-        default: '.'
-      }
+        default: ".",
+      },
     },
-    handler: ({dataDir, pg_env}) => {
+    handler: ({ dataDir, pg_env }) => {
       const opts = {
         cwd: __dirname,
-        shell: '/bin/bash',
-        stdio: 'inherit',
+        shell: "/bin/bash",
+        stdio: "inherit",
         env: Object.assign({}, process.env, {
-          PG_ENV: pg_env
-        })
+          PG_ENV: pg_env,
+        }),
       };
       spawn(
-        join(__dirname, 'make_targets/db/load-highway-services-csvs'),
+        join(__dirname, "make_targets/db/load-highway-services-csvs"),
         [`--dataDir='${dataDir}'`, `--pg_env=${pg_env}`],
         opts
       );
-    }
+    },
   })
   .command({
-    command: 'update_tmc_metadata_default_versions',
-    desc:
-      'Start interactive script that updates the default <state>.tmc_metadata_:YEAR tables.',
-    handler: ({pg_env}) => {
+    command: "update_tmc_metadata_default_versions",
+    desc: "Start interactive script that updates the default <state>.tmc_metadata_:YEAR tables.",
+    handler: ({ pg_env }) => {
       const opts = {
         cwd: __dirname,
-        shell: '/bin/bash',
-        stdio: 'inherit',
+        shell: "/bin/bash",
+        stdio: "inherit",
         env: Object.assign({}, process.env, {
-          PG_ENV: pg_env
-        })
+          PG_ENV: pg_env,
+        }),
       };
       spawn(
-        join(__dirname, 'make_targets/db/update_tmc_metadata_default_versions'),
+        join(__dirname, "make_targets/db/update_tmc_metadata_default_versions"),
         [`--pg_env=${pg_env}`],
         opts
       );
-    }
+    },
   })
   .command({
-    command: 'load-nodes2ways-table',
-    desc:
-      'Loads the conflation Nodes->WaysInfo into the public.conflation_nodes_to_ways_:YEAR table.',
+    command: "load-nodes2ways-table",
+    desc: "Loads the conflation Nodes->WaysInfo into the public.conflation_nodes_to_ways_:YEAR table.",
     builder: {
-      year: {type: 'number', demand: true},
+      year: { type: "number", demand: true },
       nodes2WaysFile: {
         demand: true,
-        type: 'string'
-      }
+        type: "string",
+      },
     },
-    handler: ({year, nodes2WaysFile, pg_env}) => {
+    handler: ({ year, nodes2WaysFile, pg_env }) => {
       const opts = {
         cwd: __dirname,
-        shell: '/bin/bash',
-        stdio: 'inherit',
+        shell: "/bin/bash",
+        stdio: "inherit",
         env: Object.assign({}, process.env, {
-          PG_ENV: pg_env
-        })
+          PG_ENV: pg_env,
+        }),
       };
       spawn(
-        join(__dirname, 'make_targets/db/load-nodes2ways-table'),
+        join(__dirname, "make_targets/db/load-nodes2ways-table"),
         [
           `--year='${year}'`,
           `--nodes2WaysFile='${nodes2WaysFile}'`,
-          `--pg_env=${pg_env}`
+          `--pg_env=${pg_env}`,
         ],
         opts
       );
-    }
+    },
   })
 
   // db/upload-mpo-boundaries-shapefile:
   // 	@:$(call check_defined,MPO_SHAPEFILE_ZIP_PATH)
   // 	${_MKFILE_DIR}/make_targets/db/upload-mpo-boundaries-shapefile
   .command({
-    command: 'upload-mpo-boundaries-shapefile',
-    desc:
-      'Loads the MPO shapefile downloaded from https://hepgis.fhwa.dot.gov/fhwagis/#',
+    command: "upload-mpo-boundaries-shapefile",
+    desc: "Loads the MPO shapefile downloaded from https://hepgis.fhwa.dot.gov/fhwagis/#",
     builder: {
       mpoShapefileZipPath: {
         demand: true,
-        type: 'string'
-      }
+        type: "string",
+      },
     },
-    handler: ({mpoShapefileZipPath, pg_env}) => {
+    handler: ({ mpoShapefileZipPath, pg_env }) => {
       const opts = {
         cwd: __dirname,
-        shell: '/bin/bash',
-        stdio: 'inherit',
+        shell: "/bin/bash",
+        stdio: "inherit",
         env: Object.assign({}, process.env, {
           PG_ENV: pg_env,
-          MPO_SHAPEFILE_ZIP_PATH: mpoShapefileZipPath
-        })
+          MPO_SHAPEFILE_ZIP_PATH: mpoShapefileZipPath,
+        }),
       };
       spawn(
-        join(__dirname, 'make_targets/db/upload-mpo-boundaries-shapefile'),
+        join(__dirname, "make_targets/db/upload-mpo-boundaries-shapefile"),
         opts
       );
-    }
+    },
   })
   .command({
-    command: 'load-conflation-avg-daily-gtfs-trips',
-    desc:
-      'Loads the conflation avg_daily_gtfs_trips_:YEAR table. The provided conflationAvgDailyGTFSTrips MUST be a CSV with the following header: way_id,amp,midd,pmp,we,ovn',
+    command: "load-conflation-avg-daily-gtfs-trips",
+    desc: "Loads the conflation avg_daily_gtfs_trips_:YEAR table. The provided conflationAvgDailyGTFSTrips MUST be a CSV with the following header: way_id,amp,midd,pmp,we,ovn",
     builder: {
-      year: {type: 'number', demand: true},
+      year: { type: "number", demand: true },
       conflationAvgDailyGTFSTrips: {
         demand: true,
-        type: 'string'
-      }
+        type: "string",
+      },
     },
-    handler: ({year, conflationAvgDailyGTFSTrips, pg_env}) => {
+    handler: ({ year, conflationAvgDailyGTFSTrips, pg_env }) => {
       const opts = {
         cwd: __dirname,
-        shell: '/bin/bash',
-        stdio: 'inherit',
+        shell: "/bin/bash",
+        stdio: "inherit",
         env: Object.assign({}, process.env, {
-          PG_ENV: pg_env
-        })
+          PG_ENV: pg_env,
+        }),
       };
       spawn(
-        join(__dirname, 'make_targets/db/load-conflation-avg-daily-gtfs-trips'),
+        join(__dirname, "make_targets/db/load-conflation-avg-daily-gtfs-trips"),
         [
           `--year='${year}'`,
           `--conflationAvgDailyGTFSTrips='${conflationAvgDailyGTFSTrips}'`,
-          `--pg_env=${pg_env}`
+          `--pg_env=${pg_env}`,
         ],
         opts
       );
-    }
+    },
   })
   .command({
-    command: 'load-state-avg-speedlimits',
-    desc: 'Load the TMC avg speedlimits for a state',
+    command: "load-state-avg-speedlimits",
+    desc: "Load the TMC avg speedlimits for a state",
     builder: {
-      state: {type: 'string', demand: true},
+      state: { type: "string", demand: true },
       avgSpeedlimitsGzipPath: {
         demand: true,
-        type: 'string'
-      }
+        type: "string",
+      },
     },
-    handler: ({state, avgSpeedlimitsGzipPath, pg_env}) => {
+    handler: ({ state, avgSpeedlimitsGzipPath, pg_env }) => {
       const opts = {
         cwd: __dirname,
-        shell: '/bin/bash',
-        stdio: 'inherit',
+        shell: "/bin/bash",
+        stdio: "inherit",
         env: Object.assign({}, process.env, {
           PG_ENV: pg_env,
           STATE: state,
           AVG_SPEEDLIMITS_GZIP_PATH: isAbsolute(avgSpeedlimitsGzipPath)
             ? avgSpeedlimitsGzipPath
-            : join(process.cwd(), avgSpeedlimitsGzipPath)
-        })
+            : join(process.cwd(), avgSpeedlimitsGzipPath),
+        }),
       };
 
       spawn(
-        join(__dirname, './make_targets/db/upload-state-avg-speedlimits'),
+        join(__dirname, "./make_targets/db/upload-state-avg-speedlimits"),
         opts
       );
-    }
+    },
   })
   .demandCommand()
   .recommendCommands()

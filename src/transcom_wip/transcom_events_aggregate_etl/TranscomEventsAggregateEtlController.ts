@@ -3,7 +3,6 @@ import { mkdirSync, rmSync, existsSync, createWriteStream } from "fs";
 import { join } from "path";
 
 import pgFormat from "pg-format";
-import log from "why-is-node-running";
 
 import { getConnectedPgClient } from "../../utils/PostgreSQL";
 
@@ -30,24 +29,69 @@ import { PgEnv, PgClient } from "../../domain/PostgreSQLTypes";
 
 const etlBaseDir = join(__dirname, "../../../", "etl-work-dirs");
 
-export default class TranscomEventsAggregateEtlControl {
-  private etlStart: Date;
-  private etlEnd: Date;
-  private etlWorkDir!: string;
-  private etlTranscomEventsDir!: string;
-  private etlTranscomEventsExpandedDir!: string;
-  private etlHostname: string;
-  private etlControlId: number;
-  private disableLogging: Function | null;
-  private _db?: PgClient | null;
-  private transcomEventsExpandedStagingTableName?: string;
+export default class TranscomEventsAggregateEtlControler {
+  protected _etlStart: Date;
+  protected _etlWorkDir: string;
+  protected etlEnd: Date;
+  protected etlTranscomEventsDir!: string;
+  protected etlTranscomEventsExpandedDir!: string;
+  protected etlHostname: string;
+  protected etlControlId: number;
+  protected disableLogging: Function | null;
+  protected _db?: PgClient | null;
+  protected transcomEventsExpandedStagingTableName?: string;
 
   constructor(
-    private readonly pgEnv: PgEnv,
-    private eventsStartTime: Date | null = null,
-    private eventsEndTime: Date | null = null
+    protected readonly pgEnv: PgEnv,
+    protected eventsStartTime: Date | null = null,
+    protected eventsEndTime: Date | null = null
   ) {
     this.etlHostname = os.hostname() || "unknown-host-name";
+  }
+
+  // SIDE EFFECT WARNING: etlStart initialized on first get
+  //   (Facilitates extending this class.)
+  protected get etlStart() {
+    if (this._etlStart) {
+      return this._etlStart;
+    }
+
+    this._etlStart = new Date();
+
+    return this._etlStart;
+  }
+
+  // SIDE EFFECT WARNING: etlWorkDir initialized on first get
+  //   (Facilitates extending this class.)
+  protected get etlWorkDir() {
+    if (this._etlWorkDir) {
+      return this._etlWorkDir;
+    }
+
+    const etlStartTs = getTimestamp(this.etlStart);
+
+    const workDirName = `transcom_events_aggregate_etl.${etlStartTs}`;
+
+    // @ts-ignore
+    this._etlWorkDir = join(etlBaseDir, workDirName);
+
+    if (existsSync(this.etlWorkDir)) {
+      throw new Error("TRANSCOM Events Aggregate ETL running concurrently?");
+    }
+
+    mkdirSync(this.etlWorkDir, { recursive: true });
+
+    this.etlTranscomEventsDir = join(this.etlWorkDir, "transcom-events");
+    mkdirSync(this.etlTranscomEventsDir);
+
+    this.etlTranscomEventsExpandedDir = join(
+      this.etlWorkDir,
+      "transcom-events-expanded"
+    );
+
+    mkdirSync(this.etlTranscomEventsExpandedDir);
+
+    return this._etlWorkDir;
   }
 
   protected async getDbConnection() {
@@ -74,29 +118,7 @@ export default class TranscomEventsAggregateEtlControl {
     }
   }
 
-  protected initializeEtlWorkDir() {
-    const etlStartTs = getTimestamp(this.etlStart);
-
-    const workDirName = `transcom_events_aggregate_etl.${etlStartTs}`;
-
-    // @ts-ignore
-    this.etlWorkDir = join(etlBaseDir, workDirName);
-
-    if (existsSync(this.etlWorkDir)) {
-      throw new Error("TRANSCOM Events Aggregate ETL running concurrently?");
-    }
-
-    mkdirSync(this.etlWorkDir, { recursive: true });
-
-    this.etlTranscomEventsDir = join(this.etlWorkDir, "transcom-events");
-    mkdirSync(this.etlTranscomEventsDir);
-
-    this.etlTranscomEventsExpandedDir = join(
-      this.etlWorkDir,
-      "transcom-events-expanded"
-    );
-    mkdirSync(this.etlTranscomEventsExpandedDir);
-  }
+  protected initializeEtlWorkDir() {}
 
   protected initializeLogging() {
     if (this.disableLogging) {
@@ -151,10 +173,9 @@ export default class TranscomEventsAggregateEtlControl {
     }
   }
 
-  protected async initializeDbControlTableEntry() {
-    const db = await this.getDbConnection();
-
-    const metadata = {
+  protected get initialEtlControlMetadata() {
+    return {
+      etlTask: "INSERT_TRANSCOM_EVENTS",
       etlStart: this.etlStart,
       eventsStartTime: this.eventsStartTime,
       eventsEndTime: this.eventsEndTime,
@@ -162,6 +183,10 @@ export default class TranscomEventsAggregateEtlControl {
       etlWorkDir: this.etlWorkDir,
       status: "IN_PROGRESS",
     };
+  }
+
+  protected async initializeDbControlTableEntry() {
+    const db = await this.getDbConnection();
 
     const {
       rows: [{ id }],
@@ -173,7 +198,7 @@ export default class TranscomEventsAggregateEtlControl {
         ) VALUES ($1, $2)
           RETURNING id
       `,
-      [this.etlStart, JSON.stringify(metadata)]
+      [this.etlStart, JSON.stringify(this.initialEtlControlMetadata)]
     );
 
     this.etlControlId = id;
@@ -209,6 +234,12 @@ export default class TranscomEventsAggregateEtlControl {
     );
   }
 
+  protected get transcomEventIdAsyncIteratorFromApiScrapeDirectory() {
+    return makeTranscomEventIdIteratorFromApiScrapeDirectory(
+      this.etlTranscomEventsDir
+    );
+  }
+
   protected async downloadTranscomEventsExpanded() {
     // TODO:  Pass a schema-analysis object to the
     //        If a type changed that wouldn't break downstream code,
@@ -223,13 +254,8 @@ export default class TranscomEventsAggregateEtlControl {
       }
     );
 
-    const transcomEventIdsIter =
-      makeTranscomEventIdIteratorFromApiScrapeDirectory(
-        this.etlTranscomEventsDir
-      );
-
     await downloadTranscomEventsExpanded(
-      transcomEventIdsIter,
+      this.transcomEventIdAsyncIteratorFromApiScrapeDirectory,
       this.etlTranscomEventsExpandedDir
     );
 
@@ -448,13 +474,6 @@ export default class TranscomEventsAggregateEtlControl {
   }
 
   async run() {
-    if (this.etlStart) {
-      throw new Error("ETL has already been started");
-    }
-
-    this.etlStart = new Date();
-
-    this.initializeEtlWorkDir();
     // this.initializeLogging();
 
     this.initializeTranscomDatabaseTables();

@@ -4,18 +4,14 @@ const yargs = require("yargs");
 
 require("ts-node").register();
 
-const { runTranscomEventsAggregateETL } = require("./yargs_wrapper");
+const commands = require("./yargs_wrapper");
 
 const taskCommands = yargs.parserConfiguration({
   "camel-case-expansion": false,
   "flatten-duplicate-arrays": false,
 });
 
-//  Make runTranscomEventsAggregateETL the default command
-//    https://github.com/yargs/yargs/blob/master/docs/advanced.md#default-commands
-const config = { ...runTranscomEventsAggregateETL, command: "$0" };
-
-taskCommands.command(config);
+Object.keys(commands).forEach((cmd) => taskCommands.command(commands[cmd]));
 
 taskCommands
   .demandCommand()

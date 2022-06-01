@@ -1,4 +1,7 @@
+export { PgEnv } from "../../domain/PostgreSQLTypes";
+
 export type TranscomEventID = string;
+export type TranscomApiRequestTimestamp = string;
 
 export enum TransomEventDirection {
   ALL_DIRECTIONS = "all directions",

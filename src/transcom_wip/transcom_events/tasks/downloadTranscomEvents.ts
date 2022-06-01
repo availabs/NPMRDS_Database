@@ -6,18 +6,17 @@ import { createWriteStream, mkdirSync } from "fs";
 import { createGzip } from "zlib";
 import { join } from "path";
 
-import yargs from "yargs";
 import _ from "lodash";
 
 import {
   partitionTranscomRequestTimestampsByMonth,
   getNowTimestamp,
   TranscomApiRequestTimestamp,
-} from "../utils/dates";
+} from "../../utils/dates";
 
 import { makeRawTranscomEventIterator } from "..";
 
-function getOutputFilePath(
+function getRawTranscomEventsFileName(
   startTimestamp: TranscomApiRequestTimestamp,
   endTimestamp: TranscomApiRequestTimestamp
 ) {
@@ -43,7 +42,10 @@ export default async function downloadTranscomEvents(
   );
 
   for (const [monthStartTimestamp, monthEndTimestamp] of monthPartitions) {
-    const filename = getOutputFilePath(monthStartTimestamp, monthEndTimestamp);
+    const filename = getRawTranscomEventsFileName(
+      monthStartTimestamp,
+      monthEndTimestamp
+    );
 
     try {
       const filepath = join(outputDir, filename);

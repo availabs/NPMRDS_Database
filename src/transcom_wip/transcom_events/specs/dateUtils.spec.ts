@@ -2,7 +2,7 @@
 
 import test from "tape";
 
-import * as datesUtils from "../utils/dates";
+import * as datesUtils from "../../utils/dates";
 
 test("datesUtils getTranscomRequestFormattedTimestamp", (t) => {
   const date = new Date("2022-05-17T17:30:15");

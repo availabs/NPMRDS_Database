@@ -116,7 +116,29 @@ EXECUTE 'CREATE MATERIALIZED VIEW geography_metadata AS
       )
     )
     GROUP BY ua_code, ua_name, state, state_code
-  ;
+
+  UNION ALL
+
+  SELECT
+      CAST(''REGION'' AS geography_level_type) geography_level,
+      b.region::TEXT AS geography_level_code,
+      REPLACE(
+        c.name,
+        ''.'',
+        ''''
+      ) AS geography_level_name,
+      ARRAY[state]::TEXT[] AS states,
+      ARRAY[state_code]::TEXT[] AS state_codes,
+      ST_Extent(bounding_box) AS bounding_box
+    FROM cte_tmc_metadata AS a
+      INNER JOIN ny.nysdot_regions AS b
+        ON ( a.county_code = b.fips_code )
+      INNER JOIN ny.nysdot_region_names AS c
+        ON ( b.region = c.region )
+    WHERE b.region IS NOT NULL
+    GROUP BY 2, 3, 4, 5
+
+;
 ';
 
 

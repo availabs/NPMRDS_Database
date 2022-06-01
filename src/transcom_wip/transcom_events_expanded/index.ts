@@ -1,5 +1,10 @@
-import { readdirSync, createReadStream } from "fs";
-import { createGunzip } from "zlib";
+import {
+  readdirSync,
+  createReadStream,
+  mkdirSync,
+  createWriteStream,
+} from "fs";
+import { createGzip, createGunzip } from "zlib";
 import { join } from "path";
 import { pipeline } from "stream";
 import { promisify } from "util";
@@ -14,20 +19,26 @@ import { from as copyFrom } from "pg-copy-streams";
 
 import { Client } from "pg";
 
+import { url, apiResponsePropsToDbCols, dbCols } from "./data_schema";
+
+import { getNowTimestamp } from "../utils/dates";
+
 import {
   TranscomEventID,
   RawTranscomEventExpanded,
   ProtoTranscomEventExpanded,
 } from "./index.d";
 
-import { url, apiResponsePropsToDbCols, dbCols } from "./data_schema";
-
 const pipelineAsync = promisify(pipeline);
 
 const DEFAULT_BATCH_SIZE = 50;
 const DEFAULT_SLEEP_MS = 10 * 1000; // 10 seconds
 
-async function downloadRawTranscomEventExpanded(
+function getRawTranscomEventsExpandedFileName() {
+  return `raw-transcom-events-expanded.${getNowTimestamp()}.ndjson.gz`;
+}
+
+export async function downloadRawTranscomEventExpanded(
   transcomEventIds: string[]
 ): Promise<RawTranscomEventExpanded[]> {
   if (transcomEventIds.length === 0) {
@@ -42,7 +53,7 @@ async function downloadRawTranscomEventExpanded(
 }
 
 // TODO: validator function that wraps the Iterator
-export async function* makeRawTranscomEventsExpandedIterator(
+export async function* makeRawTranscomEventsExpandedIteratorFromTranscomAPI(
   transcomEventIdsIter:
     | Iterable<TranscomEventID>
     | AsyncIterable<TranscomEventID>,
@@ -192,6 +203,54 @@ export async function* makeRawTranscomEventsExpandedIteratorFromApiScrapeDirecto
       yield event;
     }
   }
+}
+
+export async function downloadTranscomEventsExpanded(
+  transcomEventIdsIter:
+    | Iterable<TranscomEventID>
+    | AsyncIterable<TranscomEventID>,
+  outputDir: string,
+  batchSize: number = DEFAULT_BATCH_SIZE,
+  sleepMs: number = DEFAULT_SLEEP_MS
+) {
+  mkdirSync(outputDir, { recursive: true });
+
+  const filename = getRawTranscomEventsExpandedFileName();
+  const filepath = join(outputDir, filename);
+
+  const ws = createWriteStream(filepath);
+  const gzip = createGzip();
+
+  const done = new Promise((resolve, reject) => {
+    ws.once("error", reject);
+    ws.once("finish", resolve);
+  });
+
+  gzip.pipe(ws);
+
+  const iter = makeRawTranscomEventsExpandedIteratorFromTranscomAPI(
+    transcomEventIdsIter,
+    batchSize,
+    sleepMs
+  );
+
+  let count = 0;
+
+  for await (const event of iter) {
+    ++count;
+
+    let ready = gzip.write(`${JSON.stringify(event)}\n`);
+
+    if (!ready) {
+      await new Promise((resolve) => gzip.once("drain", resolve));
+    }
+  }
+
+  gzip.end();
+
+  console.log(`"${filename}":`, count);
+
+  await done;
 }
 
 export async function loadApiScrapeDirectoryIntoDatabase(

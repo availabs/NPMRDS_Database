@@ -19,6 +19,6 @@
     "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  "include": ["src", "tasks"],
   "exclude": ["node_modules"]
 }

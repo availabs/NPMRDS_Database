@@ -44,7 +44,7 @@ CREATE OR REPLACE PROCEDURE here_realtime_traffic_partitions.concatenate_here_re
             EXECUTE '
               CREATE TABLE ' || r.full_tbl_name || ' (
                   LIKE public.here_realtime_traffic
-                )
+                ) WITH (fillfactor = 100)
               ;
             ';
 

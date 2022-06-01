@@ -415,7 +415,7 @@ CREATE OR REPLACE PROCEDURE here_npmrds_schema_partitions.update_here_npmrds_sch
                     ( staleness_minutes + 5 ) AS staleness_minutes
                   FROM public.here_npmrds_schema_current AS a
                 ON CONFLICT (tmc, date, epoch)
-                DO NOTHING
+                  DO NOTHING
               ;
             ';
 

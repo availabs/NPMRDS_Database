@@ -13,7 +13,7 @@ import split from "split2";
 
 import _ from "lodash";
 
-import { getNowTimestamp } from "../datesUtils";
+import { getNowTimestamp } from "../../utils/dates";
 
 import { makeRawTranscomEventsExpandedIterator } from "../transcomEventsExtendedDataUtils";
 

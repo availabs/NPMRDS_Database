@@ -99,7 +99,8 @@ CREATE OR REPLACE FUNCTION here_realtime_traffic_partitions.create_here_partitio
 
 CREATE OR REPLACE FUNCTION here_realtime_traffic_partitions.parse_here_partition_timeframe_suffix_fn(
     suffix  TEXT
-  ) RETURNS JSONB
+  )
+  RETURNS JSONB
   AS $$
     DECLARE
       year    TEXT;
