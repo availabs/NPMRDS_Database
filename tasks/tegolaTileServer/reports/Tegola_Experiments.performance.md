@@ -7,13 +7,13 @@ See:
 
 - [NYS RIS using ST_AsBinary on pluto](http://saturn.availabs.org/tegola_performance_experiments/binary_nys_ris_pluto/)
 - [NYS RIS using ST_AsBinary in docker](http://saturn.availabs.org/tegola_performance_experiments/binary_nys_ris_docker/)
-- [NYS RIS using ST_AsMVTGeom in docker](http://saturn.availabs.org/tegola_performance_experiments/mvt_nys_ris_docker/)
+- [NYS RIS using ST_AsMVTGeom in docker](http://saturn.availabs.org/tegola_performance_experiments/mvt_nys_ris_docker/) (best performance)
 - [AVAIL Conflation Map using ST_AsBinary on pluto](http://saturn.availabs.org/tegola_performance_experiments/binary_conflation_pluto/)
 
 ## Slow performance using npmrds_production database on pluto
 
 The tile providers that use the npmrds_production database on pluto are very slow.
-I am not sure of the exact reason. It could be any combination of the following reasons:
+I am not sure of the exact reason. It could be any combination of the following:
 
 - Older version of PostgreSQL and PostGIS
 - General undiagnosed performance issues we've been having lately on pluto
