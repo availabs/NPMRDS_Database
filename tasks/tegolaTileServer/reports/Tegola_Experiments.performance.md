@@ -10,6 +10,8 @@ See:
 - [NYS RIS using ST_AsMVTGeom in docker](http://saturn.availabs.org/tegola_performance_experiments/mvt_nys_ris_docker/) (best performance)
 - [AVAIL Conflation Map using ST_AsBinary on pluto](http://saturn.availabs.org/tegola_performance_experiments/binary_conflation_pluto/)
 
+The above pages used instructions from [Tegola With Mapbox GL JS](https://tegola.io/tutorials/tegola-with-mapbox/)
+
 ## Slow performance using npmrds_production database on pluto
 
 The tile providers that use the npmrds_production database on pluto are very slow.
@@ -58,3 +60,8 @@ tegola=# select PostGIS_Version();
  3.3 USE_GEOS=1 USE_PROJ=1 USE_STATS=1
 (1 row)
 ```
+
+See:
+
+- [PostGIS Upgrading Instructions](https://postgis.net/2019/10/20/postgis-3.0.0/)
+- [ST_AsMVTGeom](https://postgis.net/docs/ST_AsMVTGeom.html)
