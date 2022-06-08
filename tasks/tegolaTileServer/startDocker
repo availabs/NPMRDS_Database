@@ -1,0 +1,11 @@
+#!/bin/bash
+
+docker run \
+  -it \
+  --rm \
+  --name tegola_postgis \
+  -p 5444:5432 \
+  -e POSTGRES_PASSWORD=tegola \
+  -e PGDATA=/data/ \
+  -v "$PWD/pg_data:/data/" \
+  postgis/postgis:14-master

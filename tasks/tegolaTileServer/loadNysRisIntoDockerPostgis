@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -e
+set -a
+
+PGHOST=127.0.0.1
+PGPORT=5444
+PGUSER=postgres
+PGPASSWORD=tegola
+
+echo \
+  "SELECT 'CREATE DATABASE tegola' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'mydb')\\gexec" \
+  | psql
+
+PGDATABASE=tegola
+
+psql \
+  -d tegola \
+  -c 'CREATE EXTENSION IF NOT EXISTS postgis;' \
+  -c 'DROP SCHEMA IF EXISTS tergola_nys_ris CASCADE;' \
+  -c 'DROP TABLE IF EXISTS tergola_nys_ris.nys_roadway_inventory_system_v20210800;'
+
+# https://gis.stackexchange.com/q/342246
+
+ogr2ogr \
+    -f 'PGDUMP' \
+    -t_srs 'EPSG:4326' \
+    -lco SCHEMA=tergola_nys_ris \
+    -lco GEOMETRY_NAME=wkb_geometry \
+    -nln nys_roadway_inventory_system_v20210800 \
+     -dim 2 \
+    /vsistdout/ \
+    ./data/nys-roadway-inventory-system-v20210800.gdb roadway_inventory_system \
+  | sed \
+      's/^ALTER TABLE "nys_roadway_inventory_system_v20210800"/ALTER TABLE "tergola_nys_ris"."nys_roadway_inventory_system_v20210800"/g' \
+  | psql -v ON_ERROR_STOP=1

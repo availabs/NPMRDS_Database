@@ -1,0 +1,7 @@
+#!/bin/bash
+
+docker exec \
+  -it \
+  --user postgres \
+  tegola_postgis \
+  psql

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+      }
+    </style>
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.42.2/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.42.2/mapbox-gl.css' rel='stylesheet' />
+    <title>Mapbox example</title>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script type="text/javascript">
+      // TODO: Enter your mapbox gl access token on the line below
+      mapboxgl.accessToken = 'pk.eyJ1IjoiYW0zMDgxIiwiYSI6IkxzS0FpU0UifQ.rYv6mHCcNd7KKMs7yhY3rw'
+      var map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/dark-v9',
+        center: [-73.8218336014367, 42.677225189450716],
+        zoom: 15
+      });
+
+     var nav = new mapboxgl.NavigationControl();
+      map.addControl(nav, 'top-right');
+
+      map.on('load', function () {
+        map.addSource('mvt_nys_ris', {
+          'type': 'vector',
+          "tiles": ["http://saturn.availabs.org:9090/maps/mvt_nys_ris/{z}/{x}/{y}.vector.pbf?debug=true"],
+          "tolerance": 0
+        });
+
+
+        map.addLayer({
+          "id": "mvt_major",
+          "source": "mvt_nys_ris",
+          "source-layer": "mvt_major",
+          "type": "line",
+          "paint": {
+            "line-color": "blue",
+            "line-width": 3
+          }
+        });
+
+        map.addLayer({
+          "id": "mvt_minor",
+          "source": "mvt_nys_ris",
+          "source-layer": "mvt_minor",
+          "type": "line",
+          "paint": {
+            "line-color": "red",
+            "line-width": 2
+          }
+        });
+
+        map.addLayer({
+          "id": "mvt_local",
+          "source": "mvt_nys_ris",
+          "source-layer": "mvt_local",
+          "type": "line",
+          "paint": {
+            "line-color": "yellow",
+            "line-width": 1
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

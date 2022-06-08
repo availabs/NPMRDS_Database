@@ -1,0 +1,218 @@
+[webserver]
+port = ":9090"              # port to bind the web server to. defaults ":8080"
+
+  [webserver.headers]
+  Access-Control-Allow-Origin = "*"
+  Cache-Control = "no-cache, no-store, must-revalidate"
+
+[cache]                     # configure a tile cache
+type = "file"               # a file cache will cache to the local file system
+basepath = "/tmp/tegola"    # where to write the file cache
+
+# register data providers
+[[providers]]
+name = "binary_nys_ris_pluto"       # provider name is referenced from map layers (required)
+type = "postgis"            # the type of data provider. currently only supports postgis (required)
+# https://github.com/go-spatial/tegola/issues/774
+uri = "postgres://user:passwd@host:port/database"
+srid = 4326                 # The default srid for this provider. Defaults to WebMercator (3857) (optional)
+max_connections = 5        # The max connections to maintain in the connection pool. Default is 100. (optional)
+
+  [[providers.layers]]
+  name = "binary_major"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "id"
+  geometry_type = "linestring"
+  sql = "SELECT ST_AsBinary(ST_Force2D(shape)) AS wkb_geometry, objectid AS id FROM tegola.nys_roadway_inventory_system_v20210800 WHERE ( ((functional_class % 10) <= 3) AND ( shape ) && ( !BBOX! ) )"
+
+  [[providers.layers]]
+  name = "binary_minor"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "id"
+  geometry_type = "linestring"
+  sql = "SELECT ST_AsBinary(ST_Force2D(shape)) AS wkb_geometry, objectid AS id FROM tegola.nys_roadway_inventory_system_v20210800 WHERE ( ((functional_class % 10) BETWEEN 4 AND 6) AND ( shape ) && ( !BBOX! ) )"
+
+  [[providers.layers]]
+  name = "binary_local"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "id"
+  geometry_type = "linestring"
+  sql = "SELECT ST_AsBinary(ST_Force2D(shape)) AS wkb_geometry, objectid AS id FROM tegola.nys_roadway_inventory_system_v20210800 WHERE ( ((functional_class % 10) >= 7) AND ( shape ) && ( !BBOX! ) )"
+
+# register data providers
+[[providers]]
+name = "binary_nys_ris"       # provider name is referenced from map layers (required)
+type = "postgis"            # the type of data provider. currently only supports postgis (required)
+# https://github.com/go-spatial/tegola/issues/774
+uri = "postgres://postgres:tegola@127.0.0.1:5444/tegola"
+srid = 4326                 # The default srid for this provider. Defaults to WebMercator (3857) (optional)
+max_connections = 5        # The max connections to maintain in the connection pool. Default is 100. (optional)
+
+  [[providers.layers]]
+  name = "binary_major"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "id"
+  geometry_type = "linestring"
+  sql = "SELECT ST_AsBinary(wkb_geometry) AS wkb_geometry, objectid AS id FROM tergola_nys_ris.nys_roadway_inventory_system_v20210800 WHERE ( ((functional_class % 10) <= 3) AND ( wkb_geometry ) && ( !BBOX! ) )"
+
+  [[providers.layers]]
+  name = "binary_minor"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "id"
+  geometry_type = "linestring"
+  sql = "SELECT ST_AsBinary(wkb_geometry) AS wkb_geometry, objectid AS id FROM tergola_nys_ris.nys_roadway_inventory_system_v20210800 WHERE ( ((functional_class % 10) BETWEEN 4 AND 6) AND ( wkb_geometry ) && ( !BBOX! ) )"
+
+  [[providers.layers]]
+  name = "binary_local"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "id"
+  geometry_type = "linestring"
+  sql = "SELECT ST_AsBinary(wkb_geometry) AS wkb_geometry, objectid AS id FROM tergola_nys_ris.nys_roadway_inventory_system_v20210800 WHERE ( ((functional_class % 10) >= 7) AND ( wkb_geometry ) && ( !BBOX! ) )"
+
+[[providers]]
+name = "mvt_nys_ris"       # provider name is referenced from map layers (required)
+type = "mvt_postgis"            # the type of data provider. currently only supports postgis (required)
+# https://github.com/go-spatial/tegola/issues/774
+uri = "postgres://postgres:tegola@127.0.0.1:5444/tegola"
+srid = 4326                 # The default srid for this provider. Defaults to WebMercator (3857) (optional)
+max_connections = 5        # The max connections to maintain in the connection pool. Default is 100. (optional)
+
+  [[providers.layers]]
+  name = "mvt_major"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "id"
+  geometry_type = "linestring"
+  sql = "SELECT ST_AsMVTGeom(wkb_geometry, !BBOX!) AS wkb_geometry, objectid AS id FROM tergola_nys_ris.nys_roadway_inventory_system_v20210800 WHERE ( ((functional_class % 10) <= 3) AND ( wkb_geometry ) && ( !BBOX! ) )"
+
+  [[providers.layers]]
+  name = "mvt_minor"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "id"
+  geometry_type = "linestring"
+  sql = "SELECT ST_AsMVTGeom(wkb_geometry, !BBOX!) AS wkb_geometry, objectid AS id FROM tergola_nys_ris.nys_roadway_inventory_system_v20210800 WHERE ( ((functional_class % 10) BETWEEN 4 AND 6) AND ( wkb_geometry ) && ( !BBOX! ) )"
+
+  [[providers.layers]]
+  name = "mvt_local"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "id"
+  geometry_type = "linestring"
+  sql = "SELECT ST_AsMVTGeom(wkb_geometry, !BBOX!) AS wkb_geometry, objectid AS id FROM tergola_nys_ris.nys_roadway_inventory_system_v20210800 WHERE ( ((functional_class % 10) >= 7) AND ( wkb_geometry ) && ( !BBOX! ) )"
+
+[[providers]]
+name = "binary_conflation_pluto"       # provider name is referenced from map layers (required)
+type = "postgis"            # the type of data provider. currently only supports postgis (required)
+# https://github.com/go-spatial/tegola/issues/774
+uri = "postgres://tegola:tegola@pluto.availabs.org:5432/npmrds_production"
+srid = 4326                 # The default srid for this provider. Defaults to WebMercator (3857) (optional)
+max_connections = 5        # The max connections to maintain in the connection pool. Default is 100. (optional)
+
+  [[providers.layers]]
+  name = "binary_major"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "id"
+  geometry_type = "linestring"
+  sql = "SELECT ST_AsBinary(wkb_geometry) AS wkb_geometry, id, dir, n, osm, osm_fwd, ris, tmc FROM tegola.conflation_map_2021_v0_6_0 WHERE ( (n <= 3) AND ( wkb_geometry ) && ( !BBOX! ) )"
+
+  [[providers.layers]]
+  name = "binary_local"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "id"
+  geometry_type = "linestring"
+  sql = "SELECT ST_AsBinary(wkb_geometry) AS wkb_geometry, id, dir, n, osm, osm_fwd, ris, tmc FROM tegola.conflation_map_2021_v0_6_0 WHERE ( (n BETWEEN 4 AND 7) AND ( wkb_geometry ) && ( !BBOX! ) )"
+
+  [[providers.layers]]
+  name = "binary_paths"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "id"
+  geometry_type = "linestring"
+  sql = "SELECT ST_AsBinary(wkb_geometry) AS wkb_geometry, id, dir, n, osm, osm_fwd, ris, tmc FROM tegola.conflation_map_2021_v0_6_0 WHERE ( (n > 7) AND ( wkb_geometry ) && ( !BBOX! ) )"
+
+
+
+[[maps]]
+name = "binary_nys_ris_pluto"
+
+  [[maps.layers]]
+  provider_layer = "binary_nys_ris_pluto.binary_major"
+  min_zoom = 1
+  dont_simplify = true
+  dont_clip = true
+
+  [[maps.layers]]
+  provider_layer = "binary_nys_ris_pluto.binary_minor"
+  min_zoom = 9
+  dont_simplify = true
+  dont_clip = true
+
+  [[maps.layers]]
+  provider_layer = "binary_nys_ris_pluto.binary_local"
+  min_zoom = 11
+  dont_simplify = true
+  dont_clip = true
+
+[[maps]]
+name = "binary_nys_ris"
+
+  [[maps.layers]]
+  provider_layer = "binary_nys_ris.binary_major"
+  min_zoom = 1
+  dont_simplify = true
+  dont_clip = true
+
+  [[maps.layers]]
+  provider_layer = "binary_nys_ris.binary_minor"
+  min_zoom = 9
+  dont_simplify = true
+  dont_clip = true
+
+  [[maps.layers]]
+  provider_layer = "binary_nys_ris.binary_local"
+  min_zoom = 11
+  dont_simplify = true
+  dont_clip = true
+
+[[maps]]
+name = "mvt_nys_ris"
+
+  [[maps.layers]]
+  provider_layer = "mvt_nys_ris.mvt_major"
+  min_zoom = 1
+  dont_simplify = true
+  dont_clip = true
+
+  [[maps.layers]]
+  provider_layer = "mvt_nys_ris.mvt_minor"
+  min_zoom = 9
+  dont_simplify = true
+  dont_clip = true
+
+  [[maps.layers]]
+  provider_layer = "mvt_nys_ris.mvt_local"
+  min_zoom = 11
+  dont_simplify = true
+  dont_clip = true
+
+[[maps]]
+name = "binary_conflation_pluto"
+
+  [[maps.layers]]
+  provider_layer = "binary_conflation_pluto.binary_major"
+  min_zoom = 1
+  dont_simplify = true
+  dont_clip = true
+  dont_clean = true
+
+  [[maps.layers]]
+  provider_layer = "binary_conflation_pluto.binary_local"
+  min_zoom = 12
+  dont_simplify = true
+  dont_clip = true
+  dont_clean = true
+
+  [[maps.layers]]
+  provider_layer = "binary_conflation_pluto.binary_paths"
+  min_zoom = 14
+  dont_simplify = true
+  dont_clip = true
+  dont_clean = true
+
