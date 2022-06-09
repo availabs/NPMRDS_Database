@@ -1,0 +1,13 @@
+{
+    "name": "AVAIL/TRANSCOM/TRANSCOM_EVENTS_AGGREGATE",
+    "update_interval": "nightly",
+    "category": [
+        "TRANSCOM",
+        "AVAIL",
+        "CONGESTION",
+        "TRAFFIC_INCIDENTS"
+    ],
+    "description": "Aggregate of TRANSCOM Events and AVAIL generated congestion data.",
+    "type": null,
+    "display_name": null
+}

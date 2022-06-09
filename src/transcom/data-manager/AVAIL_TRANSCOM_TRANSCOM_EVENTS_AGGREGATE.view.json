@@ -1,0 +1,15 @@
+{
+    "source_name": "AVAIL/TRANSCOM/TRANSCOM_EVENTS_AGGREGATE",
+    "version": "1",
+    "data_type": "SPATIAL",
+    "interval_version": "NIGHTLY",
+    "geography_version": "36",
+    "source_url": null,
+    "publisher": "AVAIL",
+    "data_table": "transcom.transcom_events_aggregate",
+    "download_url": null,
+    "tiles_url": null,
+    "start_date": null,
+    "end_date": null,
+    "last_updated": null
+}
