@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas Ntad2014NyArea layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "NTAD_2014_NYarea",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas Ntad2014NyArea version (required format: YYYY).",

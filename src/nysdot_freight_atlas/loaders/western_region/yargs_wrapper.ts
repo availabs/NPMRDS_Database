@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas WesternRegion layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "Western_Region",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas WesternRegion version (required format: YYYY).",

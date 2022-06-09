@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas NysCanalSystem layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "NYS_Canal_System",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas NysCanalSystem version (required format: YYYY).",

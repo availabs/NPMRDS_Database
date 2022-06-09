@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas MarineHighways layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "MarineHighways",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas MarineHighways version (required format: YYYY).",

@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas PrimaryFreightNetwork layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "Primary_Freight_Network",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas PrimaryFreightNetwork version (required format: YYYY).",

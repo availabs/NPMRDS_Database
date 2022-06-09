@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas County layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "County",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas County version (required format: YYYY).",

@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas NymtcHudsonValleyRegion layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "NYMTC_HudsonValleyRegion",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas NymtcHudsonValleyRegion version (required format: YYYY).",

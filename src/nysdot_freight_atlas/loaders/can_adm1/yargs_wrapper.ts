@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas CanAdm1 layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "CAN_adm1",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas CanAdm1 version (required format: YYYY).",

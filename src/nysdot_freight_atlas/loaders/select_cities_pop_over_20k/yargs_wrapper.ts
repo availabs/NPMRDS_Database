@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas SelectCitiesPopOver20K layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "SelectCities_PopOver20k",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas SelectCitiesPopOver20K version (required format: YYYY).",

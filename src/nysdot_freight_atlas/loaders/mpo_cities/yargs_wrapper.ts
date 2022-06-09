@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas MpoCities layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "MPO_Cities",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas MpoCities version (required format: YYYY).",

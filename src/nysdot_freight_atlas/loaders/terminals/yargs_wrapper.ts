@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas Terminals layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "Terminal",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas Terminals version (required format: YYYY).",

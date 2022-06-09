@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas Nhd24KwbANy layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "nhd24kwb_a_ny",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas Nhd24KwbANy version (required format: YYYY).",

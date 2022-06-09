@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas Nhpn layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "NHPN",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas Nhpn version (required format: YYYY).",

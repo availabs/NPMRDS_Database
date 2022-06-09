@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas WimData layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "WIMData",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas WimData version (required format: YYYY).",

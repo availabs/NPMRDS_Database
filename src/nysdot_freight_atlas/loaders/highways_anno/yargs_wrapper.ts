@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas HighwaysAnno layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "HighwaysAnno",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas HighwaysAnno version (required format: YYYY).",

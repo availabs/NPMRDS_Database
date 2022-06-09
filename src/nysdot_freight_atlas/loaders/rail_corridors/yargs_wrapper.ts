@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas RailCorridors layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "RailCorridors",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas RailCorridors version (required format: YYYY).",

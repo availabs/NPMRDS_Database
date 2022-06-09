@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas CitiesPopOver20KAnno layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "Cities_PopOver20kAnno",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas CitiesPopOver20KAnno version (required format: YYYY).",

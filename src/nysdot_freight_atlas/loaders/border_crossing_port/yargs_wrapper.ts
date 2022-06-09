@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas BorderCrossingPort layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "Border_Crossing_Port",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas BorderCrossingPort version (required format: YYYY).",

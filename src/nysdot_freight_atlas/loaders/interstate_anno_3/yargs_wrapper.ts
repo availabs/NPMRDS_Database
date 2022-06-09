@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas InterstateAnno3 layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "InterstateAnno3",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas InterstateAnno3 version (required format: YYYY).",

@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas NystaCounts layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "NYSTACounts",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas NystaCounts version (required format: YYYY).",

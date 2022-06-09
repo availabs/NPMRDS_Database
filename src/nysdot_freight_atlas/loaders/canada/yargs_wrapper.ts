@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas Canada layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "Canada",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas Canada version (required format: YYYY).",

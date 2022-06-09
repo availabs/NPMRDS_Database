@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas BorderStates layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "Border_States",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas BorderStates version (required format: YYYY).",

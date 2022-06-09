@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas CityTown layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "City_Town",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas CityTown version (required format: YYYY).",

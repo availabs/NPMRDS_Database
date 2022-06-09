@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas TruckParking layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "TruckParking",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas TruckParking version (required format: YYYY).",

@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas CommuterIcp layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "CommuterICP",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas CommuterIcp version (required format: YYYY).",

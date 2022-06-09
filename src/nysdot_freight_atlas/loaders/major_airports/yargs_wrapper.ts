@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas MajorAirports layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "Major_Airport",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas MajorAirports version (required format: YYYY).",

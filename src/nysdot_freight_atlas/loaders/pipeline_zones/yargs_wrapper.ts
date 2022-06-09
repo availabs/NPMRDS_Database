@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas PipelineZones layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "PipelineZones",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas PipelineZones version (required format: YYYY).",

@@ -14,7 +14,7 @@ const builder = {
     desc: "NYSDOT FreightAtlas Pop20KCitiesResize layer name.",
     demand: true,
     type: "string",
-    default: "Intermodal_Facility",
+    default: "Pop20k_Cities_Resize",
   },
   table_version: {
     desc: "NYSDOT FreightAtlas Pop20KCitiesResize version (required format: YYYY).",
