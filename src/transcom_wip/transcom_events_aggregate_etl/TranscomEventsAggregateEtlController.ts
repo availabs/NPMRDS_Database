@@ -217,6 +217,19 @@ export default class TranscomEventsAggregateEtlControler {
     );
   }
 
+  protected async closeDbControlTableEntry() {
+    const db = await this.getDbConnection();
+
+    await db.query(
+      `
+        UPDATE _transcom_admin.etl_control
+          SET end_timestamp = $1
+          WHERE ( id = $2 )
+      `,
+      [this.etlEnd, this.etlControlId]
+    );
+  }
+
   protected async downloadTranscomEvents() {
     await this.updateDbControlTableEntry(["transcom_events_download"], {
       start_timestamp: new Date(),
@@ -422,6 +435,13 @@ export default class TranscomEventsAggregateEtlControler {
     await db.query("ANALYZE _transcom_admin.transcom_events_expanded");
   }
 
+  protected async updateDataManagerStatistics() {
+    const db = await this.getDbConnection();
+
+    await db.query(
+      "CALL _transcom_admin.update_data_manager_transcom_events_aggregate_statistics() ;"
+    );
+  }
   /*
   protected async callTranscomEventsToConflationMapSnappingProcedures() {
     await this.updateDbControlTableEntry(
@@ -466,6 +486,7 @@ export default class TranscomEventsAggregateEtlControler {
   protected async cleanUp() {
     await this.updateDbControlTableEntry(["status"], "DONE");
     await this.updateDbControlTableEntry(["etlEnd"], this.etlEnd);
+    await this.closeDbControlTableEntry();
 
     await this.closeDbConnection();
     // this.disableLogging();
@@ -505,6 +526,7 @@ export default class TranscomEventsAggregateEtlControler {
 
     // Cannot call ANALYZE within a TRANSACTION
     await this.analyzeTranscomEventsExpandedTable();
+    await this.updateDataManagerStatistics();
 
     this.etlEnd = new Date();
 

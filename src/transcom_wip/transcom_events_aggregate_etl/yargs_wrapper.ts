@@ -1,7 +1,8 @@
 import { cliArgsSpec as pgCliArgsSpec } from "../../utils/PostgreSQL";
 
 import TranscomEventsAggregateEtlController from "./TranscomEventsAggregateEtlController";
-import TranscomEventsAggregateUpdateControl from "./TranscomEventsAggregateUpdateControl";
+import TranscomEventsAggregateUpdateController from "./TranscomEventsAggregateUpdateController";
+import TranscomEventsAggregateNightlyUpdateController from "./TranscomEventsAggregateNightlyUpdateController";
 
 const builder = {
   start_timestamp: Object.assign({
@@ -42,11 +43,22 @@ export const update = {
   command: "transcom_events_aggregate_update",
   builder,
   async handler({ pg_env, start_timestamp = null, end_timestamp = null }) {
-    const control = new TranscomEventsAggregateUpdateControl(
+    const control = new TranscomEventsAggregateUpdateController(
       pg_env,
       start_timestamp,
       end_timestamp
     );
+
+    await control.run();
+  },
+};
+
+export const nightly = {
+  desc: "Nighly update the TRANSCOM Events and integrate into the database tables.",
+  command: "transcom_events_aggregate_nightly_update",
+  builder,
+  async handler({ pg_env }) {
+    const control = new TranscomEventsAggregateNightlyUpdateController(pg_env);
 
     await control.run();
   },

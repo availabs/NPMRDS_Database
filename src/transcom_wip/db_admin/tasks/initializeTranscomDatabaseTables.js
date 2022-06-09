@@ -24,8 +24,13 @@ function initializeTranscomDatabaseTables(pgEnv) {
           -c 'BEGIN ;' \
           -f '${join(sqlDir, "update_modified_timestamp_trigger_fn.sql")}' \
           -f '${join(sqlDir, "create_admin_etl_control_table.sql")}' \
-          -f '${join(sqlDir, "create_transcom_events_table.sql")}' \
+          -f '${join(sqlDir, "create_congestion_data_table.sql")}' \
           -f '${join(sqlDir, "create_transcom_events_expanded.sql")}' \
+          -f '${join(sqlDir, "create_transcom_events_aggregate.sql")}' \
+          -f '${join(
+            sqlDir,
+            "update_data_manager_transcom_events_aggregate_statistics_proc.sql"
+          )}' \
           -f '${join(
             sqlDir,
             "create_nysdot_transcom_event_classifications.sql"

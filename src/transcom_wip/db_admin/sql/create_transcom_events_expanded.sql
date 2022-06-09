@@ -142,6 +142,14 @@ CREATE INDEX IF NOT EXISTS transcom_events_expanded_geom_idx
     )
 ;
 
-CLUSTER _transcom_admin.transcom_events_expanded
-  USING transcom_events_expanded_pkey
+DO
+  LANGUAGE plpgsql
+  $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM _transcom_admin.transcom_events_expanded)
+        THEN
+          CLUSTER _transcom_admin.transcom_events_expanded ;
+      END IF ;
+    END ;
+  $$
 ;

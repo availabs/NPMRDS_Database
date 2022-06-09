@@ -1,13 +1,15 @@
-DROP VIEW transcom.transcom_event_meta;
-
-CREATE OR REPLACE VIEW transcom.transcom_event_meta
+CREATE OR REPLACE VIEW transcom.transcom_events_aggregate
   AS
     SELECT
         a.event_id,
         a.event_class,
         a.reporting_organization,
         a.start_date_time,
-        a.end_date_time,
+        CASE
+          WHEN (a.end_date_time ~ '^\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2} (A|P)M$')
+            THEN a.end_date_time::TIMESTAMP
+            ELSE NULL
+        END AS end_date_time,
         a.last_updatedate,
         a.close_date,
         a.estimated_duration_mins,
@@ -132,10 +134,13 @@ CREATE OR REPLACE VIEW transcom.transcom_event_meta
         c.detailed_category AS nysdot_detailed_category,
         c.waze_category AS nysdot_waze_category,
         c.display_if_lane_closure AS nysdot_display_if_lane_closure,
-        c.duration_accurate AS nysdot_duration_accurate
+        c.duration_accurate AS nysdot_duration_accurate,
+
+        a._created_timestamp,
+        a._modified_timestamp
 
     FROM _transcom_admin.transcom_events_expanded AS a
-      LEFT OUTER JOIN transcom._transcom_historical_events AS b
+      LEFT OUTER JOIN _transcom_admin.transcom_event_congestion_data AS b
         USING (event_id)
       LEFT OUTER JOIN transcom.nysdot_transcom_event_classifications AS c
         ON ( lower(a.event_type) = lower(c.event_type) );
