@@ -131,6 +131,7 @@ function createMbtilesLayer(tables) {
       --no-feature-limit \
       --no-tile-size-limit \
       --generate-ids \
+      -r1 \
       --force \
       -o ${tmpMbfilesName} \
       ${geojsonFileNames}
