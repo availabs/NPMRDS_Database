@@ -98,7 +98,6 @@ export default class DownloadablesCreator {
           INNER JOIN data_manager.views AS b
             ON (a.id = b.source_id)
         WHERE ( a.name LIKE 'NYS/NYSDOT/FREIGHT_ATLAS/%' )
-AND a.name LIKE '%MAJOR_AIRPORTS%'
       ;
     `);
 
