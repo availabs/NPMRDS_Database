@@ -11,20 +11,21 @@ import { PgEnv, PgClient } from "../../domain/PostgreSQLTypes";
 
 type ViewDataTableMetadata = {
   source_id: number;
+  view_id: number;
   source_name: string;
   view_version: string;
   data_tableschema: string;
   data_tablename: string;
 };
 
-enum OutputTypes {
+export enum OutputTypes {
   CSV = "CSV",
   ESRI_SHAPEFILE = "ESRI Shapefile",
   GEOJSON = "GeoJSON",
   GPKG = "GPKG",
 }
 
-const outputTypeFileExtensions = {
+export const outputTypeFileExtensions = {
   [OutputTypes.CSV]: "csv",
   [OutputTypes.ESRI_SHAPEFILE]: "shp",
   [OutputTypes.GEOJSON]: "geojson",
@@ -80,6 +81,8 @@ export default class DownloadablesCreator {
     const { rows } = await db.query(`
       SELECT
           a.id AS source_id,
+          b.id AS view_id,
+
           a.name AS source_name,
           b.version AS view_version,
 
@@ -99,15 +102,24 @@ export default class DownloadablesCreator {
     return rows;
   }
 
-  async createDownloadable(
-    metadata: ViewDataTableMetadata,
-    outputType: OutputTypes
-  ) {
+  getFileNameInfo(metadata: ViewDataTableMetadata, outputType: OutputTypes) {
     const fileNameBase =
       DownloadablesCreator.getFileNameBaseForViewDataTableMetadata(metadata);
     const extension = outputTypeFileExtensions[outputType];
     const fileName = `${fileNameBase}.${extension}`;
     const filePath = join(this.outputDirectory, fileName);
+
+    return { fileNameBase, fileName, filePath };
+  }
+
+  async createDownloadable(
+    metadata: ViewDataTableMetadata,
+    outputType: OutputTypes
+  ) {
+    const { fileNameBase, fileName, filePath } = this.getFileNameInfo(
+      metadata,
+      outputType
+    );
 
     if (outputType === OutputTypes.ESRI_SHAPEFILE) {
       mkdirSync(filePath, { recursive: true });
@@ -192,5 +204,42 @@ export default class DownloadablesCreator {
         await this.createDownloadable(metadata, outputType);
       }
     }
+  }
+
+  // NOTE: This is kept separate so we can QA the created downloadables before publishing them.
+  async updateDataManagerDownloadablesUrls() {
+    const db = await this.getDbConnection();
+
+    const viewsDataTablesMetadata = await this.getViewsDataTablesMetadata();
+
+    for (const metadata of viewsDataTablesMetadata) {
+      const { view_id } = metadata;
+
+      const downloadMetadata = Object.values(OutputTypes).reduce(
+        (acc, outputType) => {
+          const { fileName } = this.getFileNameInfo(metadata, outputType);
+
+          const extension = outputTypeFileExtensions[outputType];
+          const url = `https://data.availabs.org/nysdot_freight_atlas/${fileName}.zip`;
+
+          acc[extension] = url;
+
+          return acc;
+        },
+        {}
+      );
+
+      await db.query(
+        `
+          UPDATE data_manager.views
+            SET metadata = jsonb_set (metadata, ARRAY['download'], $1)
+            WHERE id = $2
+          ;
+        `,
+        [downloadMetadata, view_id]
+      );
+    }
+
+    this.closeDbConnection();
   }
 }

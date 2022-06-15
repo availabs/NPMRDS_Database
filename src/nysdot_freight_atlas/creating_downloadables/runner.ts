@@ -8,6 +8,7 @@ async function main() {
     join(process.cwd(), "test_output")
   );
   await dc.run();
+  // await dc.updateDataManagerDownloadablesUrls();
 }
 
 main();
