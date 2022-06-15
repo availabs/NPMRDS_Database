@@ -1,11 +1,5 @@
 import { execSync } from "child_process";
-import {
-  existsSync,
-  mkdirSync,
-  createWriteStream,
-  unlinkSync,
-  rmSync,
-} from "fs";
+import { existsSync, mkdirSync, createWriteStream, rmSync } from "fs";
 import { join } from "path";
 
 import {
@@ -98,6 +92,7 @@ export default class DownloadablesCreator {
           INNER JOIN data_manager.views AS b
             ON (a.id = b.source_id)
         WHERE ( a.name LIKE 'NYS/NYSDOT/FREIGHT_ATLAS/%' )
+        ORDER BY 2
       ;
     `);
 
