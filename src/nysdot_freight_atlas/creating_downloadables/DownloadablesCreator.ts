@@ -146,6 +146,8 @@ export default class DownloadablesCreator {
       const create = `
         set -e
 
+        rm -rf ${fileName}
+
         ogr2ogr \
           -f '${outputType}' \
           -t_srs 'EPSG:4326' \
@@ -153,7 +155,7 @@ export default class DownloadablesCreator {
           -lco GEOMETRY_NAME=wkb_geometry \
           -nln ${layerName} \
           ${fileName} \
-          PG:"${creds}" '${metadata.data_tableschema}.${metadata.data_tablename}' \
+          PG:"${creds}" \
           '${metadata.data_tableschema}.${metadata.data_tablename}'
 
         echo
