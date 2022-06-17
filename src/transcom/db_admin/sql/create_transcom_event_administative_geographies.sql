@@ -1,6 +1,5 @@
 CREATE SCHEMA IF NOT EXISTS _transcom_admin ;
 
-DROP TABLE IF EXISTS _transcom_admin.transcom_event_administative_geographies ;
 CREATE TABLE IF NOT EXISTS _transcom_admin.transcom_event_administative_geographies (
     event_id                                        TEXT PRIMARY KEY,
     state_name                                      TEXT NOT NULL,
