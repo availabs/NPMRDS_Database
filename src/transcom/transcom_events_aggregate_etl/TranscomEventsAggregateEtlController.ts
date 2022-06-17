@@ -429,6 +429,27 @@ export default class TranscomEventsAggregateEtlControler {
     );
   }
 
+  protected async updateTranscomEventsAdminGeographies() {
+    // See: ../db_admin/sql/update_transcom_event_administative_geographies_proc.sql
+    await this.updateDbControlTableEntry(
+      ["update_transcom_event_administative_geographies"],
+      {
+        start_timestamp: new Date(),
+      }
+    );
+
+    const db = await this.getDbConnection();
+
+    await db.query(
+      "CALL _transcom_admin.update_transcom_event_administative_geographies() ;"
+    );
+
+    await this.updateDbControlTableEntry(
+      ["update_transcom_event_administative_geographies", "end_timestamp"],
+      new Date()
+    );
+  }
+
   protected async analyzeTranscomEventsExpandedTable() {
     const db = await this.getDbConnection();
 
@@ -516,6 +537,7 @@ export default class TranscomEventsAggregateEtlControler {
 
     // await this.callTranscomEventsToConflationMapSnappingProcedures();
 
+    await this.updateTranscomEventsAdminGeographies();
     await this.doTranscomEventsToConflationMapQA();
 
     await this.commitAggregateUpdateTransaction();

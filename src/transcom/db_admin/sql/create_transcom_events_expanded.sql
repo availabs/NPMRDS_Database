@@ -148,7 +148,8 @@ DO
     BEGIN
       IF NOT EXISTS (SELECT 1 FROM _transcom_admin.transcom_events_expanded)
         THEN
-          CLUSTER _transcom_admin.transcom_events_expanded ;
+          CLUSTER _transcom_admin.transcom_events_expanded
+            USING transcom_events_expanded_pkey;
       END IF ;
     END ;
   $$

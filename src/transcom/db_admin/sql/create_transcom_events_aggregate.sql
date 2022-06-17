@@ -136,6 +136,17 @@ CREATE OR REPLACE VIEW transcom.transcom_events_aggregate
         c.display_if_lane_closure AS nysdot_display_if_lane_closure,
         c.duration_accurate AS nysdot_duration_accurate,
 
+        d.state_name,
+        d.state_code,
+        d.region_name,
+        d.region_code,
+        d.county_name,
+        d.county_code,
+        d.mpo_name,
+        d.mpo_code,
+        d.ua_name,
+        d.ua_code,
+
         a._created_timestamp,
         a._modified_timestamp
 
@@ -143,5 +154,7 @@ CREATE OR REPLACE VIEW transcom.transcom_events_aggregate
       LEFT OUTER JOIN _transcom_admin.transcom_event_congestion_data AS b
         USING (event_id)
       LEFT OUTER JOIN transcom.nysdot_transcom_event_classifications AS c
-        ON ( lower(a.event_type) = lower(c.event_type) );
+        ON ( lower(a.event_type) = lower(c.event_type) )
+      LEFT OUTER JOIN _transcom_admin.transcom_event_administative_geographies AS d
+        USING (event_id)
 ;
