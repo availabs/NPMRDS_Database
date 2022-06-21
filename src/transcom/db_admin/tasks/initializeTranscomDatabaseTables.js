@@ -37,10 +37,6 @@ function initializeTranscomDatabaseTables(pgEnv) {
           )}' \
           -f '${join(
             sqlDir,
-            "update_transcom_event_administative_geographies_proc.sql"
-          )}' \
-          -f '${join(
-            sqlDir,
             "update_data_manager_transcom_events_aggregate_statistics_proc.sql"
           )}' \
           -f '${join(

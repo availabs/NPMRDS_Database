@@ -7,9 +7,8 @@ DO
       conflation_map_version TEXT := 'v0_6_0' ;
 
       -- NOTE: a conflation_map must exist for every year in range.
-      --  min_event_year SMALLINT := 2016 ;
-      min_event_year SMALLINT := 2021 ;
-      max_event_year SMALLINT := 2021 ;
+      min_event_year SMALLINT := 2016 ;
+      max_event_year SMALLINT := 2022 ;
 
       cmd TEXT ;
 
