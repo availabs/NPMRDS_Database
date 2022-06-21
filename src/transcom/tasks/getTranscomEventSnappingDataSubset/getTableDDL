@@ -1,0 +1,50 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+source ./config/postgres.env.prod
+source ./config/env
+
+mkdir -p data
+
+rm -f data/schema-only.sql
+
+# For TRIGGERs
+psql -At > data/schema-only.sql <<"__END__"
+  SELECT
+      pg_get_functiondef(f.oid) || ' ;'
+    FROM pg_catalog.pg_proc f
+      INNER JOIN pg_catalog.pg_namespace n
+        ON (f.pronamespace = n.oid)
+    WHERE (
+      ( n.nspname = '_transcom_admin' )
+      AND
+      ( f.proname = 'update_modified_timestamp_trigger_fn' )
+    );
+__END__
+
+echo '
+' >> data/schema-only.sql
+
+pg_dump \
+    --dbname=npmrds_production \
+    --no-owner \
+    --no-privileges \
+    --schema-only \
+    --table='data_manager.sources' \
+    --table='data_manager.views' \
+    --table='public.traffic_dist_congestion_level_type' \
+    --table="conflation.conflation_map_${YEAR}_$CONFLATION_VERSION" \
+    --table="conflation.conflation_map_${YEAR}_ways_$CONFLATION_VERSION" \
+    --table="conflation.conflation_map_${YEAR}_nodes_$CONFLATION_VERSION" \
+    --table="public.tmc_metadata_$YEAR" \
+    --table="ny.tmc_metadata_$YEAR" \
+    --table='_transcom_admin.transcom_events_expanded' \
+  | sed 's/public.traffic_dist_congestion_level_type/TEXT/' \
+  | sed 's/public.traffic_dist_directionality_type/TEXT/' \
+ >> data/schema-only.sql
+
+popd >/dev/null

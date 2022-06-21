@@ -26,6 +26,10 @@ function initializeTranscomDatabaseTables(pgEnv) {
           -f '${join(sqlDir, "create_admin_etl_control_table.sql")}' \
           -f '${join(sqlDir, "create_congestion_data_table.sql")}' \
           -f '${join(sqlDir, "create_transcom_events_expanded.sql")}' \
+          -f '${join(
+            sqlDir,
+            "create_transcom_event_administative_geographies.sql"
+          )}' \
           -f '${join(sqlDir, "create_transcom_events_aggregate.sql")}' \
           -f '${join(
             sqlDir,

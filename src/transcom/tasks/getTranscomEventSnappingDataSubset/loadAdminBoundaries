@@ -1,0 +1,69 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+source ./config/postgres.env.dev
+source ./config/env
+
+INPUT_GPKG="./data/admin_boundaries.gpkg"
+
+psql \
+  -c 'CREATE SCHEMA IF NOT EXISTS us;' \
+  -c 'CREATE SCHEMA IF NOT EXISTS cn;'
+
+psql \
+  --single-transaction \
+  -v ON_ERROR_STOP=1 \
+  -c 'DROP TABLE IF EXISTS public.urban_area_boundaries CASCADE ; ' \
+  -c 'DROP TABLE IF EXISTS public.fips_codes CASCADE ; ' \
+  -c 'DROP TABLE IF EXISTS public.mpo_boundaries CASCADE ; ' \
+  -c 'DROP VIEW IF EXISTS public.mpo_boundaries_view CASCADE ; ' \
+  -c 'DROP TABLE IF EXISTS us.fips_codes CASCADE ; ' \
+  -c 'DROP TABLE IF EXISTS us.mpo_acronyms CASCADE ; ' \
+  -c 'DROP TABLE IF EXISTS cn.fips_codes CASCADE ; ' \
+  -c 'DROP TABLE IF EXISTS ny.nysdot_regions CASCADE ; ' \
+  -c 'DROP TABLE IF EXISTS ny.nysdot_region_names CASCADE ; ' \
+  -f ./data/admin_boundaries.sql
+
+ogr2ogr \
+  -f 'GPKG' \
+  PG:"host=$PGHOST user=$PGUSER dbname=$PGDATABASE password=$PGPASSWORD" \
+  -skipfailures \
+  -overwrite \
+  -s_srs EPSG:4326 \
+  -t_srs EPSG:4326 \
+  -lco GEOMETRY_NAME=geom \
+  $INPUT_GPKG \
+  counties \
+  -nln "public.tl_2017_us_county"
+
+ogr2ogr \
+  -f 'GPKG' \
+  PG:"host=$PGHOST user=$PGUSER dbname=$PGDATABASE password=$PGPASSWORD" \
+  -skipfailures \
+  -overwrite \
+  -s_srs EPSG:4326 \
+  -t_srs EPSG:4326 \
+  -lco GEOMETRY_NAME=wkb_geometry \
+  $INPUT_GPKG \
+  urban_areas \
+  -nln "us.urban_area_boundaries_20170918"
+
+ogr2ogr \
+  -f 'GPKG' \
+  PG:"host=$PGHOST user=$PGUSER dbname=$PGDATABASE password=$PGPASSWORD" \
+  -skipfailures \
+  -overwrite \
+  -s_srs EPSG:4326 \
+  -t_srs EPSG:4326 \
+  -lco GEOMETRY_NAME=wkb_geometry \
+  $INPUT_GPKG \
+  mpos \
+  -nln "us.mpo_boundaries_20200228_smtc_patch"
+
+
+popd >/dev/null
+

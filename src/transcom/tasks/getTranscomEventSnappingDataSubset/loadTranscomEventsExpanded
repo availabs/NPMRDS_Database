@@ -1,0 +1,27 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+source ./config/postgres.env.dev
+source ./config/env
+
+INPUT_CSV=data/transcom_events_expanded.$COUNTY_CODE.$YEAR.csv
+
+cat $INPUT_CSV \
+  | psql -c '
+      BEGIN;
+
+      TRUNCATE _transcom_admin.transcom_events_expanded ;
+
+      COPY _transcom_admin.transcom_events_expanded
+        FROM STDIN WITH CSV HEADER
+      ;
+
+      COMMIT ;
+    '
+
+popd >/dev/null
+

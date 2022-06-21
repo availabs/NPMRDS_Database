@@ -34,7 +34,11 @@ export const load = {
       end_timestamp
     );
 
-    await control.run();
+    try {
+      await control.run();
+    } catch (err) {
+      console.error(err);
+    }
   },
 };
 
@@ -49,17 +53,25 @@ export const update = {
       end_timestamp
     );
 
-    await control.run();
+    try {
+      await control.run();
+    } catch (err) {
+      console.error(err);
+    }
   },
 };
 
 export const nightly = {
   desc: "Nighly update the TRANSCOM Events and integrate into the database tables.",
   command: "transcom_events_aggregate_nightly_update",
-  builder,
+  builder: pgCliArgsSpec,
   async handler({ pg_env }) {
     const control = new TranscomEventsAggregateNightlyUpdateController(pg_env);
 
-    await control.run();
+    try {
+      await control.run();
+    } catch (err) {
+      console.error(err);
+    }
   },
 };

@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+source ./config/postgres.env.dev
+
+psql \
+  --single-transaction \
+  -v ON_ERROR_STOP=1 \
+  -c 'CREATE SCHEMA IF NOT EXISTS data_manager;' \
+  -c 'CREATE SCHEMA IF NOT EXISTS conflation;' \
+  -c 'CREATE SCHEMA IF NOT EXISTS transcom;' \
+  -c 'CREATE SCHEMA IF NOT EXISTS _transcom_admin;' \
+  -c 'CREATE SCHEMA IF NOT EXISTS us;' \
+  -c 'CREATE SCHEMA IF NOT EXISTS ny;' \
+  -f ./data/schema-only.sql \
+  -f ./data/nysdot_transcom_event_classifications.sql
+
+popd >/dev/null

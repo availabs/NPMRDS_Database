@@ -5,11 +5,7 @@ CREATE OR REPLACE VIEW transcom.transcom_events_aggregate
         a.event_class,
         a.reporting_organization,
         a.start_date_time,
-        CASE
-          WHEN (a.end_date_time ~ '^\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2} (A|P)M$')
-            THEN a.end_date_time::TIMESTAMP
-            ELSE NULL
-        END AS end_date_time,
+        a.end_date_time,
         a.last_updatedate,
         a.close_date,
         a.estimated_duration_mins,
@@ -105,26 +101,9 @@ CREATE OR REPLACE VIEW transcom.transcom_events_aggregate
         a.day_of_week,
         a.tmc_geometry,
 
-        string_to_array(tmclist, ',') AS tmcs_arr,
-
-        (
-          CASE
-            WHEN ( event_duration ~ '^\d{1,} - [0-9:]{1,}$' )
-              THEN regexp_replace(event_duration, '-', 'days')
-              ELSE NULL
-            END
-        )::INTERVAL AS event_interval,
-
-        public.ST_Transform(
-          public.ST_SetSRID(
-            public.ST_MakePoint(
-              a.point_long,
-              a.point_lat
-            ),
-            4269 -- NAD83 -- EPSG:4269
-          ),
-          4326  -- EPSG:4326
-        ) AS point_geom,
+        a.tmcs_arr,
+        a.event_interval,
+        a.point_geom,
 
         b.congestion_data,
 
@@ -150,7 +129,7 @@ CREATE OR REPLACE VIEW transcom.transcom_events_aggregate
         a._created_timestamp,
         a._modified_timestamp
 
-    FROM _transcom_admin.transcom_events_expanded AS a
+    FROM _transcom_admin.transcom_events_expanded_view AS a
       LEFT OUTER JOIN _transcom_admin.transcom_event_congestion_data AS b
         USING (event_id)
       LEFT OUTER JOIN transcom.nysdot_transcom_event_classifications AS c

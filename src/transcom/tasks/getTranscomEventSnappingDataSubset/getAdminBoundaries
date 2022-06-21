@@ -1,0 +1,92 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+source ./config/postgres.env.prod
+source ./config/env
+
+OUTPUT_GPKG="./data/admin_boundaries.gpkg"
+
+rm -f $OUTPUT_GPKG
+
+ogr2ogr \
+  -f 'GPKG' \
+  -skipfailures \
+  -overwrite \
+  -s_srs EPSG:4326 \
+  -t_srs EPSG:4326 \
+  $OUTPUT_GPKG \
+  PG:"host=$PGHOST user=$PGUSER dbname=$PGDATABASE password=$PGPASSWORD" \
+  -nln counties \
+  -sql "
+    SELECT
+        *
+      FROM public.tl_2017_us_county
+      WHERE ( geoid = '$COUNTY_CODE' )
+  "
+
+ogr2ogr \
+  -f 'GPKG' \
+  -skipfailures \
+  -overwrite \
+  -s_srs EPSG:4326 \
+  -t_srs EPSG:4326 \
+  $OUTPUT_GPKG \
+  PG:"host=$PGHOST user=$PGUSER dbname=$PGDATABASE password=$PGPASSWORD" \
+  -nln mpos \
+  -sql "
+    SELECT
+        a.*
+      FROM us.mpo_boundaries_20200228_smtc_patch AS a
+        INNER JOIN public.tl_2017_us_county AS b
+          ON (ST_Intersects(b.geom, a.wkb_geometry))
+        WHERE ( b.geoid = '$COUNTY_CODE' )
+  "
+
+ogr2ogr \
+  -f 'GPKG' \
+  -skipfailures \
+  -overwrite \
+  -s_srs EPSG:4326 \
+  -t_srs EPSG:4326 \
+  $OUTPUT_GPKG \
+  PG:"host=$PGHOST user=$PGUSER dbname=$PGDATABASE password=$PGPASSWORD" \
+  -nln urban_areas \
+  -sql "
+    SELECT
+        a.*
+      FROM us.urban_area_boundaries_20170918 AS a
+        INNER JOIN public.tl_2017_us_county AS b
+          ON (ST_Intersects(b.geom, a.wkb_geometry))
+        WHERE ( b.geoid = '$COUNTY_CODE' )
+  "
+
+pg_dump \
+    --dbname=npmrds_production \
+    --no-owner \
+    --schema-only \
+    --no-privileges \
+    --table='public.urban_area_boundaries' \
+    --table='public.mpo_boundaries' \
+    --table='public.fips_codes' \
+ > data/admin_boundaries.sql
+
+echo '
+' >> data/admin_boundaries.sql
+
+pg_dump \
+    --dbname=npmrds_production \
+    --no-owner \
+    --no-privileges \
+    --table='us.fips_codes' \
+    --table='cn.fips_codes' \
+    --table='ny.nysdot_regions' \
+    --table='ny.nysdot_region_names' \
+    --table='us.mpo_acronyms' \
+    --table='public.mpo_boundaries_view' \
+ >> data/admin_boundaries.sql
+
+popd >/dev/null

@@ -1,0 +1,73 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+source ./config/postgres.env.prod
+source ./config/env
+
+OUTPUT_GPKG="./data/osm_$OSM_VERSION.gpkg"
+
+rm -f $OUTPUT_GPKG
+
+pg_dump \
+    --dbname=npmrds_production \
+    --no-owner \
+    --schema-only \
+    --table="osm.osm_ways_$OSM_VERSION" \
+    --table="osm.osm_nodes_$OSM_VERSION" \
+  | sed 's/public.traffic_dist_congestion_level_type/TEXT/' \
+  | sed 's/public.traffic_dist_directionality_type/TEXT/' \
+ >> data/osm-schema-only.sql
+
+ogr2ogr \
+  -f 'GPKG' \
+  -skipfailures \
+  -overwrite \
+  -s_srs EPSG:4326 \
+  -t_srs EPSG:4326 \
+  $OUTPUT_GPKG \
+  PG:"host=$PGHOST user=$PGUSER dbname=$PGDATABASE password=$PGPASSWORD" \
+  -nln osm_ways \
+  -sql "
+    SELECT
+        a.id
+      FROM osm.osm_ways_$OSM_VERSION AS a
+        INNER JOIN public.tl_2017_us_county AS b
+          ON (ST_Intersects(b.geom, a.wkb_geometry))
+        WHERE ( b.geoid = '$COUNTY_CODE' )
+  "
+
+ogr2ogr \
+  -f 'GPKG' \
+  -skipfailures \
+  -overwrite \
+  -s_srs EPSG:4326 \
+  -t_srs EPSG:4326 \
+  $OUTPUT_GPKG \
+  PG:"host=$PGHOST user=$PGUSER dbname=$PGDATABASE password=$PGPASSWORD" \
+  -nln osm_nodes \
+  -sql "
+    SELECT
+        a.*
+      FROM osm.osm_nodes_$OSM_VERSION AS a
+        INNER JOIN public.tl_2017_us_county AS b
+          ON (ST_Intersects(b.geom, a.wkb_geometry))
+        WHERE ( b.geoid = '$COUNTY_CODE' )
+  "
+
+psql -c "
+  COPY (
+    SELECT
+        a.id,
+        a.node_ids
+      FROM osm.osm_ways_$OSM_VERSION AS a
+        INNER JOIN public.tl_2017_us_county AS b
+          ON (ST_Intersects(b.geom, a.wkb_geometry))
+      WHERE ( b.geoid = '$COUNTY_CODE' )
+  ) TO STDOUT WITH CSV HEADER
+" > data/osm_ways_${OSM_VERSION}_node_ids.csv
+
+popd >/dev/null

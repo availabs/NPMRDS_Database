@@ -14,6 +14,9 @@ import {
 
 import { dbCols as transcomEventsExpandedDbCols } from "../transcom_events_expanded/data_schema";
 
+import TranscomEventsToAdminGeographiesController from "./TranscomEventsToAdminGeographiesController";
+import TranscomEventsToConflationMapController from "./TranscomEventsToConflationMapController";
+
 import {
   downloadTranscomEventsExpanded,
   loadApiScrapeDirectoryIntoDatabase,
@@ -182,6 +185,7 @@ export default class TranscomEventsAggregateEtlControler {
       etlHostname: this.etlHostname,
       etlWorkDir: this.etlWorkDir,
       status: "IN_PROGRESS",
+      subprocesses: [],
     };
   }
 
@@ -430,24 +434,23 @@ export default class TranscomEventsAggregateEtlControler {
   }
 
   protected async updateTranscomEventsAdminGeographies() {
-    // See: ../db_admin/sql/update_transcom_event_administative_geographies_proc.sql
-    await this.updateDbControlTableEntry(
-      ["update_transcom_event_administative_geographies"],
-      {
-        start_timestamp: new Date(),
-      }
-    );
-
     const db = await this.getDbConnection();
-
-    await db.query(
-      "CALL _transcom_admin.update_transcom_event_administative_geographies() ;"
+    const ctrlr = new TranscomEventsToAdminGeographiesController(
+      db,
+      this.etlControlId
     );
 
-    await this.updateDbControlTableEntry(
-      ["update_transcom_event_administative_geographies", "end_timestamp"],
-      new Date()
+    await ctrlr.run();
+  }
+
+  protected async updateTranscomEventsToConflationMap() {
+    const db = await this.getDbConnection();
+    const ctrlr = new TranscomEventsToConflationMapController(
+      db,
+      this.etlControlId
     );
+
+    await ctrlr.run();
   }
 
   protected async analyzeTranscomEventsExpandedTable() {
@@ -463,30 +466,6 @@ export default class TranscomEventsAggregateEtlControler {
       "CALL _transcom_admin.update_data_manager_transcom_events_aggregate_statistics() ;"
     );
   }
-  /*
-  protected async callTranscomEventsToConflationMapSnappingProcedures() {
-    await this.updateDbControlTableEntry(
-      ["transcom_events_onto_road_network"],
-      {
-        start_timestamp: new Date(),
-      }
-    );
-
-    const db = await this.getDbConnection();
-
-    await db.query(`
-      CALL _transcom_admin.update_transcom_events_onto_conflation_map() ;
-      CALL _transcom_admin.update_transcom_events_onto_road_network() ;
-      CALL _transcom_admin.update_transcom_events_by_tmc_summary();
-      CALL _transcom_admin.update_transcom_events_top_level_views() ;
-    `);
-
-    await this.updateDbControlTableEntry(
-      ["transcom_events_onto_road_network", "end_timestamp"],
-      new Date()
-    );
-  }
-  */
 
   protected async doTranscomEventsToConflationMapQA() {
     // TODO: Implement
@@ -517,44 +496,50 @@ export default class TranscomEventsAggregateEtlControler {
 
   async run() {
     // this.initializeLogging();
+    try {
+      this.initializeTranscomDatabaseTables();
 
-    this.initializeTranscomDatabaseTables();
+      await this.initializeRequestedTranscomEventsDateExtent();
+      await this.initializeDbControlTableEntry();
 
-    await this.initializeRequestedTranscomEventsDateExtent();
-    await this.initializeDbControlTableEntry();
+      await this.downloadTranscomEvents();
+      await this.downloadTranscomEventsExpanded();
+      await this.stageTranscomEventsExpanded();
 
-    await this.downloadTranscomEvents();
-    await this.downloadTranscomEventsExpanded();
-    await this.stageTranscomEventsExpanded();
+      await this.doTranscomEventsQA();
 
-    await this.doTranscomEventsQA();
+      // BEGIN AGGREGATE BOUNDARY
+      await this.beginAggregateUpdateTransaction();
 
-    // BEGIN AGGREGATE BOUNDARY
-    await this.beginAggregateUpdateTransaction();
+      await this.moveStagedTranscomEventsToPublished();
+      await this.clusterPublishedTranscomEvents();
 
-    await this.moveStagedTranscomEventsToPublished();
-    await this.clusterPublishedTranscomEvents();
+      await Promise.all([
+        this.updateTranscomEventsAdminGeographies(),
+        this.updateTranscomEventsToConflationMap(),
+      ]);
 
-    // await this.callTranscomEventsToConflationMapSnappingProcedures();
+      await this.doTranscomEventsToConflationMapQA();
 
-    await this.updateTranscomEventsAdminGeographies();
-    await this.doTranscomEventsToConflationMapQA();
+      await this.commitAggregateUpdateTransaction();
 
-    await this.commitAggregateUpdateTransaction();
+      await this.setDbControlTableEtlSummary();
+      await this.dropTranscomEventsExpandedStagingTable();
+      // END AGGREGATE BOUNDARY
 
-    await this.setDbControlTableEtlSummary();
-    await this.dropTranscomEventsExpandedStagingTable();
-    // END AGGREGATE BOUNDARY
+      // Cannot call ANALYZE within a TRANSACTION
+      await this.analyzeTranscomEventsExpandedTable();
+      await this.updateDataManagerStatistics();
 
-    // Cannot call ANALYZE within a TRANSACTION
-    await this.analyzeTranscomEventsExpandedTable();
-    await this.updateDataManagerStatistics();
+      this.etlEnd = new Date();
 
-    this.etlEnd = new Date();
+      await this.cleanUp();
 
-    await this.cleanUp();
-
-    console.log("done");
+      console.log("done");
+    } catch (err) {
+      this.closeDbConnection();
+      throw err;
+    }
   }
 
   /*

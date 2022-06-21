@@ -154,3 +154,31 @@ DO
     END ;
   $$
 ;
+
+CREATE OR REPLACE VIEW _transcom_admin.transcom_events_expanded_view
+  AS
+    SELECT
+        *,
+        string_to_array(tmclist, ',') AS tmcs_arr,
+
+        (
+          CASE
+            WHEN ( event_duration ~ '^\d{1,} - [0-9:]{1,}$' )
+              THEN regexp_replace(event_duration, '-', 'days')
+              ELSE NULL
+            END
+        )::INTERVAL AS event_interval,
+
+        public.ST_Transform(
+          public.ST_SetSRID(
+            public.ST_MakePoint(
+              point_long,
+              point_lat
+            ),
+            4269 -- NAD83 -- EPSG:4269
+          ),
+          4326  -- EPSG:4326
+        ) AS point_geom
+
+      FROM _transcom_admin.transcom_events_expanded
+;

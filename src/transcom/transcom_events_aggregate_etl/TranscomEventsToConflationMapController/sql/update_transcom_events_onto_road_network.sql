@@ -1,10 +1,6 @@
-CREATE SCHEMA IF NOT EXISTS _transcom_admin ;
-
-DROP PROCEDURE IF EXISTS _transcom_admin.update_transcom_events_onto_road_network_v2();
-
-CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_road_network_v2()
+DO
   LANGUAGE plpgsql
-  AS $$
+  $$
     DECLARE
       -- These variables are relevant for the PROCEDURE versioning.
       procedure_version TEXT := 'v0_0_2' ;
@@ -18,14 +14,6 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_road_net
       ddl_arr TEXT[] ;
 
     BEGIN
-      PERFORM
-          set_config(
-            'search_path',
-            ( SELECT boot_val FROM pg_settings WHERE name='search_path' ),
-            true
-          )
-      ;
-
       table_name := 'transcom_events_onto_conflation_map_' || procedure_version ;
 
       FOR event_year IN
@@ -38,17 +26,19 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_road_net
                 a.year,
 
                 b.event_type,
-                b.event_class,
+                e.general_category AS nysdot_general_category,
+                e.sub_category AS nysdot_sub_category,
+                e.detailed_category AS nysdot_detailed_category,
 
                 GREATEST(
-                  b.open_time,
-                  %L::TIMESTAMP
-                ) AS event_open_time,
+                  b.start_date_time,
+                  %L::TIMESTAMP                           -- <event_year>-01-01
+                ) AS start_date_time,
 
                 LEAST(
-                  b.close_time,
-                  %L::TIMESTAMP - ''1 second''::INTERVAL
-                ) AS event_close_time,
+                  b.close_date,
+                  %L::TIMESTAMP - ''1 second''::INTERVAL  -- <event_year + 1>-01-01
+                ) AS close_date,
 
                 a.conflation_way_id,
                 a.conflation_node_id,
@@ -74,12 +64,15 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_road_net
                 d.wkb_geometry  AS conflation_map_node_geom
 
               FROM _transcom_admin.%I AS a
-                INNER JOIN transcom.transcom_historical_events AS b
+                INNER JOIN _transcom_admin.transcom_events_expanded_view AS b
                   USING (event_id)
                 INNER JOIN conflation.%I AS c
                   ON ( a.conflation_way_id = c.id )
                 INNER JOIN conflation.%I AS d
                   ON ( a.conflation_node_id = d.id )
+                LEFT OUTER JOIN transcom.nysdot_transcom_event_classifications AS e
+                  ON ( LOWER(b.event_type) = LOWER(e.event_type) )
+                  
               WHERE ( a.year = %L )
           ',
           event_year::TEXT || '-01-01',

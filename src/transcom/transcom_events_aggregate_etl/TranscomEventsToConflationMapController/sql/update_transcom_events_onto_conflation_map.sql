@@ -1,18 +1,15 @@
-CREATE SCHEMA IF NOT EXISTS _transcom_admin ;
-
-DROP PROCEDURE IF EXISTS _transcom_admin.update_transcom_events_onto_conflation_map_v2();
-
-CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflation_map_v2()
+DO
   LANGUAGE plpgsql
-  AS $$
+  $$
     DECLARE
       -- These variables are relevant for the PROCEDURE versioning.
       procedure_version TEXT := 'v0_0_2' ;
       conflation_map_version TEXT := 'v0_6_0' ;
 
       -- NOTE: a conflation_map must exist for every year in range.
-      min_event_year SMALLINT := 2016 ;
-      max_event_year SMALLINT := 2022 ;
+      --  min_event_year SMALLINT := 2016 ;
+      min_event_year SMALLINT := 2021 ;
+      max_event_year SMALLINT := 2021 ;
 
       cmd TEXT ;
 
@@ -29,27 +26,13 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
     BEGIN
       RAISE NOTICE 'START:   %', clock_timestamp();
 
-      -- When the search_path was set to _transcom_admin, the following error occurred:
-      --    LINE 1: SELECT point_geom <-> point_geom from transcom.transcom_hist...
-      --                              ^
-      --    HINT:  No operator matches the given name and argument types.
-      --
-      -- The below PERFORM fixes that problem by temporarily restoring the default search_path.
-      PERFORM
-          set_config(
-            'search_path',
-            ( SELECT boot_val FROM pg_settings WHERE name='search_path' ),
-            true
-          )
-      ;
-
       --  This table into which the TRANSCOM Events -> OSM Ways mappings are loaded
       --    is created in the _transcom_admin schema.
       --  This table will inherit from transcom.transcom_events_to_osm_ways.
       table_name := 'transcom_events_onto_conflation_map_' || procedure_version ;
 
       EXECUTE FORMAT ('
-          CREATE TABLE IF NOT EXISTS _transcom_admin.transcom_events_onto_conflation_map_v2 (
+          CREATE TABLE IF NOT EXISTS _transcom_admin.%I (
             event_id                      TEXT,
             year                          SMALLINT,
             conflation_way_id             BIGINT NOT NULL,
@@ -62,10 +45,6 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
             snap_pt_geom                  public.geometry(Point, 4326) NOT NULL,
 
             PRIMARY KEY (event_id, year)
-          ) WITH (fillfactor=100, autovacuum_enabled=false);
-
-          CREATE TABLE IF NOT EXISTS _transcom_admin.%I (
-            LIKE _transcom_admin.transcom_events_onto_conflation_map_v2 INCLUDING ALL
           ) WITH (fillfactor=100, autovacuum_enabled=false);
         ',
         table_name
@@ -100,20 +79,11 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
                   b.year,
                   LOWER(a.direction) AS direction,
 
-                  public.ST_Transform(
-                    public.ST_SetSRID(
-                      public.ST_MakePoint(
-                        a.point_long,
-                        a.point_lat
-                      ),
-                      4269 -- NAD83 -- EPSG:4269
-                    ),
-                    4326  -- EPSG:4326
-                  ) AS point_geom,
+                  a.point_geom,
 
                   a._modified_timestamp
 
-                FROM _transcom_admin.transcom_events_expanded AS a
+                FROM _transcom_admin.transcom_events_expanded_view AS a
                   LEFT JOIN LATERAL generate_series(
                     EXTRACT(
                       YEAR FROM start_date_time
@@ -316,6 +286,7 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
 
           RAISE NOTICE '  match: %', clock_timestamp();
 
+
           EXECUTE FORMAT ('
               UPDATE
                   _transcom_admin.%I AS t1
@@ -392,8 +363,9 @@ CREATE OR REPLACE PROCEDURE _transcom_admin.update_transcom_events_onto_conflati
         table_name
       ) ;
 
+      DROP TABLE tmp_transcom_events ;
 
       RAISE NOTICE '  done:  %', clock_timestamp();
 
     END;
-$$;
+  $$;

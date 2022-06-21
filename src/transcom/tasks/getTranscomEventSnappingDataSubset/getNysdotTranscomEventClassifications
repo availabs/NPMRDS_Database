@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -e
+set -a
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+source ./config/postgres.env.prod
+source ./config/env
+
+mkdir -p data
+
+# actually getting data
+pg_dump \
+    --dbname=npmrds_production \
+    --no-owner \
+    --table='transcom.nysdot_transcom_event_classifications' \
+ >> data/nysdot_transcom_event_classifications.sql
+
+popd >/dev/null
