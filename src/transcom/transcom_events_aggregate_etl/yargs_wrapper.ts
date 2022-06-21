@@ -3,6 +3,7 @@ import { cliArgsSpec as pgCliArgsSpec } from "../../utils/PostgreSQL";
 import TranscomEventsAggregateEtlController from "./TranscomEventsAggregateEtlController";
 import TranscomEventsAggregateUpdateController from "./TranscomEventsAggregateUpdateController";
 import TranscomEventsAggregateNightlyUpdateController from "./TranscomEventsAggregateNightlyUpdateController";
+import TranscomEventsGeoMappingOnlyController from "./TranscomEventsGeoMappingOnlyController";
 
 const builder = {
   start_timestamp: Object.assign({
@@ -28,14 +29,14 @@ export const load = {
   command: "transcom_events_aggregate_load",
   builder,
   async handler({ pg_env, start_timestamp = null, end_timestamp = null }) {
-    const control = new TranscomEventsAggregateEtlController(
+    const ctrlr = new TranscomEventsAggregateEtlController(
       pg_env,
       start_timestamp,
       end_timestamp
     );
 
     try {
-      await control.run();
+      await ctrlr.run();
     } catch (err) {
       console.error(err);
     }
@@ -47,14 +48,14 @@ export const update = {
   command: "transcom_events_aggregate_update",
   builder,
   async handler({ pg_env, start_timestamp = null, end_timestamp = null }) {
-    const control = new TranscomEventsAggregateUpdateController(
+    const ctrlr = new TranscomEventsAggregateUpdateController(
       pg_env,
       start_timestamp,
       end_timestamp
     );
 
     try {
-      await control.run();
+      await ctrlr.run();
     } catch (err) {
       console.error(err);
     }
@@ -66,10 +67,25 @@ export const nightly = {
   command: "transcom_events_aggregate_nightly_update",
   builder: pgCliArgsSpec,
   async handler({ pg_env }) {
-    const control = new TranscomEventsAggregateNightlyUpdateController(pg_env);
+    const ctrlr = new TranscomEventsAggregateNightlyUpdateController(pg_env);
 
     try {
-      await control.run();
+      await ctrlr.run();
+    } catch (err) {
+      console.error(err);
+    }
+  },
+};
+
+export const geoOnly = {
+  desc: "Only update the TRANSCOM Event geospatial mappings.",
+  command: "transcom_events_geo_only",
+  builder: pgCliArgsSpec,
+  async handler({ pg_env }) {
+    const ctrlr = new TranscomEventsGeoMappingOnlyController(pg_env);
+
+    try {
+      await ctrlr.run();
     } catch (err) {
       console.error(err);
     }

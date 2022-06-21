@@ -1,3 +1,7 @@
+/*
+    TODO: 2nd DB connection to update control table so updates persist if main transaction fails
+*/
+
 import * as os from "os";
 import { mkdirSync, rmSync, existsSync, createWriteStream } from "fs";
 import { join } from "path";
@@ -467,10 +471,6 @@ export default class TranscomEventsAggregateEtlControler {
     );
   }
 
-  protected async doTranscomEventsToConflationMapQA() {
-    // TODO: Implement
-  }
-
   protected async beginAggregateUpdateTransaction() {
     const db = await this.getDbConnection();
 
@@ -519,8 +519,6 @@ export default class TranscomEventsAggregateEtlControler {
         this.updateTranscomEventsToConflationMap(),
       ]);
 
-      await this.doTranscomEventsToConflationMapQA();
-
       await this.commitAggregateUpdateTransaction();
 
       await this.setDbControlTableEtlSummary();
@@ -541,15 +539,4 @@ export default class TranscomEventsAggregateEtlControler {
       throw err;
     }
   }
-
-  /*
-  async resume(etlControlId: number) {
-    throw new Error("NOT IMPLEMENTED");
-    // TODO:  Implement
-    //        Goal is to admin to fix whatever issues caused the Aggregate ETL to fail,
-    //          then resume ETL.
-    //        For example, if the TranscomEventsExpanded schema changed,
-    //          notify the admin, let them update it through the UI, then resume the ETL process.
-  }
-  */
 }
