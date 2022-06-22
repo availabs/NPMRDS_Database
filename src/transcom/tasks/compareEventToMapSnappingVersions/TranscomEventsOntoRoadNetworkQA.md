@@ -128,6 +128,22 @@ direction   | eastbound
 
 Version 0.0.1 assigns 'S' to the above description.
 
+The change affected approximately 7% of mappings.
+
+```sql
+npmrds_production=# select count(1) from _transcom_admin.qa_transcom_events_mapping_comparison_v1_v2 ;
+ count
+-------
+ 57561
+(1 row)
+
+npmrds_production=# select 4069.0 / 57561.0 ;
+        ?column?
+------------------------
+ 0.07069022428380326957
+(1 row)
+```
+
 #### QA Details
 
 See the SQL files in [./sql/](./sql/) for further details on how the versions were compared.
