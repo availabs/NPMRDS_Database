@@ -131,6 +131,12 @@ Version 0.0.1 assigns 'S' to the above description.
 The change affected approximately 7% of mappings.
 
 ```sql
+npmrds_production=# select count(1) from _transcom_admin.qa_transcom_events_mapping_comparison_v1_v2 where (old_conflation_node_id <> new_conflation_node_id or old_osm_fwd <> new_osm_fwd);
+ count
+-------
+  4069
+(1 row)
+
 npmrds_production=# select count(1) from _transcom_admin.qa_transcom_events_mapping_comparison_v1_v2 ;
  count
 -------
