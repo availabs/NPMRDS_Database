@@ -4,13 +4,13 @@ DO
     DECLARE
       -- These variables are relevant for the PROCEDURE versioning.
       -- NOTE: If the version changed, will need to uniherit the previous version
-      --       from transcom_events_onto_conflation_map_v2. The below code DOES NOT do that.
+      --       from transcom_events_onto_conflation_map. The below code DOES NOT do that.
 
       procedure_version TEXT := 'v0_0_2' ;
 
     BEGIN
       EXECUTE FORMAT('
-          CREATE TABLE IF NOT EXISTS transcom.transcom_events_onto_conflation_map_v2 (
+          CREATE TABLE IF NOT EXISTS transcom.transcom_events_onto_conflation_map (
             LIKE _transcom_admin.%I INCLUDING ALL
           ) WITH (fillfactor=100, autovacuum_enabled=false) ;
         ',
@@ -21,11 +21,11 @@ DO
           SELECT
               1
             FROM pg_catalog.pg_inherits
-            WHERE inhparent = 'transcom.transcom_events_onto_conflation_map_v2'::regclass
+            WHERE inhparent = 'transcom.transcom_events_onto_conflation_map'::regclass
         ) THEN
           EXECUTE FORMAT('
               ALTER TABLE _transcom_admin.%I
-                INHERIT transcom.transcom_events_onto_conflation_map_v2
+                INHERIT transcom.transcom_events_onto_conflation_map
               ;
             ',
             'transcom_events_onto_conflation_map_' || procedure_version
@@ -33,9 +33,9 @@ DO
       END IF ;
 
       EXECUTE FORMAT('
-          DROP MATERIALIZED VIEW IF EXISTS transcom.transcom_events_onto_road_network_v2 ;
+          DROP MATERIALIZED VIEW IF EXISTS transcom.transcom_events_onto_road_network ;
 
-          CREATE MATERIALIZED VIEW IF NOT EXISTS transcom.transcom_events_onto_road_network_v2
+          CREATE MATERIALIZED VIEW IF NOT EXISTS transcom.transcom_events_onto_road_network
             WITH (fillfactor=100)
             AS
               SELECT
@@ -43,18 +43,18 @@ DO
                 FROM _transcom_admin.%I
           ;
 
-          CREATE INDEX transcom_events_onto_road_network_v2_pkey
-            ON transcom.transcom_events_onto_road_network_v2 (event_id, year)
+          CREATE INDEX transcom_events_onto_road_network_pkey
+            ON transcom.transcom_events_onto_road_network (event_id, year)
             WITH (fillfactor=100)
           ;
 
-          CREATE INDEX transcom_events_onto_road_network_v2_tmc_idx
-            ON transcom.transcom_events_onto_road_network_v2 (tmc, year)
+          CREATE INDEX transcom_events_onto_road_network_tmc_idx
+            ON transcom.transcom_events_onto_road_network (tmc, year)
             WITH (fillfactor=100)
           ;
 
-          CLUSTER transcom.transcom_events_onto_road_network_v2
-            USING transcom_events_onto_road_network_v2_pkey
+          CLUSTER transcom.transcom_events_onto_road_network
+            USING transcom_events_onto_road_network_pkey
           ;
 
         ',
@@ -62,9 +62,9 @@ DO
       ) ;
 
       EXECUTE FORMAT('
-          DROP MATERIALIZED VIEW IF EXISTS transcom_events_by_tmc_summary_v2 ;
+          DROP MATERIALIZED VIEW IF EXISTS transcom.transcom_events_by_tmc_summary ;
 
-          CREATE MATERIALIZED VIEW IF NOT EXISTS transcom.transcom_events_by_tmc_summary_v2
+          CREATE MATERIALIZED VIEW IF NOT EXISTS transcom.transcom_events_by_tmc_summary
             WITH (fillfactor=100)
             AS
               SELECT
@@ -72,15 +72,15 @@ DO
                 FROM _transcom_admin.%I
           ;
 
-          DROP INDEX IF EXISTS transcom.transcom_events_by_tmc_summary_v2_pkey ;
+          DROP INDEX IF EXISTS transcom.transcom_events_by_tmc_summary_pkey ;
 
-          CREATE INDEX transcom_events_by_tmc_summary_v2_pkey
-            ON transcom.transcom_events_by_tmc_summary_v2 (tmc, year)
+          CREATE INDEX transcom_events_by_tmc_summary_pkey
+            ON transcom.transcom_events_by_tmc_summary (tmc, year)
             WITH (fillfactor=100)
           ;
 
-          CLUSTER transcom.transcom_events_by_tmc_summary_v2
-            USING transcom_events_by_tmc_summary_v2_pkey
+          CLUSTER transcom.transcom_events_by_tmc_summary
+            USING transcom_events_by_tmc_summary_pkey
           ;
         ',
         'transcom_events_by_tmc_summary_' || procedure_version
