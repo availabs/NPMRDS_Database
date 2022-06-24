@@ -19,7 +19,6 @@ export default class TranscomEventsGeoMappingOnlyController extends TranscomEven
     try {
       this.initializeTranscomDatabaseTables();
 
-      await this.initializeRequestedTranscomEventsDateExtent();
       await this.initializeDbControlTableEntry();
 
       await this.beginAggregateUpdateTransaction();
