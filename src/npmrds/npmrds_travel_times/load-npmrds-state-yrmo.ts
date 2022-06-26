@@ -13,7 +13,10 @@ import { format as csvFormat } from "fast-csv";
 
 import Database, { Database as SQLiteDB } from "better-sqlite3";
 
-import { getPsqlCredentials, getConnectedPgClient } from "../utils/PostgreSQL";
+import {
+  getPsqlCredentials,
+  getConnectedPgClient,
+} from "../../utils/PostgreSQL";
 
 const pipelineAsync = promisify(pipeline);
 
