@@ -128,6 +128,20 @@ const cliArgsSpec = {
   },
 };
 
+const getOgr2OgrPostgresConnectionString = (pgEnv) => {
+  const {
+    user = "postgres",
+    host = "localhost",
+    database = null,
+    password = null,
+    port = 5432,
+  } = getNodePgCredentials(pgEnv);
+
+  const connStr = `host='${host}' user='${user}' dbname='${database}' password='${password}' port='${port}'`;
+
+  return connStr;
+};
+
 module.exports = {
   postgresEnvVariables,
   getPostgresConfigurationFilePath,
@@ -136,4 +150,5 @@ module.exports = {
   getConnectedPgClient,
   putPostgresCredentialsInEnvironmentVariables,
   cliArgsSpec,
+  getOgr2OgrPostgresConnectionString,
 };
