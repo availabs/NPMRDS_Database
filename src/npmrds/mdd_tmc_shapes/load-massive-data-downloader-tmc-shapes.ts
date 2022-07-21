@@ -46,7 +46,10 @@ function createTable(
 
 //  Need to convert GeoJSONL to GeoJSON for ogr2ogr.
 //    ogr2ogr GeoJSONSeq driver added in v2.4
-async function createTmpGeoJsonFile(tmc_shapes_geojsonl_gzip_path: string) {
+async function createTmpGeoJsonFile(
+  tmc_shapes_geojsonl_gzip_path: string,
+  state: string
+) {
   const rs = createReadStream(tmc_shapes_geojsonl_gzip_path);
   const iter = rs.pipe(createGunzip()).pipe(split(JSON.parse));
 
@@ -66,8 +69,10 @@ async function createTmpGeoJsonFile(tmc_shapes_geojsonl_gzip_path: string) {
 
     line.properties.state = line.properties.state.toLowerCase();
 
-    writeSync(fd, `${pre}${JSON.stringify(line)}`);
-    firstLine = false;
+    if (line.properties.state === state) {
+      writeSync(fd, `${pre}${JSON.stringify(line)}`);
+      firstLine = false;
+    }
   }
 
   writeSync(fd, "]}");
@@ -170,7 +175,8 @@ export default async function main({
   createTable(state, year, timestamp, pg_env);
 
   const { tmpGeoJsonFilePath, removeCallback } = await createTmpGeoJsonFile(
-    tmc_shapes_geojsonl_gzip_path
+    tmc_shapes_geojsonl_gzip_path,
+    state
   );
 
   await load(tmpGeoJsonFilePath, state, year, timestamp, pg_env);
