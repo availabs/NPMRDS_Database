@@ -106,7 +106,8 @@ async function main() {
 
       const timestamp = new Date().toISOString().replace(/[^0-9a-z]/gi, "");
 
-      const outFileName = `npmrds_travel_time_stats.${year}${month}.${timestamp}.json`;
+      const mm = `0${month}`.slice(-2);
+      const outFileName = `npmrds_travel_time_stats.${year}${mm}.${timestamp}.json`;
       const outFilePath = join(dataDir, outFileName);
 
       writeFileSync(
