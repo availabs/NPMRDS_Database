@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS public.mdd_tmc_shapes_:YEAR (
+    tmc                TEXT,
+    firstname          TEXT,
+    is_nhs             BOOLEAN,
+    roadname           TEXT,
+    roadnumber         TEXT,
+    miles              DOUBLE PRECISION,
+    state              TEXT,
+    end_longitude      REAL,
+    county             TEXT,
+    direction          TEXT,
+    start_longitude    REAL,
+    type               TEXT,
+    road_order         INTEGER,
+    func_class         INTEGER,
+    zip                TEXT,
+    start_latitude     DOUBLE PRECISION,
+    linear_id          BIGINT,
+    end_latitude       DOUBLE PRECISION,
+    wkb_geometry       public.geometry(MultiLineString,4326)
+) PARTITION BY LIST (state) ;

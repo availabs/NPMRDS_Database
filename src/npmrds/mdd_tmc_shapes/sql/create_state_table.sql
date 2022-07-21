@@ -1,0 +1,7 @@
+CREATE SCHEMA IF NOT EXISTS :"STATE" ;
+
+CREATE TABLE IF NOT EXISTS :"STATE".mdd_tmc_shapes_:YEAR
+  PARTITION OF public.mdd_tmc_shapes_:YEAR
+  FOR VALUES IN (:'STATE')
+  PARTITION BY LIST (state) ;
+;
