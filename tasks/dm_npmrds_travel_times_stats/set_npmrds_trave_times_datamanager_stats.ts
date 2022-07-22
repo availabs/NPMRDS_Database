@@ -40,7 +40,9 @@ async function getPercentageEpochsReporting(
             AVG(pct_epochs_reporting) AS avg_pct_epochs_reporting,
             stddev_pop(pct_epochs_reporting) AS stddev_pct_epochs_reporting,
             var_pop(pct_epochs_reporting) AS var_pct_epochs_reporting,
-            percentile_cont(ARRAY[0, 0.25, 0.5, 0.75, 1])
+            MIN(pct_epochs_reporting) AS min_pct_epochs_reporting,
+            MAX(pct_epochs_reporting) AS max_pct_epochs_reporting,
+            percentile_cont(ARRAY[0.25, 0.5, 0.75])
               WITHIN GROUP (ORDER BY pct_epochs_reporting ASC) AS quartiles_pct_epochs_reporting,
             COUNT(DISTINCT tmc)::INTEGER AS total_tmcs,
             SUM(b.miles) AS total_miles
