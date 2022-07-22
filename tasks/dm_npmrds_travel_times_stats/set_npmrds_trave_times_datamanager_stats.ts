@@ -59,6 +59,11 @@ async function getPercentageEpochsReporting(
             ) AS a
             INNER JOIN %I.%I AS b
               USING (tmc)
+          WHERE (
+            ( b.state = 'ny' )
+            OR
+            ( b.is_nhs )
+          )
           GROUP BY 1
         ;
     `,
