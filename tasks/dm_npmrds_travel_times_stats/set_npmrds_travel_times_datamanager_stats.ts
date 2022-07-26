@@ -94,7 +94,7 @@ async function getPercentageEpochsReporting(
 async function main() {
   const db = await getConnectedPgClient("production");
 
-  const states = ["nj", "ct", "pa"];
+  const states = ["ny", "nj", "ct", "pa"];
   const years = _.range(2022, 2016);
 
   for (const state of states) {
@@ -107,8 +107,8 @@ async function main() {
         const pctEpochReportingByFRC = await getPercentageEpochsReporting(
           db,
           state,
-          2019,
-          1
+          year,
+          month
         );
 
         const timestamp = new Date().toISOString().replace(/[^0-9a-z]/gi, "");
