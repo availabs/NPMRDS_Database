@@ -8,6 +8,9 @@ import { Client } from "pg";
 
 import { getConnectedPgClient } from "../../src/utils/PostgreSQL";
 
+const states = ["ny", "nj", "ct", "pa"];
+const years = _.range(2022, 2016);
+
 const dataDir = join(__dirname, "data");
 mkdirSync(dataDir, { recursive: true });
 
@@ -94,9 +97,6 @@ async function getPercentageEpochsReporting(
 async function main() {
   const db = await getConnectedPgClient("production");
 
-  const states = ["ny", "nj", "ct", "pa"];
-  const years = _.range(2022, 2016);
-
   for (const state of states) {
     for (const year of years) {
       const maxMonth = year === 2022 ? 5 : 12;
@@ -104,23 +104,27 @@ async function main() {
       for (const month of months) {
         console.log(state, year, month);
 
-        const pctEpochReportingByFRC = await getPercentageEpochsReporting(
-          db,
-          state,
-          year,
-          month
-        );
+        try {
+          const pctEpochReportingByFRC = await getPercentageEpochsReporting(
+            db,
+            state,
+            year,
+            month
+          );
 
-        const timestamp = new Date().toISOString().replace(/[^0-9a-z]/gi, "");
+          const timestamp = new Date().toISOString().replace(/[^0-9a-z]/gi, "");
 
-        const mm = `0${month}`.slice(-2);
-        const outFileName = `npmrds_travel_time_stats.${state}.${year}${mm}.${timestamp}.json`;
-        const outFilePath = join(dataDir, outFileName);
+          const mm = `0${month}`.slice(-2);
+          const outFileName = `npmrds_travel_time_stats.${state}.${year}${mm}.${timestamp}.json`;
+          const outFilePath = join(dataDir, outFileName);
 
-        writeFileSync(
-          outFilePath,
-          JSON.stringify(pctEpochReportingByFRC, null, 4)
-        );
+          writeFileSync(
+            outFilePath,
+            JSON.stringify(pctEpochReportingByFRC, null, 4)
+          );
+        } catch (err) {
+          console.error(err);
+        }
       }
     }
   }
