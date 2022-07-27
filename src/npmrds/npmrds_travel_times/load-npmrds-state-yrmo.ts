@@ -65,7 +65,7 @@ function createPostgesDbTable(
 ) {
   const { state, year, month } = getMetadataFromSqliteDb(sqliteDB);
 
-  const sqlDir = join(__dirname, "../../sql/npmrds_travel_times/");
+  const sqlDir = join(__dirname, "../../../sql/npmrds_travel_times/");
 
   const pgCreds = getPsqlCredentials(pgEnv);
 
