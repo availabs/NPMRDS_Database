@@ -101,7 +101,7 @@ function createPostgesDbTable(
 ) {
   const { state, year, download_timestamp } = getMetadataFromSqliteDb(sqliteDB);
 
-  const sqlDir = join(__dirname, "../../sql/tmc_identification/");
+  const sqlDir = join(__dirname, "./sql");
 
   const pgCreds = getPsqlCredentials(pgEnv);
 
