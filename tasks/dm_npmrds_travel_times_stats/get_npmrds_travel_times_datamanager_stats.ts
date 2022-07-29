@@ -37,9 +37,21 @@ async function getPercentageEpochsReporting(
               - '5 minutes'::INTERVAL,
             '5 minutes'::INTERVAL
           ) AS t
+      ), cte_pct_epochs_reporting_by_tmc AS (
+        SELECT
+            tmc,
+            (
+              (
+                COUNT(1)::DOUBLE PRECISION
+                / COUNT(DISTINCT tmc)::DOUBLE PRECISION
+              )
+              / ( SELECT expected_num_epochs FROM cte_expected_num_epochs )::DOUBLE PRECISION
+            ) AS pct_epochs_reporting
+          FROM %I.%I AS a
+          GROUP BY tmc
       )
         SELECT
-            func_class AS frc,
+            func_class::TEXT AS frc,
             AVG(pct_epochs_reporting) AS avg_pct_epochs_reporting,
             stddev_pop(pct_epochs_reporting) AS stddev_pct_epochs_reporting,
             var_pop(pct_epochs_reporting) AS var_pct_epochs_reporting,
@@ -49,19 +61,7 @@ async function getPercentageEpochsReporting(
               WITHIN GROUP (ORDER BY pct_epochs_reporting ASC) AS quartiles_pct_epochs_reporting,
             COUNT(DISTINCT tmc)::INTEGER AS total_tmcs,
             SUM(b.miles) AS total_miles
-          FROM (
-              SELECT
-                  tmc,
-                  (
-                    (
-                      COUNT(1)::DOUBLE PRECISION
-                      / COUNT(DISTINCT tmc)::DOUBLE PRECISION
-                    )
-                    / ( SELECT expected_num_epochs FROM cte_expected_num_epochs )::DOUBLE PRECISION
-                  ) AS pct_epochs_reporting
-                FROM %I.%I AS a
-                GROUP BY tmc
-            ) AS a
+          FROM cte_pct_epochs_reporting_by_tmc AS a
             INNER JOIN %I.%I AS b
               USING (tmc)
           WHERE (
@@ -70,12 +70,36 @@ async function getPercentageEpochsReporting(
             ( b.is_nhs )
           )
           GROUP BY 1
+
+        UNION ALL
+
+        SELECT
+            'total' AS frc,
+            AVG(pct_epochs_reporting) AS avg_pct_epochs_reporting,
+            stddev_pop(pct_epochs_reporting) AS stddev_pct_epochs_reporting,
+            var_pop(pct_epochs_reporting) AS var_pct_epochs_reporting,
+            MIN(pct_epochs_reporting) AS min_pct_epochs_reporting,
+            MAX(pct_epochs_reporting) AS max_pct_epochs_reporting,
+            percentile_cont(ARRAY[0.25, 0.5, 0.75])
+              WITHIN GROUP (ORDER BY pct_epochs_reporting ASC) AS quartiles_pct_epochs_reporting,
+            COUNT(DISTINCT tmc)::INTEGER AS total_tmcs,
+            SUM(b.miles) AS total_miles
+          FROM cte_pct_epochs_reporting_by_tmc AS a
+            INNER JOIN %I.%I AS b
+              USING (tmc)
+          WHERE (
+            ( b.state = 'ny' )
+            OR
+            ( b.is_nhs )
+          )
         ;
     `,
     startOfMonth,
     startOfMonth,
     state,
     `npmrds_y${year}m${mm}`,
+    state,
+    `mdd_tmc_shapes_${year}`,
     state,
     `mdd_tmc_shapes_${year}`
   );
@@ -123,7 +147,7 @@ async function main() {
             JSON.stringify(pctEpochReportingByFRC, null, 4)
           );
         } catch (err) {
-          console.error(err);
+          console.error(err.message);
         }
       }
     }
