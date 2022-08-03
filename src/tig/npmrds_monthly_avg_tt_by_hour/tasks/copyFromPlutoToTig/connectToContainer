@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+set -a
+
+docker \
+  exec \
+  -it \
+  dev_db \
+  /bin/bash

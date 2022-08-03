@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+
+const { execSync } = require("child_process");
+
+const { readFileSync, mkdirSync } = require("fs");
+const { join, relative } = require("path");
+
+const csvsDir = join(__dirname, "./csvs");
+mkdirSync(csvsDir, { recursive: true });
+
+const tableNamesFile = join(__dirname, "table_names");
+const tableNames = readFileSync(tableNamesFile, { encoding: "utf8" })
+  .split("\n")
+  .filter(Boolean);
+
+for (const tableName of tableNames) {
+  const outf = join(csvsDir, `${tableName}.csv.gz`);
+  execSync(
+    `psql -dnpmrds_dev -c 'COPY ${tableName} TO STDOUT WITH CSV HEADER' | gzip -9 > ${outf}`
+  );
+}

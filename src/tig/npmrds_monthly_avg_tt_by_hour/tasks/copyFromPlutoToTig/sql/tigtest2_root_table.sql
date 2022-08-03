@@ -1,0 +1,32 @@
+-- postgres@tigtest2:/tmp$ pg_dump --dbname=gateway_test2 --table='public.npmrds_monthly_avg_tt'
+
+CREATE TABLE IF NOT EXISTS public.npmrds_monthly_avg_tt (
+    tmc character varying(9) NOT NULL,
+    year smallint NOT NULL,
+    month smallint NOT NULL,
+    state character varying(2) NOT NULL,
+    hr_0 real,
+    hr_1 real,
+    hr_2 real,
+    hr_3 real,
+    hr_4 real,
+    hr_5 real,
+    hr_6 real,
+    hr_7 real,
+    hr_8 real,
+    hr_9 real,
+    hr_10 real,
+    hr_11 real,
+    hr_12 real,
+    hr_13 real,
+    hr_14 real,
+    hr_15 real,
+    hr_16 real,
+    hr_17 real,
+    hr_18 real,
+    hr_19 real,
+    hr_20 real,
+    hr_21 real,
+    hr_22 real,
+    hr_23 real
+);

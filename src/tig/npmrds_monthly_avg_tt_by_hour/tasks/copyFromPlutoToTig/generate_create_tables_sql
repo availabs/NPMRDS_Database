@@ -1,0 +1,70 @@
+#!/usr/bin/env node
+
+const { readFileSync, writeFileSync, mkdirSync } = require("fs");
+const { join, relative } = require("path");
+
+const dataDir = join(__dirname, "./data");
+const sqlDir = join(__dirname, "sql");
+mkdirSync(sqlDir, { recursive: true });
+
+const tableNamesFile = join(__dirname, "table_names");
+const tableNames = readFileSync(tableNamesFile, { encoding: "utf8" })
+  .split("\n")
+  .filter(Boolean);
+
+const tablesMetadata = tableNames.map((f) => {
+  // ct.npmrds_monthly_avg_tt_y2021m01
+  const [state, tableName] = f.split(".");
+
+  const year = +tableName.slice(
+    "npmrds_monthly_avg_tt_y".length,
+    "npmrds_monthly_avg_tt_y".length + 4
+  );
+  const month = +tableName.slice(
+    "npmrds_monthly_avg_tt_y2022m".length,
+    "npmrds_monthly_avg_tt_y2022m".length + 4
+  );
+
+  return { state, tableName, year, month };
+});
+
+const states = [
+  ...tablesMetadata.reduce((acc, { state }) => acc.add(state), new Set()),
+];
+
+const createSchemaStatements = states.map(
+  (state) => `CREATE SCHEMA IF NOT EXISTS "${state}" ;`
+);
+
+const createTableStatements = tablesMetadata.map(
+  ({ state, tableName, year, month }) => {
+    return `
+      CREATE TABLE IF NOT EXISTS "${state}".${tableName} (
+        LIKE public.npmrds_monthly_avg_tt,
+
+        PRIMARY KEY(tmc),
+
+        CHECK (state  =   '${state}'),
+        CHECK (year   =   ${year}),
+        CHECK (month  =   ${month})
+      ) WITH (fillfactor = 100) ;
+
+      CLUSTER "${state}".${tableName} using ${tableName}_pkey ;
+    `;
+  }
+);
+
+const sql = `BEGIN;
+
+${createSchemaStatements.join("\n")}
+
+${createTableStatements.join("\n")}
+
+COMMIT;
+`;
+
+const outf = join(sqlDir, "create_all_tables.sql");
+
+writeFileSync(outf, sql);
+
+console.log("sql written to", relative(process.cwd(), outf));

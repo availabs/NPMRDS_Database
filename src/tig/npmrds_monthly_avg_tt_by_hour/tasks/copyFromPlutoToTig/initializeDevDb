@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -e
+set -a
+source ./postgres.env.dev
+
+docker \
+  exec \
+  -it \
+  dev_db \
+  su postgres -c "psql -U${PGUSER} -d${PGDATABASE} -f '/work_dir/sql/tigtest2_root_table.sql'"
+
+docker \
+  exec \
+  -it \
+  dev_db \
+  bash /work_dir/installNodeScript
