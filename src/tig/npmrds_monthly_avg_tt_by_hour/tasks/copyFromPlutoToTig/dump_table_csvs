@@ -16,8 +16,7 @@ dotenv.config({ path: configPath });
 const tableNamesFile = join(__dirname, "table_names");
 const tableNames = readFileSync(tableNamesFile, { encoding: "utf8" })
   .split("\n")
-  .filter(Boolean)
-  .slice(0, 3);
+  .filter(Boolean);
 
 for (const tableName of tableNames) {
   console.log(tableName);
