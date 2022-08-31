@@ -27,7 +27,7 @@ export enum OutputTypes {
 
 export const outputTypeFileExtensions = {
   [OutputTypes.CSV]: "csv",
-  [OutputTypes.ESRI_SHAPEFILE]: "shp",
+  [OutputTypes.ESRI_SHAPEFILE]: "",
   [OutputTypes.GEOJSON]: "geojson",
   [OutputTypes.GPKG]: "gpkg",
 };
@@ -106,7 +106,7 @@ export default class DownloadablesCreator {
     const fileNameBase =
       DownloadablesCreator.getFileNameBaseForViewDataTableMetadata(metadata);
     const extension = outputTypeFileExtensions[outputType];
-    const fileName = `${fileNameBase}.${extension}`;
+    const fileName = extension ? `${fileNameBase}.${extension}` : fileNameBase;
     const filePath = join(this.outputDirectory, fileName);
 
     return { fileNameBase, fileName, filePath };
