@@ -193,6 +193,8 @@ export default async function main({
     readonly: true,
   });
 
+  const metadata = getMetadataFromSqliteDb(sqliteDB);
+
   const pgDB = await getConnectedPgClient(pg_env);
 
   createPostgesDbTable(sqliteDB, pg_env);
@@ -206,4 +208,6 @@ export default async function main({
 
   await pgDB.end();
   sqliteDB.close();
+
+  return metadata;
 }
