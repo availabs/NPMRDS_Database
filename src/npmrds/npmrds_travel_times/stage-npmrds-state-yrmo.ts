@@ -54,14 +54,15 @@ const getMetadataFromSqliteDb = memoize((sqliteDB: SQLiteDB) => {
   };
 });
 
-function getPostgresTableName(sqliteDB: SQLiteDB) {
-  const { state, year, month } = getMetadataFromSqliteDb(sqliteDB);
+function getStagingTableName(sqliteDB: SQLiteDB) {
+  const { state, year, month, download_timestamp } =
+    getMetadataFromSqliteDb(sqliteDB);
 
   const mm = `0${month}`.slice(-2);
 
   return {
-    schemaName: state,
-    tableName: `npmrds_y${year}m${mm}`,
+    schemaName: "_data_manager_admin",
+    tableName: `staging_${state}_npmrds_y${year}m${mm}_v${download_timestamp}`,
   };
 }
 
@@ -86,8 +87,7 @@ function createPostgesDbTable(
         -v YEAR=${year} \
         -v MONTH=${month} \
         -f ./createRootNPMRDSDataTable.sql \
-        -f ./createStateNPMRDSDataTable.sql \
-        -f ./createStateNPMRDSYrMoTable.sql
+        -f ./createStateNPMRDSDataTable.sql
     `,
     { cwd: sqlDir, env: { ...process.env, ...pgCreds } }
   );
@@ -104,12 +104,22 @@ function createDataIterator(sqliteDB: SQLiteDB) {
     .iterate();
 }
 
-async function loadPostgresDbTable(sqliteDB: SQLiteDB, pgDB: PostgresDB) {
-  const { schemaName, tableName } = getPostgresTableName(sqliteDB);
+async function loadStagingTable(sqliteDB: SQLiteDB, pgDB: PostgresDB) {
+  const { state } = getMetadataFromSqliteDb(sqliteDB);
+  const { schemaName, tableName } = getStagingTableName(sqliteDB);
 
-  const deleteAllSql = pgFormat(`DELETE FROM %I.%I ;`, schemaName, tableName);
+  const createStagingTableSql = pgFormat(
+    `
+      CREATE TABLE %I.%I (
+        LIKE %I.npmrds INCLUDING ALL
+      ) ;
+    `,
+    state,
+    schemaName,
+    tableName
+  );
 
-  await pgDB.query(deleteAllSql);
+  await pgDB.query(createStagingTableSql);
 
   const copyFromSql = pgFormat(
     `COPY %I.%I (${columns}) FROM STDIN WITH CSV`,
@@ -125,7 +135,7 @@ async function loadPostgresDbTable(sqliteDB: SQLiteDB, pgDB: PostgresDB) {
 }
 
 async function clusterPostgresTable(sqliteDB: SQLiteDB, pgDB: PostgresDB) {
-  const { schemaName, tableName } = getPostgresTableName(sqliteDB);
+  const { schemaName, tableName } = getStagingTableName(sqliteDB);
 
   const sql = pgFormat(
     `CLUSTER %I.%I USING %I ;`,
@@ -156,7 +166,7 @@ export default async function main({
 
   await pgDB.query("BEGIN ;");
 
-  await loadPostgresDbTable(sqliteDB, pgDB);
+  await loadStagingTable(sqliteDB, pgDB);
   await clusterPostgresTable(sqliteDB, pgDB);
 
   await pgDB.query("COMMIT ;");
