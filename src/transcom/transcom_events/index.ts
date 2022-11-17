@@ -30,6 +30,8 @@ import { RawTranscomEvent, ProtoTranscomEvent } from "./index.d";
 
 import { url, apiResponsePropsToDbCols, dbCols } from "./data_schema";
 
+import authenticationtoken from "./config/authenticationtoken";
+
 const pipelineAsync = promisify(pipeline);
 
 const DEFAULT_SLEEP_MS = 10 * 1000; // 10 seconds
@@ -82,6 +84,10 @@ export async function* makeRawTranscomEventIterator(
     const options = {
       searchParams: {
         userId: 78,
+      },
+
+      headers: {
+        authenticationtoken,
       },
 
       json: reqBody,
