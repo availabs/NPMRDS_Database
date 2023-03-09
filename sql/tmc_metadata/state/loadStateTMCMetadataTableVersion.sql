@@ -50,7 +50,11 @@ CREATE TEMPORARY TABLE tmp_tmc2mpo
                 shp.*
               FROM :shp_tbl AS shp
                 INNER JOIN state_abbreviations AS sabbr
-                  ON (UPPER(shp.state) = UPPER(sabbr.state_name))
+                  ON (
+                    ( UPPER(shp.state) = UPPER(sabbr.state_name) )
+                    OR
+                    ( UPPER(shp.state) = UPPER(sabbr.abbreviation) )
+                  )
               WHERE ( sabbr.abbreviation = :'STATE' )
           ) AS state_shp INNER JOIN mpo_boundaries_view AS mpob
               ON ( mpob.wkb_geometry && state_shp.wkb_geometry )
