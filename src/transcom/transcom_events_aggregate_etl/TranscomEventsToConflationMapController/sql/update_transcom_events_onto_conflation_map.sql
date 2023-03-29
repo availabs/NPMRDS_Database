@@ -8,7 +8,7 @@ DO
 
       -- NOTE: a conflation_map must exist for every year in range.
       min_event_year SMALLINT := 2016 ;
-      max_event_year SMALLINT := 2022 ;
+      max_event_year SMALLINT := 2023 ;
 
       cmd TEXT ;
 
