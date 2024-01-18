@@ -1,0 +1,39 @@
+#!/bin/bash
+
+set -e
+
+VERSION=20230522
+DB_PATH="hpms_pm3.$VERSION.sqlite3"
+
+rm -f "$DB_PATH"
+
+sed "s/__TABLE_NAME__/pm3_ny_2022/g" ./create_tables.sql | sqlite3 "$DB_PATH"
+sed "s/__TABLE_NAME__/pm3_nj_2022/g" ./create_tables.sql | sqlite3 "$DB_PATH"
+
+sed "s/__TABLE_NAME__/pm3_ny_2023/g" ./create_tables.sql | sqlite3 "$DB_PATH"
+sed "s/__TABLE_NAME__/pm3_nj_2023/g" ./create_tables.sql | sqlite3 "$DB_PATH"
+
+cat ./FHWA_2022.1.2.1.ny.20230522T142754.csv |
+  sqlite3 \
+    -csv "$DB_PATH" \
+    ".import '| tail -n +2 -' pm3_ny_2022"
+
+cat ./FHWA_2022-1.2.1.nj.20240117T210457.csv |
+  sqlite3 \
+    -csv "$DB_PATH" \
+    ".import '| tail -n +2 -' pm3_nj_2022"
+
+cat ./FHWA_2023-1.2.0.prerelease_01.ny.20240117T150329.csv |
+  sqlite3 \
+    -csv "$DB_PATH" \
+    ".import '| tail -n +2 -' pm3_ny_2023"
+
+cat ./FHWA_2023-1.2.0.prerelease_01.nj.20240117T150329.csv |
+  sqlite3 \
+    -csv "$DB_PATH" \
+    ".import '| tail -n +2 -' pm3_nj_2023"
+
+sed "s/__STATE__/ny/g" ./create_year_to_year_analysis_table.sql | sqlite3 "$DB_PATH"
+sed "s/__STATE__/nj/g" ./create_year_to_year_analysis_table.sql | sqlite3 "$DB_PATH"
+
+sqlite3 "$DB_PATH" "VACUUM;"
