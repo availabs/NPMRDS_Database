@@ -23,7 +23,7 @@ pipe(
       // this.push(`${JSON.stringify(row)}\n`);
       this.push(
         `${JSON.stringify({
-          Travel_Time_Code: row.Travel_Time_Code,
+          TravelTimeCode: row.TravelTimeCode,
           ...invalidColValues
         })}\n`
       );

@@ -12,35 +12,35 @@ const newPctTimeValidator = k => ({ [k]: v }) =>
 
 const validators = [
   /*
-    The four digits of the year the
-    data represents.
+    MM/DD/YYYY
   */
-  ({ Year_Record }) =>
-    typeof Year_Record === 'number' &&
-    Year_Record >= 2016 &&
-    Year_Record <= CURRENT_YEAR
+  ({ BeginDate }) =>
+    typeof BeginDate === 'string' &&
+    BeginDate.length === 10 &&
+    parseInt(BeginDate.slice(-4)) >= 2016 &&
+    parseInt(BeginDate.slice(-4)) <= CURRENT_YEAR
       ? null
-      : { Year_Record },
+      : { BeginDate },
   /*
     Up to two digits for the FIPS
     code. See Appendix C of the
     HPMS Field Manual for a
     complete list of eligible codes.
   */
-  ({ State_Code }) =>
-    typeof State_Code === 'number' && State_Code > 0 && State_Code <= 99
+  ({ StateCode }) =>
+    typeof StateCode === 'number' && StateCode > 0 && StateCode <= 99
       ? null
-      : { State_Code },
+      : { StateCode },
 
   /*
     Alpha-numeric code used to
     identify the reporting segment
     location on a given route.
   */
-  ({ Travel_Time_Code }) =>
-    typeof Travel_Time_Code === 'string' && Travel_Time_Code.length === 9
+  ({ TravelTimeCode }) =>
+    typeof TravelTimeCode === 'string' && TravelTimeCode.length === 9
       ? null
-      : { Travel_Time_Code },
+      : { TravelTimeCode },
 
   /*
     1 - Interstate
@@ -51,17 +51,17 @@ const validators = [
     6 - Minor Collector
     7 - Local
   */
-  ({ F_System }) =>
-    [1, 2, 3, 4, 5, 6, 7].includes(F_System) ? null : { F_System },
+  ({ FSystem }) =>
+    [1, 2, 3, 4, 5, 6, 7].includes(FSystem) ? null : { FSystem },
 
   /*
     Up to five digits for the Census urban code. See Appendix I of
     the HPMS Field Manual for a complete list of eligible codes.
   */
-  ({ Urban_Code }) =>
-    typeof Urban_Code === 'number' && Urban_Code >= 0 && Urban_Code <= 99999
+  ({ UrbanCode }) =>
+    typeof UrbanCode === 'number' && UrbanCode >= 0 && UrbanCode <= 99999
       ? null
-      : { Urban_Code },
+      : { UrbanCode },
 
   /*
     Operational
@@ -75,8 +75,8 @@ const validators = [
     2 - Two-Way Roadway
     6 - Non-Inventory Direction
   */
-  ({ Facility_Type }) =>
-    [1, 2, 6].includes(Facility_Type) ? null : { Facility_Type },
+  ({ FacilityType }) =>
+    [1, 2, 6].includes(FacilityType) ? null : { FacilityType },
 
   /*
     FHWA-approved NHS.
@@ -110,11 +110,11 @@ const validators = [
     Decimal value rounded to the
     nearest thousandth of a mile.
   */
-  ({ Segment_Length }) =>
-    typeof Segment_Length === 'number' &&
-    (`${Segment_Length}`.split('.')[1] || '').length <= 3
+  ({ SegmentLength }) =>
+    typeof SegmentLength === 'number' &&
+    (`${SegmentLength}`.split('.')[1] || '').length <= 3
       ? null
-      : { Segment_Length },
+      : { SegmentLength },
 
   /*
     Direction of travel
@@ -145,10 +145,10 @@ const validators = [
     seconds rounded to the
     nearest integer); must be > 0
   */
-  ({ DIR_AADT }) =>
-    DIR_AADT > 0 && `${DIR_AADT}`.split('.')[1] === undefined
+  ({ DIRAADT }) =>
+    DIRAADT > 0 && `${DIRAADT}`.split('.')[1] === undefined
       ? null
-      : { DIR_AADT },
+      : { DIRAADT },
 
   /*
     Level of travel time
@@ -168,12 +168,12 @@ const validators = [
     nearest hundredth); must be
     >= 1.00
    */
-  ({ LOTTR_AMP }) =>
-    typeof LOTTR_AMP === 'number' &&
-    LOTTR_AMP >= 1 &&
-    (`${LOTTR_AMP}`.split('.')[1] || '').length <= 2
+  ({ LOTTRAMP }) =>
+    typeof LOTTRAMP === 'number' &&
+    LOTTRAMP >= 1 &&
+    (`${LOTTRAMP}`.split('.')[1] || '').length <= 2
       ? null
-      : { LOTTR_AMP },
+      : { LOTTRAMP },
 
   /*
     50th percentile travel
@@ -183,7 +183,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TT_AMP50PCT'),
+  newPctTimeValidator('TTAMP50PCT'),
 
   /*
     80th percentile travel
@@ -193,7 +193,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TT_AMP80PCT'),
+  newPctTimeValidator('TTAMP80PCT'),
 
   /*
     LOTTR metric for
@@ -211,12 +211,12 @@ const validators = [
     nearest hundredth); must be
     >= 1.00
    */
-  ({ LOTTR_MIDD }) =>
-    typeof LOTTR_MIDD === 'number' &&
-    LOTTR_MIDD >= 1 &&
-    (`${LOTTR_MIDD}`.split('.')[1] || '').length <= 2
+  ({ LOTTRMIDD }) =>
+    typeof LOTTRMIDD === 'number' &&
+    LOTTRMIDD >= 1 &&
+    (`${LOTTRMIDD}`.split('.')[1] || '').length <= 2
       ? null
-      : { LOTTR_MIDD },
+      : { LOTTRMIDD },
 
   /*
     50th percentile travel
@@ -226,13 +226,13 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  ({ TT_MIDD50PCT }) =>
-    typeof TT_MIDD50PCT === 'number' &&
-    TT_MIDD50PCT >= 0 &&
-    `${TT_MIDD50PCT}`.split('.')[1] === undefined
+  ({ TTMIDD50PCT }) =>
+    typeof TTMIDD50PCT === 'number' &&
+    TTMIDD50PCT >= 0 &&
+    `${TTMIDD50PCT}`.split('.')[1] === undefined
       ? null
       : {},
-  newPctTimeValidator('TT_MIDD50PCT'),
+  newPctTimeValidator('TTMIDD50PCT'),
 
   /*
     80th percentile travel
@@ -242,7 +242,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TT_MIDD80PCT'),
+  newPctTimeValidator('TTMIDD80PCT'),
 
   /*
     LOTTR metric for “PM
@@ -260,12 +260,12 @@ const validators = [
     nearest hundredth); must be
     >= 1.00
    */
-  ({ LOTTR_PMP }) =>
-    typeof LOTTR_PMP === 'number' &&
-    LOTTR_PMP >= 1 &&
-    (`${LOTTR_PMP}`.split('.')[1] || '').length <= 2
+  ({ LOTTRPMP }) =>
+    typeof LOTTRPMP === 'number' &&
+    LOTTRPMP >= 1 &&
+    (`${LOTTRPMP}`.split('.')[1] || '').length <= 2
       ? null
-      : { LOTTR_PMP },
+      : { LOTTRPMP },
 
   /*
     50th percentile travel
@@ -275,7 +275,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TT_PMP50PCT'),
+  newPctTimeValidator('TTPMP50PCT'),
 
   /*
     80th percentile travel
@@ -285,7 +285,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TT_PMP80PCT'),
+  newPctTimeValidator('TTPMP80PCT'),
 
   /*
     LOTTR metric for
@@ -305,12 +305,12 @@ const validators = [
     nearest hundredth); must be
     >= 1.00
   */
-  ({ LOTTR_WE }) =>
-    typeof LOTTR_WE === 'number' &&
-    LOTTR_WE >= 1 &&
-    (`${LOTTR_WE}`.split('.')[1] || '').length <= 2
+  ({ LOTTRWE }) =>
+    typeof LOTTRWE === 'number' &&
+    LOTTRWE >= 1 &&
+    (`${LOTTRWE}`.split('.')[1] || '').length <= 2
       ? null
-      : { LOTTR_WE },
+      : { LOTTRWE },
 
   /*
     50th percentile travel
@@ -320,7 +320,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TT_WE50PCT'),
+  newPctTimeValidator('TTWE50PCT'),
 
   /*
     80th percentile travel
@@ -330,7 +330,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TT_WE80PCT'),
+  newPctTimeValidator('TTWE80PCT'),
 
   /*
     Truck Travel Time
@@ -341,12 +341,12 @@ const validators = [
     nearest hundredth); must be
     >= 1.00
   */
-  ({ TTTR_AMP }) =>
-    typeof TTTR_AMP === 'number' &&
-    TTTR_AMP >= 1 &&
-    (`${TTTR_AMP}`.split('.')[1] || '').length <= 2
+  ({ TTTRAMP }) =>
+    typeof TTTRAMP === 'number' &&
+    TTTRAMP >= 1 &&
+    (`${TTTRAMP}`.split('.')[1] || '').length <= 2
       ? null
-      : { TTTR_AMP },
+      : { TTTRAMP },
 
   /*
     50th percentile truck
@@ -357,7 +357,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TTT_AMP50PCT'),
+  newPctTimeValidator('TTTAMP50PCT'),
 
   /*
     95th percentile truck
@@ -368,7 +368,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TTT_AMP95PCT'),
+  newPctTimeValidator('TTTAMP95PCT'),
 
   /*
     TTTR metric for
@@ -378,12 +378,12 @@ const validators = [
     nearest hundredth); must be
     >= 1.00
   */
-  ({ TTTR_MIDD }) =>
-    typeof TTTR_MIDD === 'number' &&
-    TTTR_MIDD >= 1 &&
-    (`${TTTR_MIDD}`.split('.')[1] || '').length <= 2
+  ({ TTTRMIDD }) =>
+    typeof TTTRMIDD === 'number' &&
+    TTTRMIDD >= 1 &&
+    (`${TTTRMIDD}`.split('.')[1] || '').length <= 2
       ? null
-      : { TTTR_MIDD },
+      : { TTTRMIDD },
 
   /*
     50th percentile truck
@@ -394,7 +394,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TTT_MIDD50PCT'),
+  newPctTimeValidator('TTTMIDD50PCT'),
 
   /*
     95th percentile truck
@@ -405,7 +405,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TTT_MIDD95PCT'),
+  newPctTimeValidator('TTTMIDD95PCT'),
 
   /*
     Truck Travel Time
@@ -416,12 +416,12 @@ const validators = [
     nearest hundredth); must be
     >= 1.00
   */
-  ({ TTTR_PMP }) =>
-    typeof TTTR_PMP === 'number' &&
-    TTTR_PMP >= 1 &&
-    (`${TTTR_PMP}`.split('.')[1] || '').length <= 2
+  ({ TTTRPMP }) =>
+    typeof TTTRPMP === 'number' &&
+    TTTRPMP >= 1 &&
+    (`${TTTRPMP}`.split('.')[1] || '').length <= 2
       ? null
-      : { TTTR_PMP },
+      : { TTTRPMP },
 
   /*
     50th percentile truck
@@ -432,7 +432,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TTT_PMP50PCT'),
+  newPctTimeValidator('TTTPMP50PCT'),
 
   /*
     95th percentile truck
@@ -443,7 +443,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TTT_PMP95PCT'),
+  newPctTimeValidator('TTTPMP95PCT'),
 
   /*
     TTTR metric for
@@ -462,12 +462,12 @@ const validators = [
     nearest hundredth); must be
     >= 1.00
   */
-  ({ TTTR_OVN }) =>
-    typeof TTTR_OVN === 'number' &&
-    TTTR_OVN >= 1 &&
-    (`${TTTR_OVN}`.split('.')[1] || '').length <= 2
+  ({ TTTROVN }) =>
+    typeof TTTROVN === 'number' &&
+    TTTROVN >= 1 &&
+    (`${TTTROVN}`.split('.')[1] || '').length <= 2
       ? null
-      : { TTTR_OVN },
+      : { TTTROVN },
 
   /*
     50th percentile truck
@@ -478,7 +478,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TTT_OVN50PCT'),
+  newPctTimeValidator('TTTOVN50PCT'),
 
   /*
     95th percentile truck
@@ -489,7 +489,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TTT_OVN95PCT'),
+  newPctTimeValidator('TTTOVN95PCT'),
 
   /*
     TTTR metric for
@@ -499,12 +499,12 @@ const validators = [
     nearest hundredth); must be
     >= 1.00
   */
-  ({ TTTR_WE }) =>
-    typeof TTTR_WE === 'number' &&
-    TTTR_WE >= 1 &&
-    (`${TTTR_WE}`.split('.')[1] || '').length <= 2
+  ({ TTTRWE }) =>
+    typeof TTTRWE === 'number' &&
+    TTTRWE >= 1 &&
+    (`${TTTRWE}`.split('.')[1] || '').length <= 2
       ? null
-      : { TTTR_WE },
+      : { TTTRWE },
 
   /*
     50th percentile truck
@@ -515,7 +515,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TTT_WE50PCT'),
+  newPctTimeValidator('TTTWE50PCT'),
 
   /*
     95th percentile truck
@@ -526,7 +526,7 @@ const validators = [
     seconds rounded to the
     nearest integer); must be >= 0
   */
-  newPctTimeValidator('TTT_WE95PCT'),
+  newPctTimeValidator('TTTWE95PCT'),
 
   /*
     Total peak hour
@@ -551,12 +551,12 @@ const validators = [
     A positive non-negative, nonzero number (rounded to the
     nearest tenth); must be >= 1.0. 
   */
-  ({ OCC_FAC }) =>
-    typeof OCC_FAC === 'number' &&
-    OCC_FAC >= 1 &&
-    (`${OCC_FAC}`.split('.')[1] || '').length <= 1
+  ({ OCCFAC }) =>
+    typeof OCCFAC === 'number' &&
+    OCCFAC >= 1 &&
+    (`${OCCFAC}`.split('.')[1] || '').length <= 1
       ? null
-      : { OCC_FAC },
+      : { OCCFAC },
 
   /*
     Travel time metric
@@ -566,10 +566,10 @@ const validators = [
     2 – “Equivalent” Travel Time
     Data Set
   */
-  ({ METRIC_SOURCE }) =>
-    typeof METRIC_SOURCE === 'number' && [1, 2].includes(METRIC_SOURCE)
+  ({ MetricSource }) =>
+    typeof MetricSource === 'number' && [1, 2].includes(MetricSource)
       ? null
-      : { METRIC_SOURCE },
+      : { MetricSource },
 
   /*
     Comment for state
@@ -587,7 +587,6 @@ const getRowInvalidColValues = row => {
     {},
     ...validators.map(v => v(row)).filter(v => v !== null)
   );
-
   return _.isEmpty(invalidColValues) ? null : invalidColValues;
 };
 
